@@ -19,6 +19,8 @@ import {
   Loader2,
   X,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
@@ -59,9 +61,11 @@ export const DoctorPatientsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Filters
+  // Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [genderFilter, setGenderFilter] = useState<'ALL' | 'Nam' | 'Nữ' | 'Khác'>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(5);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -361,6 +365,15 @@ export const DoctorPatientsPage: React.FC = () => {
     });
   }, [patients, genderFilter, searchQuery]);
 
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+
+  const paginatedPatients = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredPatients.slice(start, start + pageSize);
+  }, [filteredPatients, safePage, pageSize]);
+
   if (isLoading) {
     return (
       <LoadingState
@@ -465,7 +478,10 @@ export const DoctorPatientsPage: React.FC = () => {
               id="patient-search"
               type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Nguyễn Minh An, BN-2026-001, đau đầu, nhìn mờ..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
@@ -479,7 +495,10 @@ export const DoctorPatientsPage: React.FC = () => {
           <select
             id="gender-filter"
             value={genderFilter}
-            onChange={(e) => setGenderFilter(e.target.value as 'ALL' | 'Nam' | 'Nữ' | 'Khác')}
+            onChange={(e) => {
+              setGenderFilter(e.target.value as 'ALL' | 'Nam' | 'Nữ' | 'Khác');
+              setCurrentPage(1);
+            }}
             className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="ALL">Tất cả giới tính</option>
@@ -520,7 +539,7 @@ export const DoctorPatientsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-                {filteredPatients.map((patient) => {
+                {paginatedPatients.map((patient) => {
                   return (
                     <tr
                       key={patient.id}
@@ -623,6 +642,91 @@ export const DoctorPatientsPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Bar */}
+          <div className="px-4 py-3 bg-slate-50/70 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-3">
+              <span>
+                Hiển thị{' '}
+                <strong className="text-slate-900 dark:text-slate-100 font-semibold">
+                  {filteredPatients.length === 0 ? 0 : (safePage - 1) * pageSize + 1}
+                </strong>
+                –
+                <strong className="text-slate-900 dark:text-slate-100 font-semibold">
+                  {Math.min(safePage * pageSize, filteredPatients.length)}
+                </strong>{' '}
+                trên tổng số{' '}
+                <strong className="text-slate-900 dark:text-slate-100 font-semibold">
+                  {filteredPatients.length}
+                </strong>{' '}
+                bệnh nhân
+              </span>
+
+              <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-800">
+                <span>Số dòng:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                >
+                  <option value={3}>3 / trang</option>
+                  <option value={5}>5 / trang</option>
+                  <option value={10}>10 / trang</option>
+                  <option value={20}>20 / trang</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              {/* Previous Page Button */}
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                aria-label="Trang trước"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-2xs"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Trước</span>
+              </button>
+
+              {/* Page Number Buttons */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  const isActive = pageNum === safePage;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-all shadow-2xs ${
+                        isActive
+                          ? 'bg-navy-800 text-white dark:bg-teal-600 dark:text-white shadow-xs'
+                          : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next Page Button */}
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Trang sau"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-2xs"
+              >
+                <span className="hidden sm:inline">Sau</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
