@@ -6,6 +6,7 @@ import {
   LogOut,
   ChevronRight,
   Home,
+  PanelLeft,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
@@ -74,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-3">
-      {/* Left: Hamburger + Breadcrumb */}
+      {/* Left: Hamburger / Desktop Toggle + Breadcrumb */}
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"
@@ -83,6 +84,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           className="lg:hidden p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
         >
           <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Desktop Sidebar Toggle Button */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('neuroscan:toggle-sidebar'))}
+          title="Thu gọn / Mở rộng thanh điều hướng (Alt + S)"
+          className="hidden lg:inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 shadow-2xs transition-all active:scale-95"
+        >
+          <PanelLeft className="w-4 h-4" />
         </button>
 
         <nav
