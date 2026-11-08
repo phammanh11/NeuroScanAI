@@ -181,6 +181,8 @@ class InMemoryMockStore {
       ...current,
       role: current.role,
       fullName: patch.fullName?.trim() || current.fullName,
+      email: patch.email?.trim() || current.email,
+      avatarUrl: patch.avatarUrl !== undefined ? patch.avatarUrl : current.avatarUrl,
       organizationOrUnit: patch.organizationOrUnit ?? current.organizationOrUnit,
       phone: patch.phone ?? current.phone,
       preferences: {
@@ -196,6 +198,19 @@ class InMemoryMockStore {
       };
     }
     return structuredClone(next);
+  }
+
+  public changePassword(_userId: string, currentPass: string, newPass: string): boolean {
+    if (!currentPass) {
+      throw new Error('Vui lòng nhập mật khẩu hiện tại.');
+    }
+    if (!newPass || newPass.length < 6) {
+      throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự.');
+    }
+    if (currentPass === newPass) {
+      throw new Error('Mật khẩu mới không được trùng với mật khẩu hiện tại.');
+    }
+    return true;
   }
 
   // ==========================================

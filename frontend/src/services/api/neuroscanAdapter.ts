@@ -473,4 +473,23 @@ export const neuroscanAdapter = {
   ): Promise<UserProfile> {
     return mockStore.updateProfile(userId, patch);
   },
+
+  async changePassword(
+    userId: string,
+    currentPass: string,
+    newPass: string
+  ): Promise<boolean> {
+    try {
+      const { data } = await httpClient.post('/api/v1/auth/change-password', {
+        currentPassword: currentPass,
+        newPassword: newPass,
+      });
+      if (data?.success) return true;
+    } catch (err: any) {
+      if (err?.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+    }
+    return mockStore.changePassword(userId, currentPass, newPass);
+  },
 };

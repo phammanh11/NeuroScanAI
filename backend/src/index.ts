@@ -207,6 +207,35 @@ app.post('/api/v1/auth/logout', async (c) => {
   return ok(c, { loggedOut: true }, 'Đã đăng xuất an toàn');
 });
 
+// Đổi mật khẩu tài khoản
+app.post('/api/v1/auth/change-password', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const currentPassword = body.currentPassword || '';
+  const newPassword = body.newPassword || '';
+
+  if (!currentPassword) {
+    return fail(c, 'INVALID_INPUT', 'Vui lòng nhập mật khẩu hiện tại.', 400);
+  }
+  if (!newPassword || newPassword.length < 6) {
+    return fail(c, 'INVALID_INPUT', 'Mật khẩu mới phải có ít nhất 6 ký tự.', 400);
+  }
+  if (currentPassword === newPassword) {
+    return fail(c, 'INVALID_INPUT', 'Mật khẩu mới không được trùng với mật khẩu cũ.', 400);
+  }
+
+  const user = await getAuthenticatedUser(c);
+  if (user) {
+    const { hash, salt } = await hashPassword(newPassword);
+    try {
+      await c.env.DB.prepare('UPDATE users SET password_hash = ?, password_salt = ?, updated_at = datetime("now") WHERE id = ?')
+        .bind(hash, salt, user.id)
+        .run();
+    } catch {}
+  }
+
+  return ok(c, { changed: true }, 'Đổi mật khẩu thành công');
+});
+
 // ============================================================================
 // PATIENTS APIs (Quản lý Hồ sơ Bệnh nhân - D1)
 // ============================================================================

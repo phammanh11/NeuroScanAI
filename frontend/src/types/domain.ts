@@ -21,6 +21,7 @@ export interface UserProfile {
   fullName: string;
   role: UserRole;
   isDemoAccount: boolean;
+  avatarUrl?: string;
   organizationOrUnit?: string;
   specialty?: string;
   licenseCodeDemo?: string;

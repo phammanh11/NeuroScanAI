@@ -186,8 +186,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
               to={user.role === 'DOCTOR' ? '/doctor/profile' : '/profile'}
               className="flex items-center gap-2 text-left group"
             >
-              <div className="w-8 h-8 rounded-xl bg-navy-800 dark:bg-teal-600 text-white text-xs font-bold flex items-center justify-center">
-                {user.role === 'DOCTOR' ? 'BS' : 'ND'}
+              <div className="w-8 h-8 rounded-xl bg-navy-800 dark:bg-teal-600 text-white text-xs font-bold flex items-center justify-center overflow-hidden shrink-0 border border-slate-200/50 dark:border-slate-700/50">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user.role === 'DOCTOR' ? 'BS' : 'ND'
+                )}
               </div>
               <div className="hidden xl:block max-w-[150px]">
                 <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-600">
