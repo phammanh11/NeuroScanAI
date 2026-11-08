@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Cpu,
@@ -13,6 +13,10 @@ import {
   Eye,
   Sliders,
   ArrowRight,
+  Search,
+  ChevronDown,
+  Check,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
@@ -91,6 +95,41 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
   // Patients list for assignment
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+
+  // Searchable Patient Dropdown Combobox state
+  const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const patientDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        patientDropdownRef.current &&
+        !patientDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsPatientDropdownOpen(false);
+      }
+    };
+    if (isPatientDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPatientDropdownOpen]);
+
+  const filteredDropdownPatients = useMemo(() => {
+    if (!patientSearchQuery.trim()) return patients;
+    const q = patientSearchQuery.toLowerCase().trim();
+    return patients.filter(
+      (p) =>
+        p.fullName.toLowerCase().includes(q) ||
+        p.patientCode.toLowerCase().includes(q) ||
+        p.phone.toLowerCase().includes(q) ||
+        (p.symptomsInitial && p.symptomsInitial.toLowerCase().includes(q))
+    );
+  }, [patients, patientSearchQuery]);
 
   // Vision Pipeline Options
   const [enableRoiCropping, setEnableRoiCropping] = useState(true);
@@ -318,23 +357,151 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
-          <div className="md:col-span-6 space-y-2">
-            <label htmlFor="patient-select-lab" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Chọn Bệnh nhân tiếp nhận phân tích:
-            </label>
-            <select
-              id="patient-select-lab"
+          <div className="md:col-span-6 space-y-2 relative" ref={patientDropdownRef}>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Chọn Bệnh nhân tiếp nhận phân tích:
+              </label>
+              <span className="text-[11px] text-slate-400">
+                {patients.length} hồ sơ khả dụng
+              </span>
+            </div>
+
+            {/* Custom Searchable Combobox Trigger */}
+            <button
+              type="button"
               disabled={isAnalyzing}
-              value={selectedPatientId}
-              onChange={(e) => setSelectedPatientId(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500"
+              onClick={() => setIsPatientDropdownOpen((prev) => !prev)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-left text-xs sm:text-sm font-semibold flex items-center justify-between gap-2 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-800/80 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all disabled:opacity-60"
             >
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.patientCode} — {p.fullName} ({p.gender}, sinh {p.dateOfBirth})
-                </option>
-              ))}
-            </select>
+              {selectedPatient ? (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="shrink-0 px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-700 dark:text-teal-300 font-mono text-[11px] font-bold border border-teal-500/30">
+                    {selectedPatient.patientCode}
+                  </span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                    {selectedPatient.fullName}
+                  </span>
+                  <span className="text-slate-500 text-[11px] font-normal truncate hidden sm:inline">
+                    ({selectedPatient.gender}, {selectedPatient.age}t)
+                  </span>
+                </div>
+              ) : (
+                <span className="text-slate-400 font-normal">-- Chọn bệnh nhân từ danh sách --</span>
+              )}
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                  isPatientDropdownOpen ? 'rotate-180 text-teal-600' : ''
+                }`}
+              />
+            </button>
+
+            {/* Dropdown Menu with Search and Fixed Max Height */}
+            {isPatientDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 z-40 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                {/* Search Bar inside Dropdown */}
+                <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={patientSearchQuery}
+                      onChange={(e) => setPatientSearchQuery(e.target.value)}
+                      placeholder="Tìm tên, mã BN, SĐT..."
+                      className="w-full pl-8 pr-7 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                    {patientSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setPatientSearchQuery('')}
+                        aria-label="Xóa từ khóa tìm kiếm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Scrollable Patient Options List (Fixed max-h-60, never overflows page!) */}
+                <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 p-1">
+                  {filteredDropdownPatients.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400 space-y-1">
+                      <p>Không tìm thấy bệnh nhân nào khớp từ khóa.</p>
+                      <Link
+                        to="/doctor/patients"
+                        className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline font-semibold text-[11px]"
+                      >
+                        <span>+ Tiếp nhận bệnh nhân mới</span>
+                      </Link>
+                    </div>
+                  ) : (
+                    filteredDropdownPatients.map((p) => {
+                      const isSelected = p.id === selectedPatientId;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPatientId(p.id);
+                            setIsPatientDropdownOpen(false);
+                            setPatientSearchQuery('');
+                          }}
+                          className={`w-full p-2.5 rounded-xl text-left text-xs transition-colors flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-950 dark:text-teal-200 font-semibold'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                                isSelected
+                                  ? 'bg-teal-500/20 text-teal-800 dark:text-teal-200 border-teal-500/40'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              {p.patientCode}
+                            </span>
+                            <div className="truncate">
+                              <span className="font-bold text-slate-900 dark:text-white mr-2">
+                                {p.fullName}
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                {p.gender} • {p.age}t
+                              </span>
+                              {p.phone && (
+                                <span className="text-[10px] text-slate-400 ml-2 hidden sm:inline">
+                                  ({p.phone})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Dropdown footer info */}
+                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    Hiển thị {filteredDropdownPatients.length}/{patients.length} bệnh nhân
+                  </span>
+                  <Link
+                    to="/doctor/patients"
+                    className="text-teal-600 dark:text-teal-400 hover:underline font-semibold"
+                  >
+                    Quản lý danh sách
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
           {selectedPatient && (
