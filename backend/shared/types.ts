@@ -104,3 +104,4 @@ export interface ChatResponseData {
   }>;
   suggestions: string[];
 }
+

@@ -33,3 +33,4 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
     console.warn('[DB Init Warning]:', (err as Error)?.message);
   }
 }
+

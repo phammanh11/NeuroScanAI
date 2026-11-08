@@ -64,3 +64,4 @@ export const requireDoctor: MiddlewareHandler<{ Bindings: WorkerEnv; Variables: 
   c.set('user', user);
   await next();
 };
+

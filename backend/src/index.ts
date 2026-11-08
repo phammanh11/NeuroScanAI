@@ -451,4 +451,13 @@ app.get('/api/v1/chat/rag-status', async (c) => {
   });
 });
 
+// Phục vụ SPA Static Assets (React frontend) khi chạy dưới dạng _worker.js trên Cloudflare Pages
+app.all('*', async (c) => {
+  if (c.env?.ASSETS) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+  return c.text('NeuroScan AI API Worker is running.', 200);
+});
+
 export default app;
+
