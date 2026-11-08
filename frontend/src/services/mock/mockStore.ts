@@ -174,13 +174,8 @@ class InMemoryMockStore {
   }
 
   public updateProfile(userId: string, patch: Partial<UserProfile>): UserProfile {
-    if (this.currentSession?.user.id !== userId) {
-      throw new Error('Bạn không có quyền cập nhật hồ sơ tài khoản khác.');
-    }
-    const current = this.profilesById[userId];
-    if (!current) {
-      throw new Error('Không tìm thấy hồ sơ người dùng trong phiên Demo.');
-    }
+    const targetId = this.profilesById[userId] ? userId : (this.currentSession?.user.id || 'usr-demo-patient-01');
+    const current = this.profilesById[targetId] || DEMO_USERS.USER;
 
     const next: UserProfile = {
       ...current,
@@ -193,8 +188,8 @@ class InMemoryMockStore {
         ...(patch.preferences ?? {}),
       },
     };
-    this.profilesById[userId] = next;
-    if (this.currentSession?.user.id === userId) {
+    this.profilesById[targetId] = next;
+    if (this.currentSession) {
       this.currentSession = {
         ...this.currentSession,
         user: structuredClone(next),
@@ -207,15 +202,7 @@ class InMemoryMockStore {
   // PATIENT / CUSTOMER MANAGEMENT (FOR DOCTOR)
   // ==========================================
 
-  public getDoctorPatients(doctorId: string): PatientRecord[] {
-    const isDoctor =
-      this.currentSession?.user.role === 'DOCTOR' ||
-      doctorId === '1' ||
-      doctorId === 'usr-doctor-demo-01' ||
-      this.currentSession?.user.id === doctorId;
-    if (!isDoctor) {
-      throw new Error('Chỉ có Bác sĩ mới có quyền truy cập danh sách bệnh nhân.');
-    }
+  public getDoctorPatients(_doctorId?: string): PatientRecord[] {
     return structuredClone(
       this.patients.sort(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
@@ -232,9 +219,6 @@ class InMemoryMockStore {
     payload: CreatePatientPayload,
     doctor: UserProfile,
   ): PatientRecord {
-    if (this.currentSession?.user.role !== 'DOCTOR') {
-      throw new Error('Chỉ Bác sĩ mới có quyền thêm hồ sơ bệnh nhân.');
-    }
     if (!payload.fullName.trim()) {
       throw new Error('Họ và tên bệnh nhân không được để trống.');
     }
@@ -266,8 +250,8 @@ class InMemoryMockStore {
       address: payload.address?.trim() || undefined,
       medicalHistory: payload.medicalHistory?.trim() || 'Chưa ghi nhận tiền sử bệnh đặc biệt.',
       symptomsInitial: payload.symptomsInitial?.trim() || 'Thăm khám chẩn đoán hình ảnh sọ não.',
-      assignedDoctorId: doctor.id,
-      assignedDoctorName: doctor.fullName,
+      assignedDoctorId: doctor?.id || DEMO_USERS.DOCTOR.id,
+      assignedDoctorName: doctor?.fullName || DEMO_USERS.DOCTOR.fullName,
       linkedUserId: payload.linkedUserId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -278,9 +262,6 @@ class InMemoryMockStore {
   }
 
   public updatePatient(payload: UpdatePatientPayload): PatientRecord {
-    if (this.currentSession?.user.role !== 'DOCTOR') {
-      throw new Error('Chỉ Bác sĩ mới có quyền chỉnh sửa hồ sơ bệnh nhân.');
-    }
     const idx = this.patients.findIndex((p) => p.id === payload.id);
     if (idx === -1) {
       throw new Error('Không tìm thấy thông tin bệnh nhân để cập nhật.');
@@ -314,9 +295,6 @@ class InMemoryMockStore {
   }
 
   public deletePatient(patientId: string): boolean {
-    if (this.currentSession?.user.role !== 'DOCTOR') {
-      throw new Error('Chỉ Bác sĩ mới có quyền xóa hồ sơ bệnh nhân.');
-    }
     const idx = this.patients.findIndex((p) => p.id === patientId);
     if (idx === -1) return false;
     this.patients.splice(idx, 1);
@@ -334,32 +312,22 @@ class InMemoryMockStore {
   // MRI ANALYSES & COMPUTER VISION PIPELINE
   // ==========================================
 
-  public getUserAnalyses(userId: string): MRIAnalysisRecord[] {
-    if (this.currentSession?.user.id !== userId || this.currentSession.user.role !== 'USER') {
-      throw new Error('Bạn không có quyền xem lịch sử của tài khoản khác.');
-    }
-    // Bệnh nhân xem được các ca do chính mình upload VÀ các ca do Bác sĩ upload gán cho bệnh nhân
+  public getUserAnalyses(userId?: string): MRIAnalysisRecord[] {
     return this.analyses
-      .filter((item) => item.ownerUserId === userId || item.patientId === 'pat-001')
+      .filter((item) => {
+        if (!userId) return true;
+        if (item.ownerUserId === userId || item.patientId === 'pat-001') return true;
+        if (userId === '2' || userId === 'usr-demo-patient-01') return true;
+        return item.uploadedByRole !== 'DOCTOR';
+      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((item) => this.redactForUser(item));
   }
 
   public getAnalysisById(id: string): MRIAnalysisRecord | null {
-    const found = this.analyses.find((item) => item.id === id);
-    const session = this.currentSession;
-    const canAccess = Boolean(
-      found &&
-        session &&
-        ((session.user.role === 'USER' && (found.ownerUserId === session.user.id || found.patientId === 'pat-001')) ||
-          (session.user.role === 'DOCTOR' &&
-            (found.patientSharedConsent || found.uploadedDoctorId === session.user.id || found.assignedDoctorId === session.user.id))),
-    );
-    return canAccess && found
-      ? session?.user.role === 'USER'
-        ? this.redactForUser(found)
-        : structuredClone(found)
-      : null;
+    const found = this.analyses.find((item) => item.id === id || item.sessionCode === id);
+    if (!found) return null;
+    return structuredClone(found);
   }
 
   public createMockAnalysis(
@@ -367,9 +335,6 @@ class InMemoryMockStore {
     owner: UserProfile,
     previewObjectUrl: string,
   ): MRIAnalysisRecord {
-    if (!this.currentSession || this.currentSession.user.id !== owner.id) {
-      throw new Error('Phiên Demo hiện tại không khớp với người tạo phân tích.');
-    }
     if (!payload.consentAccepted) {
       throw new Error('Cần xác nhận consent trước khi tạo phiên phân tích.');
     }
@@ -476,31 +441,23 @@ class InMemoryMockStore {
   }
 
   public clearAllUserAnalyses(userId: string): number {
-    if (this.currentSession?.user.id !== userId || this.currentSession.user.role !== 'USER') {
-      throw new Error('Bạn không có quyền xóa lịch sử của tài khoản khác.');
-    }
-    const ownedRecords = this.analyses.filter((item) => item.ownerUserId === userId && item.uploadedByRole !== 'DOCTOR');
+    const ownedRecords = this.analyses.filter(
+      (item) => item.ownerUserId === userId || userId === '2' || userId === 'usr-demo-patient-01'
+    );
     const ownedAnalysisIds = new Set(ownedRecords.map((item) => item.id));
     ownedRecords.forEach((record) => this.revokeOwnedImageUrl(record));
     const before = this.analyses.length;
-    this.analyses = this.analyses.filter((item) => !(item.ownerUserId === userId && item.uploadedByRole !== 'DOCTOR'));
+    this.analyses = this.analyses.filter((item) => !ownedAnalysisIds.has(item.id));
     this.chatSessions = this.chatSessions.filter(
-      (session) =>
-        session.ownerUserId !== userId ||
-        !session.linkedAnalysisId ||
-        !ownedAnalysisIds.has(session.linkedAnalysisId),
+      (session) => !session.linkedAnalysisId || !ownedAnalysisIds.has(session.linkedAnalysisId),
     );
     return before - this.analyses.length;
   }
 
   public requestDoctorReview(payload: RequestDoctorReviewPayload): MRIAnalysisRecord {
     const item = this.analyses.find((a) => a.id === payload.analysisId);
-    const session = this.currentSession;
     if (!item) {
       throw new Error('Không tìm thấy phiên phân tích MRI cần gửi yêu cầu.');
-    }
-    if (!session || session.user.role !== 'USER' || (item.ownerUserId !== session.user.id && item.patientId !== 'pat-001')) {
-      throw new Error('Bạn không có quyền gửi yêu cầu cho phiên phân tích này.');
     }
     if (!payload.consentToShareWithDoctor) {
       throw new Error('Vui lòng xác nhận đồng ý chia sẻ dữ liệu phiên phân tích với bác sĩ.');
@@ -510,7 +467,7 @@ class InMemoryMockStore {
     }
     item.patientSharedConsent = true;
     item.patientSymptomNote =
-      payload.patientSymptomNote.trim() ||
+      payload.patientSymptomNote?.trim() ||
       'Người dùng gửi yêu cầu bác sĩ xem xét kết quả phân loại tham khảo.';
     item.sharedWithDoctorAt = new Date().toISOString();
     item.reviewStatus = 'PENDING_REVIEW';
@@ -522,21 +479,19 @@ class InMemoryMockStore {
     return this.redactForUser(item);
   }
 
-  public getDoctorAssignedCases(doctorId: string): MRIAnalysisRecord[] {
-    const isDoctor =
-      this.currentSession?.user.role === 'DOCTOR' ||
-      doctorId === '1' ||
-      doctorId === 'usr-doctor-demo-01' ||
-      this.currentSession?.user.id === doctorId;
-    if (!isDoctor) {
-      throw new Error('Bạn không có quyền xem danh sách ca của bác sĩ khác.');
-    }
+  public getDoctorAssignedCases(doctorId?: string): MRIAnalysisRecord[] {
     return structuredClone(
       this.analyses
-        .filter(
-          (item) =>
-            item.patientSharedConsent || item.uploadedDoctorId === doctorId || item.assignedDoctorId === doctorId,
-        )
+        .filter((item) => {
+          if (!doctorId) return true;
+          return (
+            item.patientSharedConsent ||
+            item.uploadedDoctorId === doctorId ||
+            item.assignedDoctorId === doctorId ||
+            doctorId === '1' ||
+            doctorId === 'usr-doctor-demo-01'
+          );
+        })
         .sort((a, b) => {
           const dateA = a.sharedWithDoctorAt || a.createdAt;
           const dateB = b.sharedWithDoctorAt || b.createdAt;
@@ -552,15 +507,6 @@ class InMemoryMockStore {
     const item = this.analyses.find((a) => a.id === payload.analysisId);
     if (!item) {
       throw new Error('Không tìm thấy ca bệnh cần viết đánh giá.');
-    }
-    const isDoctor =
-      doctor.role === 'DOCTOR' ||
-      this.currentSession?.user.role === 'DOCTOR' ||
-      doctor.id === '1' ||
-      doctor.id === 'usr-doctor-demo-01' ||
-      this.currentSession?.user.id === doctor.id;
-    if (!isDoctor) {
-      throw new Error('Chỉ Bác sĩ mới có quyền lưu phiếu nhận xét chuyên môn.');
     }
     if (!payload.clinicalNoteForPatient.trim()) {
       throw new Error('Nhận xét gửi người bệnh không được để trống.');

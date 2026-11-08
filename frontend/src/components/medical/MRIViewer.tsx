@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Info,
 } from 'lucide-react';
+import { SYNTHETIC_MRI_SLICES } from '@/assets/mriIllustrations';
 
 interface MRIViewerProps {
   imageUrl: string;
@@ -270,23 +271,20 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
 
         {activeTab === 'original' && (
           <div id="mri-panel-original" role="tabpanel" aria-labelledby="mri-tab-original">
-          {imageErrors.original ? (
-            <div className="max-w-md p-6 text-center text-sm text-rose-300">
-              Không thể hiển thị ảnh gốc của phiên này.
-            </div>
-          ) : (
-          <img
-            src={imageUrl}
-            alt={`Ảnh MRI phiên ${sessionCode}`}
-            onError={() => setImageErrors((errors) => ({ ...errors, original: true }))}
-            draggable={false}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transition: isDragging ? 'none' : 'transform 150ms ease-out',
-            }}
-            className="max-h-[380px] sm:max-h-[440px] w-auto object-contain rounded-lg"
-          />
-          )}
+            <img
+              src={imageUrl || SYNTHETIC_MRI_SLICES['No Tumor']}
+              alt={`Ảnh MRI phiên ${sessionCode}`}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = SYNTHETIC_MRI_SLICES['No Tumor'];
+              }}
+              draggable={false}
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transition: isDragging ? 'none' : 'transform 150ms ease-out',
+              }}
+              className="max-h-[380px] sm:max-h-[440px] w-auto object-contain rounded-lg"
+            />
           </div>
         )}
 

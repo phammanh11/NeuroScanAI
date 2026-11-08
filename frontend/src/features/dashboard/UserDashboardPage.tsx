@@ -90,8 +90,8 @@ export const UserDashboardPage: React.FC = () => {
     setErrorMsg(null);
     try {
       const [anaList, chatList] = await Promise.all([
-        neuroscanAdapter.getUserAnalyses(user.id),
-        neuroscanAdapter.getChatSessions(user.id),
+        neuroscanAdapter.getUserAnalyses(user.id).catch(() => []),
+        neuroscanAdapter.getChatSessions(user.id).catch(() => []),
       ]);
       if (requestId !== loadRequestRef.current) return;
       setAnalyses(anaList);

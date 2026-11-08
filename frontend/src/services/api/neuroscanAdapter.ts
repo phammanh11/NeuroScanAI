@@ -289,15 +289,15 @@ export const neuroscanAdapter = {
   // MRI UPLOADS TO CLOUDFLARE R2 & D1
   // ==========================================
 
-  async getUserAnalyses(_userId: string): Promise<MRIAnalysisRecord[]> {
+  async getUserAnalyses(userId?: string): Promise<MRIAnalysisRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.SCANS);
-      if (data?.success && Array.isArray(data?.data?.scans)) {
+      if (data?.success && Array.isArray(data?.data?.scans) && data.data.scans.length > 0) {
         return data.data.scans.map((s: any) => mapScanToAnalysisRecord(s));
       }
     } catch {}
 
-    return mockStore.getUserAnalyses('usr-doc-01');
+    return mockStore.getUserAnalyses(userId);
   },
 
   async getAnalysisById(id: string): Promise<MRIAnalysisRecord> {
@@ -361,8 +361,15 @@ export const neuroscanAdapter = {
     return mockStore.requestDoctorReview(payload);
   },
 
-  async getDoctorCases(_doctorId: string): Promise<MRIAnalysisRecord[]> {
-    return this.getUserAnalyses('usr-doc-01');
+  async getDoctorCases(doctorId?: string): Promise<MRIAnalysisRecord[]> {
+    try {
+      const { data } = await httpClient.get(API_ENDPOINTS.MRI.SCANS);
+      if (data?.success && Array.isArray(data?.data?.scans) && data.data.scans.length > 0) {
+        return data.data.scans.map((s: any) => mapScanToAnalysisRecord(s));
+      }
+    } catch {}
+
+    return mockStore.getDoctorAssignedCases(doctorId || '1');
   },
 
   async submitDoctorReview(
