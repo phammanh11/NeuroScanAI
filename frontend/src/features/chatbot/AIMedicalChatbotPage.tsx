@@ -16,6 +16,7 @@ import { useToast } from '@/app/providers/ToastProvider';
 import { ChatMessage } from '@/components/medical/ChatMessage';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LoadingState } from '@/components/common/LoadingState';
+import { SkeletonTypingMessage } from '@/components/common/Skeleton';
 import { ErrorState } from '@/components/common/ErrorState';
 import { TUMOR_LABEL_METADATA } from '@/constants/medicalLabels';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
@@ -464,14 +465,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
               <ChatMessage key={msg.id} message={msg} />
             ))}
 
-            {isTyping && (
-              <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 pl-2">
-                <div className="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-600 flex items-center justify-center">
-                  <Bot className="w-4 h-4 animate-pulse" />
-                </div>
-                <span>Trợ lý AI đang truy xuất Vector DB và suy luận câu trả lời...</span>
-              </div>
-            )}
+            {isTyping && <SkeletonTypingMessage />}
 
             {sendError && (
               <div
