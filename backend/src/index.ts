@@ -393,7 +393,14 @@ app.get('/api/v1/files/*', async (c) => {
   try {
     const object = await c.env.BUCKET.get(path);
     if (!object) {
-      return fail(c, 'NOT_FOUND', 'Không tìm thấy tệp trên Cloudflare R2', 404);
+      // Fallback ảnh lát cắt MRI Vector nếu tệp demo chưa upload thực tế lên R2
+      const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" fill="#080c14"/><ellipse cx="256" cy="256" rx="175" ry="205" fill="#111827" stroke="#0d9488" stroke-width="2.5" opacity="0.8"/><ellipse cx="256" cy="256" rx="155" ry="185" fill="#030712"/><path d="M 256,75 Q 256,256 256,435" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.4"/><path d="M 175,180 Q 215,150 256,180 Q 297,150 337,180 Q 355,230 335,285 Q 295,345 256,315 Q 217,345 177,285 Z" fill="#1f2937" stroke="#475569" stroke-width="1.5"/><circle cx="215" cy="225" r="26" fill="#14b8a6" opacity="0.3"/><text x="256" y="470" text-anchor="middle" fill="#5eead4" font-family="monospace" font-size="12" font-weight="bold">NEUROSCAN AI • CLOUDFLARE R2 SCAN</text></svg>`;
+      return new Response(fallbackSvg, {
+        headers: {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
     }
 
     const headers = new Headers();

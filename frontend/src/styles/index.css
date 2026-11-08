@@ -12,8 +12,20 @@
   }
 
   body {
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     overflow-x: hidden;
+  }
+
+  /* Áp dụng font-feature-settings chỉ cho font chữ Sans (Inter), tránh lỗi rò rỉ sang font số/mã bệnh nhân */
+  .font-sans, p, h1, h2, h3, h4, h5, h6, span:not(.font-mono), a:not(.font-mono), button:not(.font-mono) {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Khắc phục triệt để lỗi phông số, mã bệnh nhân & mã phiên trên Windows / Cốc Cốc */
+  .font-mono, code, kbd, samp, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-feature-settings: normal !important;
+    font-variant-numeric: tabular-nums !important;
+    letter-spacing: 0.02em;
   }
 }
 
