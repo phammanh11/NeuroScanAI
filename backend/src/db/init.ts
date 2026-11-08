@@ -18,14 +18,22 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
   if (initialized || !env.DB) return;
 
   try {
-    // 1. Kiểm tra bảng users đã có dữ liệu chưa
-    const existing = await env.DB.prepare('SELECT count(*) as total FROM users').first<{ total: number }>();
-    if (!existing || existing.total === 0) {
-      // 2. Tạo tài khoản Doctor Test mặc định
+    // 2. Đảm bảo tài khoản Doctor Test và User Test luôn tồn tại
+    const doctorExists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind('demo.doctor@neuroscan.vn').first();
+    if (!doctorExists) {
       const { hash, salt } = await hashPassword('Doctor@123');
       await env.DB.prepare(`
         INSERT OR IGNORE INTO users (id, email, full_name, password_hash, password_salt, role, specialty, organization, license_code, phone)
         VALUES (1, 'demo.doctor@neuroscan.vn', 'BS.CKII Trần Quốc Bảo', ?, ?, 'DOCTOR', 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)', 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh', 'DEMO-CCHN-2026-8841', '0909 000 222')
+      `).bind(hash, salt).run();
+    }
+
+    const userExists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind('demo.user@neuroscan.vn').first();
+    if (!userExists) {
+      const { hash, salt } = await hashPassword('User@123');
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO users (id, email, full_name, password_hash, password_salt, role, phone)
+        VALUES (2, 'demo.user@neuroscan.vn', 'Nguyễn Minh An (Bệnh nhân)', ?, ?, 'USER', '0912 345 678')
       `).bind(hash, salt).run();
     }
     initialized = true;

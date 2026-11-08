@@ -9,6 +9,7 @@ import {
   EyeOff,
   Loader2,
   Stethoscope,
+  User,
   ShieldCheck,
   ArrowLeft,
   CheckCircle2,
@@ -65,21 +66,36 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickDemoLogin = async () => {
+  const handleQuickDemoLogin = async (role: 'DOCTOR' | 'USER') => {
     setFormError(null);
     try {
-      setValue('email', 'demo.doctor@neuroscan.vn');
-      setValue('password', 'Doctor@123');
-      const profile = await loginAsDemoRole('DOCTOR');
-      showToast({
-        variant: 'success',
-        title: `Đã đăng nhập Tài khoản Kiểm thử (DOCTOR)`,
-        description: profile.fullName,
-      });
-      const from = (location.state as { from?: string } | null)?.from;
-      navigate(from || '/doctor/dashboard', {
-        replace: true,
-      });
+      if (role === 'DOCTOR') {
+        setValue('email', 'demo.doctor@neuroscan.vn');
+        setValue('password', 'Doctor@123');
+        const profile = await loginAsDemoRole('DOCTOR');
+        showToast({
+          variant: 'success',
+          title: `Đã đăng nhập vai trò Bác sĩ (DOCTOR)`,
+          description: profile.fullName,
+        });
+        const from = (location.state as { from?: string } | null)?.from;
+        navigate(from || '/doctor/dashboard', {
+          replace: true,
+        });
+      } else {
+        setValue('email', 'demo.user@neuroscan.vn');
+        setValue('password', 'User@123');
+        const profile = await loginAsDemoRole('USER');
+        showToast({
+          variant: 'success',
+          title: `Đã đăng nhập vai trò Người dùng (USER)`,
+          description: profile.fullName,
+        });
+        const from = (location.state as { from?: string } | null)?.from;
+        navigate(from || '/dashboard', {
+          replace: true,
+        });
+      }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Không thể đăng nhập tài khoản kiểm thử.');
     }
@@ -113,28 +129,58 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Single Test Account Box (Doctor Role) */}
-          <div className="p-4 rounded-2xl bg-teal-50/70 dark:bg-teal-950/25 border border-teal-500/25 space-y-3">
+          {/* Quick Login Test Accounts Box (Doctor & User Roles) */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
-                Tài khoản Kiểm thử Toàn quyền (Test Doctor)
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Đăng nhập nhanh kiểm thử (Test Roles)
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-800 dark:text-sky-300">
-                ROLE: DOCTOR
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                1-Click Fast Login
               </span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Tài khoản kiểm thử đầy đủ quyền truy cập (Upload MRI lên Cloudflare R2, Phân tích Computer Vision, Chatbot RAG Y tế, Quản lý Bệnh nhân):
-            </p>
-            <div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Button Doctor */}
               <button
                 type="button"
                 disabled={isLoading}
-                onClick={handleQuickDemoLogin}
-                className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all"
+                onClick={() => handleQuickDemoLogin('DOCTOR')}
+                className="group p-3 rounded-xl border border-teal-500/30 bg-teal-50/70 hover:bg-teal-600 hover:text-white dark:bg-teal-950/30 dark:hover:bg-teal-600 text-left transition-all flex flex-col justify-between shadow-xs hover:shadow-sm"
               >
-                <Stethoscope className="w-4 h-4 text-white" />
-                <span>Đăng nhập nhanh: BS.CKII Trần Quốc Bảo (Bác sĩ Chuyên khoa)</span>
+                <div className="flex items-center justify-between w-full mb-1.5">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-800 dark:text-teal-200 group-hover:bg-white/20 group-hover:text-white">
+                    ROLE: DOCTOR
+                  </span>
+                  <Stethoscope className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:text-white" />
+                </div>
+                <div className="font-semibold text-xs text-slate-900 dark:text-white group-hover:text-white">
+                  BS.CKII Trần Quốc Bảo
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-teal-100 truncate">
+                  demo.doctor@neuroscan.vn
+                </div>
+              </button>
+
+              {/* Button User */}
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleQuickDemoLogin('USER')}
+                className="group p-3 rounded-xl border border-sky-500/30 bg-sky-50/70 hover:bg-sky-600 hover:text-white dark:bg-sky-950/30 dark:hover:bg-sky-600 text-left transition-all flex flex-col justify-between shadow-xs hover:shadow-sm"
+              >
+                <div className="flex items-center justify-between w-full mb-1.5">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-800 dark:text-sky-200 group-hover:bg-white/20 group-hover:text-white">
+                    ROLE: USER
+                  </span>
+                  <User className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 group-hover:text-white" />
+                </div>
+                <div className="font-semibold text-xs text-slate-900 dark:text-white group-hover:text-white">
+                  Nguyễn Minh An
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-sky-100 truncate">
+                  demo.user@neuroscan.vn
+                </div>
               </button>
             </div>
           </div>

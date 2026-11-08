@@ -17,7 +17,7 @@ import type {
   UserRole,
 } from '@/types/domain';
 
-// Tài khoản Test duy nhất (Bác sĩ Chuyên khoa) dùng để kiểm thử toàn diện hệ thống
+// Tài khoản Test phục vụ kiểm thử hai vai trò RBAC (Bác sĩ Chuyên khoa & Người dùng)
 export const TEST_DOCTOR_CREDENTIALS = {
   email: 'demo.doctor@neuroscan.vn',
   password: 'Doctor@123',
@@ -25,6 +25,14 @@ export const TEST_DOCTOR_CREDENTIALS = {
   role: 'DOCTOR' as UserRole,
   specialty: 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)',
   organization: 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh',
+};
+
+export const TEST_USER_CREDENTIALS = {
+  email: 'demo.user@neuroscan.vn',
+  password: 'User@123',
+  fullName: 'Nguyễn Minh An',
+  role: 'USER' as UserRole,
+  phone: '0912 345 678',
 };
 
 function mapScanToAnalysisRecord(scan: any, owner?: UserProfile): MRIAnalysisRecord {
@@ -94,12 +102,10 @@ export const neuroscanAdapter = {
     return mockStore.getSimulateError();
   },
 
-  // Đăng nhập nhanh tài khoản test (1 role Bác sĩ duy nhất để kiểm thử)
-  async loginWithDemoRole(_role: UserRole = 'DOCTOR'): Promise<AuthSession> {
-    return this.loginWithEmailPassword(
-      TEST_DOCTOR_CREDENTIALS.email,
-      TEST_DOCTOR_CREDENTIALS.password
-    );
+  // Đăng nhập nhanh tài khoản test (hỗ trợ kiểm thử 2 vai trò: DOCTOR & USER)
+  async loginWithDemoRole(role: UserRole = 'DOCTOR'): Promise<AuthSession> {
+    const creds = role === 'USER' ? TEST_USER_CREDENTIALS : TEST_DOCTOR_CREDENTIALS;
+    return this.loginWithEmailPassword(creds.email, creds.password);
   },
 
   async loginWithEmailPassword(email: string, password: string): Promise<AuthSession> {
