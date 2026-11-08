@@ -4,6 +4,7 @@ import { ENV_CONFIG } from '@/constants/apiEndpoints';
 export const httpClient = axios.create({
   baseURL: ENV_CONFIG.API_BASE_URL,
   timeout: 25000,
+  withCredentials: true,
   headers: {
     Accept: 'application/json',
   },

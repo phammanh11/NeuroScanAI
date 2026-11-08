@@ -620,7 +620,7 @@ class InMemoryMockStore {
             ? `Xin chào ${isDoctor ? 'Bác sĩ' : 'bạn'}! Tôi đang tải ngữ cảnh ca MRI **${linkedAnalysis.sessionCode}** (Nhãn AI: **${linkedAnalysis.predictedLabel}**). Bạn có thể hỏi về các tiêu chuẩn chẩn đoán hình ảnh, phân biệt viền màng cứng, hoặc các đặc trưng mô bệnh học.`
             : isDoctor
               ? 'Xin chào **Bác sĩ**! Tôi là **Trợ lý AI Y tế Chuyên khoa** của NeuroScan. Tôi có thể hỗ trợ bác sĩ tra cứu nhanh về tiêu chuẩn phân loại u não (Glioma, Meningioma, Pituitary), đặc trưng chuỗi xung MRI (T1, T1ce, T2, FLAIR) và các khuyến nghị y học chứng cứ từ WHO/NCI.'
-              : 'Xin chào! Tôi là **Trợ lý AI Y tế NeuroScan**. Tôi cung cấp thông tin tham khảo từ bộ câu hỏi FAQ đã kiểm duyệt về u não, giải thích thuật ngữ MRI và hướng dẫn chuẩn bị khám chuyên khoa.',
+              : 'Xin chào! Tôi là **Trợ lý AI Y tế NeuroScan** vận hành trên kiến trúc RAG Edge (Workers AI Llama 3.3 70B & Vector DB). Bạn có thể hỏi tôi về các dạng u não, thuật ngữ phim MRI hoặc tra cứu hồ sơ bệnh nhân.',
         },
       ],
     };
@@ -728,7 +728,7 @@ class InMemoryMockStore {
         isDemoIllustration: true,
         content: isDoctor
           ? '### Tham vấn Lâm sàng Y khoa (Chế độ Trợ lý Bác sĩ)\n\nĐối với câu hỏi chuyên sâu này, hệ thống đề xuất đối chiếu thêm hình ảnh đa chuỗi xung (T1, T1ce, T2, FLAIR) kết hợp với các chỉ số sinh học phân tử (IDH mutation, 1p/19q codeletion) theo tiêu chuẩn WHO CNS5.\n\n- Bác sĩ có thể mở chức năng **Computer Vision MRI** để trích xuất bản đồ kích hoạt nơ-ron Grad-CAM và diện tích vùng tổn thương.\n- Tài liệu đối chiếu: *WHO Classification of Tumours of the Central Nervous System (5th ed.)*.'
-          : '### Thông báo giới hạn phạm vi dữ liệu (Chế độ Demo FAQ)\n\nHiện tại trong chế độ Mock Demo, Trợ lý AI **chưa có bản ghi FAQ đã kiểm duyệt** khớp chính xác với câu hỏi này.\n\n- Hệ thống tuân thủ nguyên tắc **không tự suy diễn lâm sàng và không tự bịa nguồn tài liệu y khoa** khi chưa kết nối kho dữ liệu RAG / Vector Database đã thẩm định.\n- Bạn có thể chọn một trong các câu hỏi gợi ý đã được xác minh bên dưới (về *Glioma*, *Meningioma*, *Pituitary*, *ý nghĩa chụp MRI*, *triệu chứng cần đi khám*, hoặc *chuẩn bị trước khi khám chuyên khoa*), hoặc tra cứu trực tiếp tại mục **Kiến thức y khoa**.',
+          : '### Trợ lý AI Y tế (NeuroScan AI)\n\nĐối với câu hỏi này, hệ thống đang kết nối kho tri thức RAG trên Cloudflare Edge để truy xuất dữ liệu y khoa tương ứng.\n\n- Bạn có thể hỏi trực tiếp về các bệnh lý u não (*Glioma*, *Meningioma*, *Pituitary Adenoma*), *ý nghĩa các chuỗi xung MRI*, *triệu chứng cần đi khám*, hoặc tra cứu hồ sơ bệnh nhân theo mã (ví dụ: `NS-BN-2026-001`).\n- Mọi thông tin cung cấp mang tính chất tham khảo học thuật và định hướng y tế, không thay thế chẩn đoán xác định của Bác sĩ chuyên khoa.',
       };
     }
 

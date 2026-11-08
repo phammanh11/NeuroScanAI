@@ -433,11 +433,15 @@ export const neuroscanAdapter = {
         mockStore.appendCustomExchange(sessionId, userMsg, assistantMsg);
         return { userMessage: userMsg, assistantMessage: assistantMsg };
       }
+      throw new Error(data?.message || 'Không thể nhận phản hồi từ Trợ lý AI Y tế');
     } catch (err: any) {
-      console.warn('[RAG Chatbot Error, falling back to local clinical knowledge]:', err?.message);
+      console.error('[RAG Chatbot Error]:', err?.message);
+      throw new Error(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể kết nối đến Trợ lý AI Edge. Vui lòng kiểm tra kết nối mạng và thử lại.'
+      );
     }
-
-    return mockStore.sendChatMessage(sessionId, questionText);
   },
 
   async getKnowledgeArticles(includeUnpublished = false): Promise<KnowledgeArticle[]> {

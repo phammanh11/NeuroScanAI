@@ -273,7 +273,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
     return (
       <LoadingState
         title="Đang khởi tạo Trợ lý AI Y tế..."
-        description="Đang tải kho câu hỏi FAQ đã kiểm duyệt và lịch sử hội thoại."
+        description="Đang kết nối cơ sở tri thức y khoa và lịch sử hội thoại."
       />
     );
   }
@@ -297,7 +297,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
           </span>
         </div>
         <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/20 border border-amber-500/30 shrink-0">
-          FAQ / RAG Có Kiểm duyệt
+          RAG Pipeline: Workers AI + Vector DB
         </span>
       </div>
 
@@ -412,7 +412,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   {user?.role === 'DOCTOR'
                     ? 'Tham vấn lâm sàng, tiêu chuẩn WHO CNS5 & quy trình Computer Vision'
-                    : 'Trả lời từ bộ FAQ JSON đã kiểm duyệt • Có dẫn nguồn tổ chức y tế'}
+                    : 'RAG Pipeline: BGE-M3 + Llama 3.3 70B (Cloudflare Workers AI & D1)'}
                 </p>
               </div>
             </div>
@@ -469,7 +469,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-600 flex items-center justify-center">
                   <Bot className="w-4 h-4 animate-pulse" />
                 </div>
-                <span>Trợ lý AI đang tra cứu bản ghi FAQ đã kiểm duyệt...</span>
+                <span>Trợ lý AI đang truy xuất Vector DB và suy luận câu trả lời...</span>
               </div>
             )}
 
