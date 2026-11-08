@@ -473,3 +473,138 @@ export const SkeletonMRIResult: React.FC<{ className?: string }> = ({ className 
     </div>
   );
 };
+
+// -----------------------------------------------------------------------------
+// 9. Full Application Shell Skeleton (Full screen, top header + sidebar + canvas)
+// -----------------------------------------------------------------------------
+export const SkeletonFullPage: React.FC<{ className?: string }> = ({ className }) => {
+  return (
+    <div
+      className={cn(
+        'min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col',
+        className
+      )}
+      role="status"
+      aria-label="Đang khởi tạo giao diện NeuroScan AI..."
+    >
+      {/* Top Navigation Bar Skeleton */}
+      <header className="h-16 w-full border-b border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 px-4 sm:px-6 flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-9 h-9 rounded-xl bg-teal-500/20" />
+          <div className="space-y-1">
+            <Skeleton className="h-4.5 w-32 rounded-md" />
+            <Skeleton className="h-2.5 w-20 rounded-md" />
+          </div>
+          <div className="hidden sm:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <Skeleton className="h-3.5 w-16 rounded-md" />
+            <span className="text-slate-300 dark:text-slate-700">/</span>
+            <Skeleton className="h-3.5 w-28 rounded-md" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="hidden md:block h-9 w-44 rounded-xl" />
+          <Skeleton className="w-9 h-9 rounded-xl" />
+          <Skeleton className="w-9 h-9 rounded-xl" />
+          <Skeleton className="w-9 h-9 rounded-full bg-slate-300 dark:bg-slate-700" />
+        </div>
+      </header>
+
+      {/* Main Body with Sidebar + Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar Skeleton (Desktop) */}
+        <aside className="hidden lg:flex w-64 shrink-0 flex-col justify-between border-r border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-4 space-y-4">
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/40 mb-3 space-y-1">
+              <Skeleton className="h-3 w-16 rounded-md" />
+              <Skeleton className="h-4 w-32 rounded-md" />
+            </div>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl">
+                <Skeleton className="w-5 h-5 rounded-lg shrink-0" />
+                <Skeleton className="h-3.5 w-28 rounded-md" />
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom user card */}
+          <div className="p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 flex items-center gap-2.5">
+            <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-3.5 w-20 rounded-md" />
+              <Skeleton className="h-2.5 w-28 rounded-md" />
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area Skeleton */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
+          {/* Page Title & Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-60 rounded-xl" />
+              <Skeleton className="h-4 w-96 rounded-md" />
+            </div>
+            <div className="flex gap-2.5">
+              <Skeleton className="h-10 w-28 rounded-xl" />
+              <Skeleton className="h-10 w-36 rounded-xl" />
+            </div>
+          </div>
+
+          {/* 4 Metric KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-soft space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28 rounded-md" />
+                  <Skeleton className="w-9 h-9 rounded-xl" />
+                </div>
+                <Skeleton className="h-7 w-20 rounded-lg" />
+                <Skeleton className="h-3 w-32 rounded-md" />
+              </div>
+            ))}
+          </div>
+
+          {/* Large Grid Content Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-5 shadow-soft space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70 dark:border-slate-800">
+                <Skeleton className="h-5 w-40 rounded-lg" />
+                <Skeleton className="h-8 w-24 rounded-xl" />
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/70 flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-36 rounded-md" />
+                        <Skeleton className="h-3 w-24 rounded-md" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <Skeleton className="h-8 w-20 rounded-xl" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 space-y-4">
+              <SkeletonCard bodyLines={4} hasFooter />
+              <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-soft space-y-3">
+                <Skeleton className="h-4.5 w-32 rounded-md" />
+                <SkeletonText lines={3} />
+                <Skeleton className="h-9 w-full rounded-xl mt-2" />
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};

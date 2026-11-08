@@ -7,10 +7,12 @@ import {
   SkeletonChat,
   SkeletonDashboard,
   SkeletonMRIResult,
+  SkeletonFullPage,
 } from './Skeleton';
 
 export type LoadingSkeletonVariant =
   | 'auto'
+  | 'page'
   | 'dashboard'
   | 'chat'
   | 'table'
@@ -57,6 +59,9 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   const resolvedVariant = (() => {
     if (variant !== 'auto') return variant;
     const lower = title.toLowerCase();
+    if (lower.includes('giao diện') || lower.includes('khởi tạo') || lower.includes('neuroscan')) {
+      return 'page';
+    }
     if (lower.includes('trợ lý') || lower.includes('chat') || lower.includes('hội thoại')) {
       return 'chat';
     }
@@ -77,6 +82,9 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
 
   // 3. Render Skeleton theo Layout thực tế của từng màn hình
   switch (resolvedVariant) {
+    case 'page':
+      return <SkeletonFullPage className={className} />;
+
     case 'chat':
       return <SkeletonChat className={className} />;
 
@@ -117,26 +125,49 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
         <div
           role="status"
           aria-label={title}
-          className={`rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-6 sm:p-8 shadow-soft space-y-5 max-w-2xl mx-auto ${className}`}
+          className={`w-full space-y-6 ${className}`}
         >
-          {/* Card Header Skeleton */}
-          <div className="flex items-center gap-3.5">
-            <Skeleton className="w-11 h-11 rounded-2xl bg-teal-500/15 shrink-0" />
-            <div className="space-y-1.5 flex-1 min-w-0">
-              <Skeleton className="h-4.5 w-1/2 rounded-md" />
-              <Skeleton className="h-3 w-1/3 rounded-md" />
+          {/* Header Skeleton */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-60 rounded-xl" />
+              <Skeleton className="h-4 w-96 rounded-md" />
+            </div>
+            <div className="flex gap-2.5">
+              <Skeleton className="h-10 w-28 rounded-xl" />
+              <Skeleton className="h-10 w-32 rounded-xl" />
             </div>
           </div>
 
-          {/* Body Lines Skeleton */}
-          <div className="space-y-3 pt-2">
-            <SkeletonText lines={4} />
+          {/* 3 Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-soft space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28 rounded-md" />
+                  <Skeleton className="w-8 h-8 rounded-xl" />
+                </div>
+                <Skeleton className="h-7 w-24 rounded-lg" />
+                <Skeleton className="h-3 w-36 rounded-md" />
+              </div>
+            ))}
           </div>
 
-          {/* Optional Footer Bar Skeleton */}
-          <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between">
-            <Skeleton className="h-3.5 w-28 rounded-md" />
-            <Skeleton className="h-8 w-24 rounded-xl" />
+          {/* Main Full-width Card */}
+          <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-6 sm:p-8 shadow-soft space-y-5">
+            <div className="flex items-center gap-3.5">
+              <Skeleton className="w-11 h-11 rounded-2xl bg-teal-500/15 shrink-0" />
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <Skeleton className="h-5 w-1/3 rounded-md" />
+                <Skeleton className="h-3.5 w-1/4 rounded-md" />
+              </div>
+            </div>
+            <div className="space-y-3 pt-2">
+              <SkeletonText lines={4} />
+            </div>
           </div>
         </div>
       );

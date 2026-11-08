@@ -113,13 +113,7 @@ export const AppRouter: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <Suspense
-        fallback={
-          <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
-            <LoadingState title="Đang tải giao diện NeuroScan AI..." />
-          </div>
-        }
-      >
+      <Suspense fallback={<LoadingState variant="page" title="Đang tải giao diện NeuroScan AI..." />}>
         <Routes key={mockErrorRevision}>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
