@@ -28,33 +28,32 @@ const USER_NAV_ITEMS: NavItem[] = [
   {
     label: 'Tổng quan cá nhân',
     to: '/dashboard',
-    icon: <LayoutDashboard className="w-4 h-4" />,
+    icon: <LayoutDashboard className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Phân tích MRI',
     to: '/mri-analysis',
-    icon: <ScanLine className="w-4 h-4" />,
-    badge: 'Trọng tâm',
+    icon: <ScanLine className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Lịch sử & Đánh giá Bác sĩ',
     to: '/history',
-    icon: <History className="w-4 h-4" />,
+    icon: <History className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Trợ lý AI Y tế',
     to: '/ai-assistant',
-    icon: <MessageSquareHeart className="w-4 h-4" />,
+    icon: <MessageSquareHeart className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Kiến thức y khoa',
     to: '/knowledge',
-    icon: <BookOpen className="w-4 h-4" />,
+    icon: <BookOpen className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Hồ sơ & Cài đặt',
     to: '/profile',
-    icon: <UserCircle className="w-4 h-4" />,
+    icon: <UserCircle className="w-4 h-4 shrink-0" />,
   },
 ];
 
@@ -62,34 +61,32 @@ const DOCTOR_NAV_ITEMS: NavItem[] = [
   {
     label: 'Bảng điều khiển Bác sĩ',
     to: '/doctor/dashboard',
-    icon: <Stethoscope className="w-4 h-4" />,
+    icon: <Stethoscope className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Danh sách Bệnh nhân',
     to: '/doctor/patients',
-    icon: <Users className="w-4 h-4" />,
-    badge: 'Quản lý',
+    icon: <Users className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Computer Vision MRI',
     to: '/doctor/vision-analysis',
-    icon: <ScanLine className="w-4 h-4" />,
-    badge: 'Vision Lab',
+    icon: <ScanLine className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Ca bệnh & Đánh giá',
     to: '/doctor/cases',
-    icon: <ClipboardList className="w-4 h-4" />,
+    icon: <ClipboardList className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Trợ lý AI Bác sĩ',
     to: '/doctor/ai-assistant',
-    icon: <MessageSquareHeart className="w-4 h-4" />,
+    icon: <MessageSquareHeart className="w-4 h-4 shrink-0" />,
   },
   {
     label: 'Hồ sơ Bác sĩ',
     to: '/doctor/profile',
-    icon: <UserCircle className="w-4 h-4" />,
+    icon: <UserCircle className="w-4 h-4 shrink-0" />,
   },
 ];
 
@@ -209,12 +206,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               }`
             }
           >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               {item.icon}
               <span className="truncate">{item.label}</span>
             </div>
             {item.badge && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/20 text-teal-700 dark:text-teal-200">
+              <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/20 text-teal-700 dark:text-teal-200 whitespace-nowrap">
                 {item.badge}
               </span>
             )}
