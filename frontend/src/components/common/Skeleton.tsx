@@ -1,6 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Bot, Sparkles } from 'lucide-react';
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -289,10 +290,13 @@ export const SkeletonChat: React.FC<{ className?: string }> = ({ className }) =>
 export const SkeletonTypingMessage: React.FC = () => {
   return (
     <div className="flex items-start gap-3 max-w-[85%] animate-in fade-in duration-200" role="status">
-      <Skeleton className="w-8 h-8 rounded-xl shrink-0 bg-teal-500/20 text-teal-600" />
+      <div className="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0 border border-teal-500/30">
+        <Bot className="w-4 h-4 animate-pulse" />
+      </div>
       <div className="p-4 rounded-2xl rounded-tl-xs bg-white dark:bg-slate-900 border border-teal-500/30 text-slate-700 dark:text-slate-200 shadow-soft flex-1 space-y-2.5">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
+          <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 animate-spin" style={{ animationDuration: '3s' }} />
           <span className="text-xs font-semibold text-teal-700 dark:text-teal-300">
             Trợ lý AI đang truy xuất RAG & suy luận câu trả lời...
           </span>

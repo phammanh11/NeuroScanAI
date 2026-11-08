@@ -21,7 +21,7 @@ import { ErrorState } from '@/components/common/ErrorState';
 import { TUMOR_LABEL_METADATA } from '@/constants/medicalLabels';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 import { formatDateVN, formatPercent } from '@/utils/formatters';
-import type { ChatSessionRecord, MRIAnalysisRecord } from '@/types/domain';
+import type { ChatMessageRecord, ChatSessionRecord, MRIAnalysisRecord } from '@/types/domain';
 
 const QUICK_SUGGESTED_QUESTIONS = [
   'U não Glioma là gì?',
@@ -53,6 +53,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [pendingUserMessage, setPendingUserMessage] = useState<ChatMessageRecord | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
@@ -161,7 +162,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [activeSession?.messages.length, isTyping]);
+  }, [activeSession?.messages.length, isTyping, pendingUserMessage]);
 
   const handleCreateNewSession = async () => {
     if (!user || createInFlightRef.current || sendInFlightRef.current || deleteInFlightRef.current) return;
@@ -246,17 +247,35 @@ export const AIMedicalChatbotPage: React.FC = () => {
     const targetUserId = user.id;
     sendInFlightRef.current = true;
 
+    // 1. Tạo tin nhắn người dùng tạm thời (Optimistic UI) để hiển thị ngay lập tức ở bên phải
+    const optimisticUserMsg: ChatMessageRecord = {
+      id: `pending-u-${Date.now()}`,
+      sessionId: targetSessionId,
+      sender: 'user',
+      createdAt: new Date().toISOString(),
+      content: trimmed,
+      urgency: 'informational',
+    };
+
+    setPendingUserMessage(optimisticUserMsg);
     setInputValue('');
     setSendError(null);
     setLastFailedQuestion(null);
     setIsTyping(true);
 
+    // Cuộn ngay xuống cuối trang để người dùng thấy câu hỏi và khung AI đang suy nghĩ
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+
     try {
       await neuroscanAdapter.sendChatMessage(targetSessionId, trimmed);
       const updatedList = await neuroscanAdapter.getChatSessions(targetUserId);
       setSessions(updatedList);
+      setPendingUserMessage(null);
     } catch (err) {
       setLastFailedQuestion(trimmed);
+      setPendingUserMessage(null);
       setSendError(
         err instanceof Error
           ? err.message
@@ -471,6 +490,12 @@ export const AIMedicalChatbotPage: React.FC = () => {
               <ChatMessage key={msg.id} message={msg} />
             ))}
 
+            {/* Câu hỏi người dùng vừa gửi (hiển thị ngay lập tức ở bên phải) */}
+            {pendingUserMessage && pendingUserMessage.sessionId === activeSession?.id && (
+              <ChatMessage message={pendingUserMessage} />
+            )}
+
+            {/* Khung suy luận AI RAG (hiển thị trực tiếp bên trái dưới câu hỏi) */}
             {isTyping && <SkeletonTypingMessage />}
 
             {sendError && (
