@@ -1,0 +1,33 @@
+{
+  "name": "neuroscan",
+  "compatibility_date": "2025-02-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "pages_build_output_dir": "./frontend/dist",
+  "ai": {
+    "binding": "AI"
+  },
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "neuroscan-vector-index"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "neuroscan-db",
+      "database_id": "1f8126ae-1d51-4484-b0e3-f1cba0f3a691"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "neuroscan-scans"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "CF_EMBEDDING_MODEL": "@cf/baai/bge-m3",
+    "CF_LLM_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+  }
+}

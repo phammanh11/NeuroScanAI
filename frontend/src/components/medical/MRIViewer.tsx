@@ -30,7 +30,7 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
   sessionCode,
   sanitizedFileName,
   dimensions,
-  isDemoFixture = true,
+  isDemoFixture = false,
 }) => {
   const [activeTab, setActiveTab] = useState<ViewTab>('original');
   const [zoom, setZoom] = useState<number>(1);

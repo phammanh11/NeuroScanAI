@@ -745,6 +745,19 @@ class InMemoryMockStore {
     };
   }
 
+  public appendCustomExchange(
+    sessionId: string,
+    userMsg: ChatMessageRecord,
+    assistantMsg: ChatMessageRecord
+  ): void {
+    const session = this.chatSessions.find((s) => s.id === sessionId);
+    if (session) {
+      session.messages.push(userMsg, assistantMsg);
+      this.trimChatMessages(session);
+      session.updatedAt = assistantMsg.createdAt;
+    }
+  }
+
   public getKnowledgeArticles(includeUnpublished = false) {
     const list = includeUnpublished
       ? KNOWLEDGE_ARTICLES_DATA

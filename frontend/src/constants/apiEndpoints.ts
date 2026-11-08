@@ -1,43 +1,31 @@
-const rawMockMode = String(import.meta.env.VITE_MOCK_MODE ?? 'true').trim().toLowerCase();
-const rawLatency = Number(import.meta.env.VITE_MOCK_LATENCY_MS ?? 550);
+const rawMockMode = String(import.meta.env.VITE_MOCK_MODE ?? 'false').trim().toLowerCase();
+const rawLatency = Number(import.meta.env.VITE_MOCK_LATENCY_MS ?? 300);
 
 export const ENV_CONFIG = {
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
-  MOCK_MODE: !['false', '0', 'no', 'off'].includes(rawMockMode),
-  MOCK_LATENCY_MS: Number.isFinite(rawLatency) && rawLatency >= 0 ? rawLatency : 550,
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  MOCK_MODE: ['true', '1', 'yes'].includes(rawMockMode),
+  MOCK_LATENCY_MS: Number.isFinite(rawLatency) && rawLatency >= 0 ? rawLatency : 300,
 } as const;
 
-/**
- * Danh sách các endpoint dự kiến kết nối với Backend FastAPI.
- * Đặt tập trung tại đây để dễ dàng điều chỉnh khi thống nhất hợp đồng API với nhóm Backend.
- */
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    FORGOT_PASSWORD: '/auth/forgot-password',
+    LOGOUT: '/auth/logout',
     ME: '/auth/me',
   },
   MRI: {
-    ANALYSES: '/mri/analyses',
-    ANALYSIS_DETAIL: (id: string) => `/mri/analyses/${id}`,
-    REQUEST_DOCTOR_REVIEW: (id: string) => `/mri/analyses/${id}/request-review`,
+    UPLOAD: '/mri/upload',
+    SCANS: '/mri/scans',
+    SCAN_DETAIL: (id: string | number) => `/mri/scans/${id}`,
+    REVIEW: (id: string | number) => `/mri/scans/${id}/review`,
   },
-  DOCTOR: {
-    CASES: '/doctor/cases',
-    CASE_DETAIL: (id: string) => `/doctor/cases/${id}`,
-    SUBMIT_REVIEW: (id: string) => `/doctor/cases/${id}/review`,
+  PATIENTS: {
+    LIST: '/patients',
+    DETAIL: (id: string | number) => `/patients/${id}`,
   },
   CHAT: {
-    SESSIONS: '/chat/sessions',
-    SESSION_DETAIL: (id: string) => `/chat/sessions/${id}`,
-    MESSAGES: '/chat/messages',
-  },
-  KNOWLEDGE: {
-    ARTICLES: '/knowledge/articles',
-    ARTICLE_DETAIL: (slug: string) => `/knowledge/articles/${slug}`,
-  },
-  PROFILE: {
-    UPDATE: '/users/me',
+    SEND: '/chat',
+    HISTORY: '/chat/history',
+    RAG_STATUS: '/chat/rag-status',
   },
 } as const;

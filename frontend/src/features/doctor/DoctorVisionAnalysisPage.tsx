@@ -493,7 +493,6 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
                 setAnalyzedRecord(null);
                 setCurrentStep('IDLE');
               }}
-              onUseSyntheticSample={(label) => handleSelectPreset(label)}
             />
 
             {/* Run Button */}

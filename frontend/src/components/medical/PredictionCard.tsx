@@ -15,7 +15,23 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({
   confidenceScore,
   isDemoFixture,
 }) => {
-  const meta = TUMOR_LABEL_METADATA[predictedLabel];
+  const meta = TUMOR_LABEL_METADATA[predictedLabel as TumorLabel] || {
+    label: 'Chờ nạp mô hình AI',
+    vietnameseTitle: 'Chờ nạp mô hình Deep Learning (Đang huấn luyện)',
+    anatomicalLocation: 'Lưu trữ đám mây Cloudflare R2',
+    overview:
+      'Ảnh chụp MRI đã được tải lên và lưu trữ bảo mật trên Cloudflare R2. Quá trình suy luận phân loại u não đang tạm hoãn chờ nạp bộ trọng số sau khi hoàn tất huấn luyện.',
+    keyPoints: [
+      'Ảnh MRI nguyên bản được lưu trữ vĩnh viễn và bảo mật tại Cloudflare R2.',
+      'Không tạo kết quả ngẫu nhiên hay giả lập tỷ lệ phần trăm khi mô hình chưa hoàn tất.',
+      'Sẵn sàng nạp API suy luận PyTorch/TensorFlow ngay khi quá trình train hoàn thành.',
+    ],
+    importantLimitation:
+      'Hệ thống tuân thủ nguyên tắc minh bạch y tế, không giả lập kết quả chẩn đoán.',
+    badgeColorClass:
+      'bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-500/30',
+    chartColor: '#0d9488',
+  };
 
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">

@@ -4,16 +4,13 @@ import {
   Menu,
   Bell,
   LogOut,
-  ArrowLeftRight,
   ChevronRight,
-  Bug,
   Home,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
-import { MOCK_ERROR_SIMULATION_EVENT } from '@/constants/appEvents';
 
 interface HeaderProps {
   onOpenMobileMenu: () => void;
@@ -35,16 +32,11 @@ const ROUTE_LABELS: Record<string, string> = {
 };
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
-  const { user, loginAsDemoRole, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { showToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
-
   const [showNotif, setShowNotif] = useState(false);
-  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
-  const [simError, setSimError] = useState(() =>
-    neuroscanAdapter.getControlledErrorSimulation(),
-  );
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -70,50 +62,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   }, [user?.preferences.doctorReviewAlerts]);
 
   const segments = location.pathname.split('/').filter(Boolean);
-
-  const handleQuickSwitchRole = async () => {
-    if (!user || isSwitchingRole) return;
-    const nextRole = user.role === 'USER' ? 'DOCTOR' : 'USER';
-    setIsSwitchingRole(true);
-    try {
-      await loginAsDemoRole(nextRole);
-      showToast({
-        variant: 'info',
-        title: `Đã chuyển sang tài khoản giả lập: ${nextRole}`,
-        description:
-          nextRole === 'DOCTOR'
-            ? 'Đang điều hướng tới Doctor Dashboard.'
-            : 'Đang điều hướng tới User Dashboard.',
-      });
-      navigate(nextRole === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard');
-    } catch (err) {
-      showToast({
-        variant: 'error',
-        title: 'Không thể chuyển vai trò khi đang bật mô phỏng lỗi mạng',
-        description: err instanceof Error ? err.message : undefined,
-      });
-    } finally {
-      setIsSwitchingRole(false);
-    }
-  };
-
-  const handleToggleSimError = () => {
-    const next = !simError;
-    neuroscanAdapter.setControlledErrorSimulation(next);
-    setSimError(next);
-    window.dispatchEvent(
-      new CustomEvent(MOCK_ERROR_SIMULATION_EVENT, { detail: { enabled: next } }),
-    );
-    showToast({
-      variant: next ? 'warning' : 'success',
-      title: next
-        ? 'Đã BẬT mô phỏng lỗi API có kiểm soát'
-        : 'Đã TẮT mô phỏng lỗi API',
-      description: next
-        ? 'Các thao tác gọi API tiếp theo sẽ trả về trạng thái Error để bạn kiểm thử nút Retry.'
-        : 'Các dịch vụ Mock hoạt động bình thường trở lại.',
-    });
-  };
 
   const handleLogout = () => {
     logout();
@@ -171,39 +119,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
       {/* Right actions */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Controlled Error Simulator Toggle */}
-        {neuroscanAdapter.isMockMode() && (
-          <button
-            type="button"
-            onClick={handleToggleSimError}
-            title="Bật/tắt giả lập lỗi API để kiểm thử ErrorState & nút Retry"
-            className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-              simError
-                ? 'bg-rose-600 text-white border-rose-600'
-                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <Bug className="w-3.5 h-3.5" />
-            <span>{simError ? 'Đang bật lỗi thử nghiệm' : 'Test lỗi API'}</span>
-          </button>
-        )}
-
-        {/* Quick RBAC Demo Role Switcher */}
-        {user && neuroscanAdapter.isMockMode() && (
-          <button
-            type="button"
-            disabled={isSwitchingRole}
-            onClick={handleQuickSwitchRole}
-            aria-busy={isSwitchingRole}
-            title="Chuyển nhanh giữa giao diện USER và DOCTOR trong chế độ Demo"
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/25 transition-colors"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Đổi vai trò Demo:</span>
-            <span>{user.role === 'USER' ? 'Sang Bác sĩ' : 'Sang Người dùng'}</span>
-          </button>
-        )}
-
         <ThemeToggle />
 
         {/* Notifications Dropdown */}
@@ -286,7 +201,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
             <button
               type="button"
-              disabled={isSwitchingRole}
               onClick={handleLogout}
               aria-label="Đăng xuất"
               title="Đăng xuất"

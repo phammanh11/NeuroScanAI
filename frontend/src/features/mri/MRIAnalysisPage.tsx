@@ -7,7 +7,6 @@ import {
   RotateCcw,
   ArrowRight,
   Info,
-  Sparkles,
   FileCheck,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -16,14 +15,11 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { ErrorState } from '@/components/common/ErrorState';
 import {
   MRIUploader,
-  createSyntheticDemoFile,
   getImageDimensions,
 } from '@/components/medical/MRIUploader';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
-import { DEMO_UPLOAD_FIXTURE_PRESETS } from '@/data/mockFixtures';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 import { formatBytes, sanitizeMedicalFileName } from '@/utils/formatters';
-import type { TumorLabel } from '@/types/domain';
 
 const PIPELINE_STEPS = [
   {
@@ -60,10 +56,6 @@ export const MRIAnalysisPage: React.FC = () => {
   const [previewLoadError, setPreviewLoadError] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [symptomNote, setSymptomNote] = useState('');
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(
-    DEMO_UPLOAD_FIXTURE_PRESETS[0].id,
-  );
-
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -112,20 +104,6 @@ export const MRIAnalysisPage: React.FC = () => {
     setCurrentStep(0);
   };
 
-  const handleUseSyntheticSample = (label: TumorLabel) => {
-    const { file, previewUrl: synthUrl } = createSyntheticDemoFile(label);
-    handleSelectFile(file, synthUrl);
-    const matchingPreset = DEMO_UPLOAD_FIXTURE_PRESETS.find((p) => p.label === label);
-    if (matchingPreset) {
-      setSelectedPresetId(matchingPreset.id);
-    }
-    showToast({
-      variant: 'info',
-      title: `Đã nạp ảnh MRI tổng hợp minh họa (${label})`,
-      description: 'Hãy tích chọn đồng ý xử lý dữ liệu và nhấn "Phân tích ảnh MRI".',
-    });
-  };
-
   const runAnalysis = async () => {
     if (!selectedFile || !previewUrl) {
       setValidationError('Vui lòng chọn hoặc nạp một file ảnh MRI hợp lệ trước khi phân tích.');
@@ -162,18 +140,16 @@ export const MRIAnalysisPage: React.FC = () => {
 
     try {
       setCurrentStep(1);
-      await new Promise((r) => setTimeout(r, 380));
+      await new Promise((r) => setTimeout(r, 200));
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(2);
-      await new Promise((r) => setTimeout(r, 420));
+      await new Promise((r) => setTimeout(r, 200));
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(3);
 
       const imageDimensions = await getImageDimensions(previewUrl);
       if (runId !== analysisRunRef.current || abortController.signal.aborted) return;
 
-      // Mock store sở hữu một Blob URL riêng. Cách này tránh nhân bản chuỗi base64 lớn
-      // mỗi lần clone state và URL sẽ được thu hồi khi bản ghi bị xóa.
       const durablePreviewUrl =
         neuroscanAdapter.isMockMode() && previewUrl.startsWith('blob:')
           ? (ownedRecordUrl = URL.createObjectURL(selectedFile))
@@ -184,7 +160,6 @@ export const MRIAnalysisPage: React.FC = () => {
           file: selectedFile,
           consentAccepted: consentChecked,
           symptomNote,
-          selectedDemoPresetId: selectedPresetId,
           imageDimensions,
         },
         user,
@@ -195,28 +170,26 @@ export const MRIAnalysisPage: React.FC = () => {
 
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(4);
-      await new Promise((r) => setTimeout(r, 280));
+      await new Promise((r) => setTimeout(r, 200));
       if (runId !== analysisRunRef.current) return;
 
       showToast({
         variant: 'success',
-        title: `Đã tạo phiên phân tích ${createdRecord.sessionCode}`,
-        description: `Nhãn minh họa: ${createdRecord.predictedLabel} (Kết quả minh họa).`,
+        title: `Đã lưu phim chụp ${createdRecord.sessionCode} vào Cloudflare R2`,
+        description: 'Tình trạng: Đã lưu trữ an toàn, chờ nạp trọng số mô hình AI.',
       });
       navigate(`/mri-results/${createdRecord.id}`);
     } catch (err) {
       if (abortController.signal.aborted) return;
       setApiError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể hoàn tất yêu cầu phân tích. Vui lòng thử lại.',
+        err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải ảnh MRI lên máy chủ.',
       );
-      setCurrentStep(0);
     } finally {
-      if (ownedRecordUrl && !recordCreated) URL.revokeObjectURL(ownedRecordUrl);
       if (runId === analysisRunRef.current) {
         setIsAnalyzing(false);
-        analysisAbortRef.current = null;
+      }
+      if (!recordCreated && ownedRecordUrl) {
+        URL.revokeObjectURL(ownedRecordUrl);
       }
     }
   };
@@ -250,42 +223,8 @@ export const MRIAnalysisPage: React.FC = () => {
               onSelectFile={handleSelectFile}
               onValidationError={setValidationError}
               onClearFile={handleClearFile}
-              onUseSyntheticSample={handleUseSyntheticSample}
               onValidationStateChange={setIsValidatingFile}
             />
-
-            {/* Deterministic Fixture Selector for Mock Mode */}
-            {neuroscanAdapter.isMockMode() && (
-              <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-500/30 space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-300">
-                    <Sparkles className="w-4 h-4" />
-                    Cấu hình Kết quả Minh họa Cố định (Mock Fixture Mode)
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-900 dark:text-amber-200">
-                    KHÔNG RANDOM
-                  </span>
-                </div>
-                <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
-                  Theo quy tắc an toàn y tế, chế độ Mock{' '}
-                  <strong>không tự sinh kết quả lâm sàng từ tên file, màu sắc ảnh hay ngẫu nhiên</strong>
-                  . Bạn có thể chọn trước bộ kết quả cố định muốn kiểm thử dưới đây:
-                </p>
-                <select
-                  aria-label="Chọn bộ kết quả minh họa cố định"
-                  value={selectedPresetId}
-                  disabled={isAnalyzing}
-                  onChange={(e) => setSelectedPresetId(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-amber-500/40 bg-white dark:bg-slate-900 text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  {DEMO_UPLOAD_FIXTURE_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             {/* Optional Symptom / Context Note */}
             <div className="space-y-1.5">

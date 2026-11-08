@@ -61,12 +61,17 @@ const CustomProbabilityTooltip: React.FC<CustomTooltipProps> = ({ active, payloa
 
 export const ProbabilityChart: React.FC<ProbabilityChartProps> = ({
   probabilities,
-  isDemoFixture = true,
+  isDemoFixture = false,
 }) => {
   if (!probabilities) {
     return (
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-sm text-slate-500 dark:text-slate-400">
-        Backend chưa trả về phân bố xác suất chi tiết của 4 lớp cho phiên này.
+      <div className="rounded-2xl border border-dashed border-teal-500/40 bg-teal-50/50 dark:bg-teal-950/20 p-5 sm:p-6 text-xs sm:text-sm text-teal-950 dark:text-teal-200 space-y-2">
+        <div className="flex items-center gap-2 font-bold text-teal-800 dark:text-teal-300">
+          <span>Biểu đồ Phân bố Xác suất (Chờ nạp trọng số mô hình)</span>
+        </div>
+        <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+          Ảnh chụp MRI đã được tải lên và lưu trữ an toàn trên Cloudflare R2. Tỷ lệ phân bố xác suất 4 lớp (Glioma, Meningioma, Pituitary, No Tumor) sẽ tự động kích hoạt ngay khi mô hình hoàn tất quá trình huấn luyện.
+        </p>
       </div>
     );
   }

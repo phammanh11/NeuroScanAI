@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  UserCheck,
   Stethoscope,
   ShieldCheck,
   ArrowLeft,
@@ -43,8 +42,8 @@ export const LoginPage: React.FC = () => {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: DEMO_USERS.USER.email,
-      password: 'demo-password-2026',
+      email: 'demo.doctor@neuroscan.vn',
+      password: 'Doctor@123',
     },
   });
 
@@ -58,7 +57,7 @@ export const LoginPage: React.FC = () => {
         description: `Xin chào ${profile.fullName}`,
       });
       const from = (location.state as { from?: string } | null)?.from;
-      navigate(from || (profile.role === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard'), {
+      navigate(from || '/doctor/dashboard', {
         replace: true,
       });
     } catch (err) {
@@ -66,24 +65,23 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickDemoLogin = async (role: 'USER' | 'DOCTOR') => {
+  const handleQuickDemoLogin = async () => {
     setFormError(null);
     try {
-      const demoProfile = DEMO_USERS[role];
-      setValue('email', demoProfile.email);
-      setValue('password', 'demo-password-2026');
-      const profile = await loginAsDemoRole(role);
+      setValue('email', 'demo.doctor@neuroscan.vn');
+      setValue('password', 'Doctor@123');
+      const profile = await loginAsDemoRole('DOCTOR');
       showToast({
         variant: 'success',
-        title: `Đã đăng nhập Tài khoản Giả lập (${role})`,
+        title: `Đã đăng nhập Tài khoản Kiểm thử (DOCTOR)`,
         description: profile.fullName,
       });
       const from = (location.state as { from?: string } | null)?.from;
-      navigate(from || (role === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard'), {
+      navigate(from || '/doctor/dashboard', {
         replace: true,
       });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Không thể đăng nhập tài khoản Demo.');
+      setFormError(err instanceof Error ? err.message : 'Không thể đăng nhập tài khoản kiểm thử.');
     }
   };
 
@@ -115,38 +113,28 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Two Demo Accounts Box */}
+          {/* Single Test Account Box (Doctor Role) */}
           <div className="p-4 rounded-2xl bg-teal-50/70 dark:bg-teal-950/25 border border-teal-500/25 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
-                Tài khoản Giả lập Kiểm thử (Mock Mode)
+                Tài khoản Kiểm thử Toàn quyền (Test Doctor)
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-800 dark:text-amber-300">
-                TÀI KHOẢN GIẢ LẬP
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-800 dark:text-sky-300">
+                ROLE: DOCTOR
               </span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Chọn nhanh một trong hai vai trò dưới đây để kiểm thử giao diện và phân quyền route:
+              Tài khoản kiểm thử đầy đủ quyền truy cập (Upload MRI lên Cloudflare R2, Phân tích Computer Vision, Chatbot RAG Y tế, Quản lý Bệnh nhân):
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
               <button
                 type="button"
                 disabled={isLoading}
-                onClick={() => handleQuickDemoLogin('USER')}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-teal-600 hover:text-white dark:hover:bg-teal-600 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 transition-colors"
+                onClick={handleQuickDemoLogin}
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow transition-all"
               >
-                <UserCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>Demo USER (Người bệnh)</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleQuickDemoLogin('DOCTOR')}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-sky-600 hover:text-white dark:hover:bg-sky-600 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 transition-colors"
-              >
-                <Stethoscope className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <span>Demo DOCTOR (Bác sĩ)</span>
+                <Stethoscope className="w-4 h-4 text-white" />
+                <span>Đăng nhập nhanh: BS.CKII Trần Quốc Bảo (Bác sĩ Chuyên khoa)</span>
               </button>
             </div>
           </div>
