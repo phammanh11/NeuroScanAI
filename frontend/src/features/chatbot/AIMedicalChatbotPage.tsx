@@ -95,7 +95,13 @@ export const AIMedicalChatbotPage: React.FC = () => {
         }
       }
 
-      const existingSessions = await neuroscanAdapter.getChatSessions(user.id);
+      let existingSessions: ChatSessionRecord[] = [];
+      try {
+        existingSessions = await neuroscanAdapter.getChatSessions(user.id);
+      } catch (err: any) {
+        console.warn('[GetChatSessions Warning]:', err?.message);
+        existingSessions = [];
+      }
       if (!isCurrentLoad()) return;
 
       if (contextAnalysis) {

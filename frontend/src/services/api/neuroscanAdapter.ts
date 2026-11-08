@@ -120,12 +120,12 @@ export const neuroscanAdapter = {
         const token = data.data.token;
         setHttpAuthToken(token);
 
-        return {
+        const authSession: AuthSession = {
           user: {
             id: String(u.id),
             email: u.email,
             fullName: u.full_name,
-            role: u.role || 'DOCTOR',
+            role: (u.role as UserRole) || 'DOCTOR',
             specialty: u.specialty,
             organizationOrUnit: u.organization,
             phone: u.phone,
@@ -141,6 +141,11 @@ export const neuroscanAdapter = {
           accessTokenDemo: token,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         };
+
+        // Đồng bộ phiên đăng nhập vào mockStore cho các hàm fallback
+        mockStore.setCurrentSession(authSession);
+
+        return authSession;
       }
     } catch (err: any) {
       console.warn('[API Login Error, falling back to local fallback]:', err?.message);
