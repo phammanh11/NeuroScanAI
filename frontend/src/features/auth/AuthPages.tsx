@@ -177,19 +177,19 @@ export const LoginPage: React.FC = () => {
       {/* Right Column: Compact, Scroll-Free Login Form (7 cols on lg, 6 cols on xl) */}
       <div className="lg:col-span-7 xl:col-span-6 flex flex-col justify-between p-4 sm:p-6 lg:p-8 xl:p-10 h-full overflow-y-auto lg:overflow-hidden">
         {/* Top Navigation */}
-        <div className="flex items-center justify-between w-full shrink-0">
+        <div className="flex items-center justify-between w-full shrink-0 mb-2">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-teal-600 transition-colors"
+            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-150 active:scale-98 group"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:-translate-x-0.5 transition-all" />
             <span>Về trang giới thiệu</span>
           </Link>
           <ThemeToggle />
         </div>
 
         {/* Center Card Content */}
-        <div className="w-full max-w-md mx-auto my-auto py-2 sm:py-4 space-y-3.5">
+        <div className="w-full max-w-md mx-auto my-auto p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3.5">
           <div className="text-center space-y-1">
             <div className="lg:hidden w-10 h-10 mx-auto rounded-2xl bg-navy-800 dark:bg-teal-600 text-white flex items-center justify-center shadow-xs mb-2">
               <Brain className="w-5 h-5" />
@@ -424,9 +424,9 @@ export const RegisterPage: React.FC = () => {
       <div className="p-4 sm:p-6 flex items-center justify-between max-w-6xl w-full mx-auto">
         <Link
           to="/login"
-          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-teal-600"
+          className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-150 active:scale-98 group"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:-translate-x-0.5 transition-all" />
           <span>Quay lại Đăng nhập</span>
         </Link>
         <ThemeToggle />
@@ -626,9 +626,9 @@ export const ForgotPasswordPage: React.FC = () => {
       <div className="p-4 sm:p-6 flex items-center justify-between max-w-6xl w-full mx-auto">
         <Link
           to="/login"
-          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-teal-600"
+          className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-150 active:scale-98 group"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:-translate-x-0.5 transition-all" />
           <span>Quay lại Đăng nhập</span>
         </Link>
         <ThemeToggle />
