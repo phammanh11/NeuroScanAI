@@ -1,5 +1,5 @@
 import type { WorkerEnv } from '../db/init';
-import type { ChatHistoryItem, RagChunk } from '../../shared/types';
+import type { ChatHistoryItem, FaqDocument } from '../../shared/types';
 
 export const DEFAULT_CF_EMBEDDING_MODEL = '@cf/baai/bge-m3';
 export const DEFAULT_CF_LLM_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -22,7 +22,7 @@ export interface RagSearchResult {
   embeddingModel: string;
   vectorBackend: string;
   totalChunksIndexed: number;
-  topChunks: RagChunk[];
+  topChunks: FaqDocument[];
 }
 
 export async function searchVectorDB(
@@ -32,12 +32,18 @@ export async function searchVectorDB(
 ): Promise<RagSearchResult> {
   const embeddingModel = env.CF_EMBEDDING_MODEL || DEFAULT_CF_EMBEDDING_MODEL;
 
-  // 1. Lấy danh sách chunks từ D1 database
-  const { results: allChunks } = await env.DB.prepare(
-    'SELECT chunk_id, title, category, content, source, embedding_json FROM rag_chunks'
-  ).all<RagChunk>();
+  // 1. Lấy danh sách tài liệu từ D1 database (faq_documents)
+  let allChunks: FaqDocument[] = [];
+  try {
+    const res = (await env.DB.prepare(
+      'SELECT id, title, category, content, source FROM faq_documents'
+    ).all()) as any;
+    allChunks = res.results || [];
+  } catch {
+    allChunks = [];
+  }
 
-  const totalChunks = allChunks?.length || 0;
+  const totalChunks = allChunks.length;
   if (totalChunks === 0) {
     return {
       embeddingModel,
@@ -51,9 +57,8 @@ export async function searchVectorDB(
   let queryVector: number[] | null = null;
   if (env.AI && typeof env.AI.run === 'function') {
     try {
-      const embedRes = await env.AI.run(embeddingModel, {
-        text: [query],
-      });
+      const options = env.AI_GATEWAY_ID ? { gateway: { id: env.AI_GATEWAY_ID } } : undefined;
+      const embedRes = await env.AI.run(embeddingModel, { text: [query] }, options);
       if (embedRes && Array.isArray(embedRes.data) && embedRes.data[0]) {
         queryVector = embedRes.data[0];
       }
@@ -67,9 +72,9 @@ export async function searchVectorDB(
     try {
       const vecMatches = await env.VECTORIZE.query(queryVector, { topK });
       if (vecMatches?.matches && vecMatches.matches.length > 0) {
-        const matchedChunks: RagChunk[] = [];
+        const matchedChunks: FaqDocument[] = [];
         for (const match of vecMatches.matches) {
-          const found = allChunks.find((c) => c.chunk_id === match.id);
+          const found = allChunks.find((c) => String(c.id) === String(match.id));
           if (found) {
             matchedChunks.push({ ...found, similarity: match.score });
           }
@@ -88,24 +93,15 @@ export async function searchVectorDB(
     }
   }
 
-  // 4. Fallback tính độ tương đồng từ vựng & cosine similarity với D1
+  // 4. Fallback đối chiếu từ vựng & ngữ nghĩa y khoa
+  const qWords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
   const scoredChunks = allChunks.map((chunk) => {
-    let score = 0;
-    if (queryVector && chunk.embedding_json) {
-      try {
-        const storedVector = JSON.parse(chunk.embedding_json);
-        score = cosineSimilarity(queryVector, storedVector);
-      } catch {}
-    } else {
-      // Từ khóa đối chiếu từ vựng nếu chưa có vector số thực
-      const qWords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-      const text = `${chunk.title} ${chunk.content} ${chunk.category}`.toLowerCase();
-      let matchCount = 0;
-      for (const w of qWords) {
-        if (text.includes(w)) matchCount++;
-      }
-      score = qWords.length > 0 ? matchCount / qWords.length : 0;
+    const text = `${chunk.title} ${chunk.content} ${chunk.category}`.toLowerCase();
+    let matchCount = 0;
+    for (const w of qWords) {
+      if (text.includes(w)) matchCount++;
     }
+    const score = qWords.length > 0 ? matchCount / qWords.length : 0;
     return { ...chunk, similarity: score };
   });
 
@@ -113,7 +109,7 @@ export async function searchVectorDB(
 
   return {
     embeddingModel,
-    vectorBackend: queryVector ? 'Cloudflare D1 In-Database Vector Search' : 'Lexical & Semantic Matcher',
+    vectorBackend: queryVector ? 'Cloudflare Workers AI In-Database Embedding' : 'Lexical & Semantic Matcher',
     totalChunksIndexed: totalChunks,
     topChunks: scoredChunks.slice(0, topK),
   };
@@ -122,7 +118,7 @@ export async function searchVectorDB(
 export async function generateRagLLMResponse(
   env: WorkerEnv,
   userMessage: string,
-  contextChunks: RagChunk[],
+  contextChunks: FaqDocument[],
   history: ChatHistoryItem[] = []
 ): Promise<{ reply: string | null; llmModelUsed: string }> {
   const cfLlmModel = env.CF_LLM_MODEL || DEFAULT_CF_LLM_MODEL;
@@ -134,19 +130,19 @@ export async function generateRagLLMResponse(
     )
     .join('\n\n');
 
-  const systemPrompt = `Bạn là Trợ lý AI Y tế Chuyên khoa Thần kinh (NeuroScan AI Medical Assistant).
-Nhiệm vụ của bạn là giải thích kiến thức y khoa về hình ảnh cộng hưởng từ (MRI) não, phân loại u não (Glioma, Meningioma, Pituitary Adenoma), ý nghĩa các chuỗi xung (T1, T2, FLAIR, T1-Gd) theo chuẩn phân loại WHO CNS5 (2021) và hướng dẫn sơ bộ cho bệnh nhân/bác sĩ.
+  const systemPrompt = `Bạn là Trợ lý AI Y tế Chuyên khoa Thần kinh (NeuroScan AI Medical Assistant), triển khai trên nền tảng Cloudflare Edge.
+Nhiệm vụ của bạn là giải thích kiến thức y khoa về hình ảnh cộng hưởng từ (MRI) não, phân loại 4 lớp u não (Glioma, Meningioma, Pituitary, No Tumor), ý nghĩa các chuỗi xung (T1, T2, FLAIR, T1-Gd) theo chuẩn WHO CNS5 và hướng dẫn tham khảo cho bệnh nhân và bác sĩ.
 
 QUY TẮC Y TẾ BẮT BUỘC:
 1. Luôn giữ thái độ chuẩn mực, khoa học, khách quan và thận trọng.
 2. Nêu rõ: "Thông tin do Trợ lý AI cung cấp chỉ mang tính chất tham khảo học thuật và định hướng y tế, không thay thế chẩn đoán xác định của Bác sĩ chuyên khoa thần kinh".
-3. Nếu phát hiện triệu chứng cấp cứu nghiêm trọng (đau đầu sét đánh, co giật, méo miệng/yếu liệt FAST, mất ý thức), lập tức khuyến cáo gọi cấp cứu 115 hoặc đến bệnh viện khẩn cấp.
+3. Nếu phát hiện triệu chứng cấp cứu thần kinh nghiêm trọng (đau đầu sét đánh, co giật, méo miệng/yếu liệt FAST, mất ý thức), lập tức khuyến cáo gọi cấp cứu 115 hoặc đến bệnh viện khẩn cấp.
 4. Trả lời bằng tiếng Việt rõ ràng, dùng gạch đầu dòng ngắn gọn, nêu tên nguồn tài liệu (WHO, NCI, NHS) khi phù hợp.
 
-DỮ LIỆU TRI THỨC Y KHOA ĐÃ XÁC THỰC TỪ VECTOR DATABASE:
+DỮ LIỆU TRI THỨC Y KHOA ĐÃ XÁC THỰC TỪ VECTOR DATABASE (FAQ DOCUMENTS):
 ${contextText}`;
 
-  // 1. Ưu tiên 1: Cloudflare Workers AI LLM
+  // 1. Ưu tiên 1: Cloudflare Workers AI LLM (qua AI Gateway nếu có cấu hình)
   if (env.AI && typeof env.AI.run === 'function') {
     try {
       const messages = [
@@ -158,11 +154,16 @@ ${contextText}`;
         { role: 'user', content: userMessage },
       ];
 
-      const res = await env.AI.run(cfLlmModel, {
-        messages,
-        max_tokens: 1024,
-        temperature: 0.2,
-      });
+      const options = env.AI_GATEWAY_ID ? { gateway: { id: env.AI_GATEWAY_ID } } : undefined;
+      const res = await env.AI.run(
+        cfLlmModel,
+        {
+          messages,
+          max_tokens: 1024,
+          temperature: 0.2,
+        },
+        options
+      );
 
       const responseText =
         typeof res === 'string'
@@ -225,7 +226,7 @@ ${contextText}`;
 
     return {
       reply: `🩺 **Thông tin y khoa đối chiếu từ cơ sở dữ liệu chuyên ngành (${mainChunk.source}):**\n\n${mainChunk.content}${extraInfo}\n\n*Lưu ý: Mọi kết luận chẩn đoán u não và hướng điều trị cần được bác sĩ chuyên khoa chẩn đoán hình ảnh và ngoại thần kinh chỉ định dựa trên phim chụp thực tế.*`,
-      llmModelUsed: 'Internal Clinical Knowledge Synthesizer (RAG Grounded)',
+      llmModelUsed: 'Clinical Knowledge Grounding (RAG Grounded)',
     };
   }
 
@@ -234,4 +235,3 @@ ${contextText}`;
     llmModelUsed: 'none',
   };
 }
-

@@ -1,4 +1,4 @@
-export type UserRole = 'USER' | 'DOCTOR';
+export type UserRole = 'USER' | 'DOCTOR' | 'ADMIN' | 'patient' | 'doctor' | 'admin';
 
 export type TumorLabel = 'Glioma' | 'Meningioma' | 'Pituitary' | 'No Tumor';
 
@@ -53,6 +53,7 @@ export interface DoctorClinicalReview {
   doctorId: string;
   doctorName: string;
   doctorSpecialty: string;
+  confirmedLabel?: TumorLabel;
   status: Exclude<DoctorReviewStatus, 'NONE'>;
   aiAssessment: AIAssessmentVerdict;
   clinicalNoteForPatient: string;
@@ -248,6 +249,7 @@ export interface RequestDoctorReviewPayload {
 
 export interface SubmitDoctorReviewPayload {
   analysisId: string;
+  confirmedLabel?: TumorLabel;
   status: Exclude<DoctorReviewStatus, 'NONE'>;
   aiAssessment: AIAssessmentVerdict;
   clinicalNoteForPatient: string;

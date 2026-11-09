@@ -1,351 +1,509 @@
-// Fallback Store: Cung cấp bộ giả lập in-memory cho D1, R2 và Vectorize
+// Fallback Store: Cung cấp bộ giả lập in-memory cho D1, R2, KV và Vectorize
 // Giúp môi trường phát triển cục bộ và fallback Edge không bao giờ bị sập (500)
 
-import type { User, Patient, MriScan, RagChunk } from '../../shared/types';
+import type { User, MriScan, Prediction, DoctorReview, ChatSession, ChatMessage, FaqDocument } from '../../shared/types';
 import { hashPassword } from '../utils/crypto';
 
 export interface MemoryStore {
-  users: User[];
-  sessions: any[];
-  patients: Patient[];
-  mri_scans: MriScan[];
-  rag_chunks: RagChunk[];
+  users: any[];
+  patients: any[];
+  doctors: any[];
+  mri_scans: any[];
+  predictions: any[];
+  doctor_reviews: any[];
+  chat_sessions: any[];
   chat_messages: any[];
+  faq_documents: any[];
+  kv: Map<string, { value: string; expiresAt?: number }>;
   r2_objects: Map<string, { data: Uint8Array; contentType: string; metadata?: any }>;
 }
 
 export const memoryStore: MemoryStore = {
-  users: [],
-  sessions: [],
-  patients: [
+  users: [
     {
       id: 1,
-      mrn: 'NS-BN-2026-001',
-      full_name: 'Lê Văn Hoàng',
-      age: 48,
-      gender: 'Nam',
-      phone: '0912 345 678',
-      email: 'hoang.le@email.vn',
-      address: 'Quận 5, TP. Hồ Chí Minh',
-      clinical_history: 'Tiền sử tăng huyết áp nhẹ, không có bệnh nền mạn tính khác.',
-      symptoms: 'Đau đầu âm ỉ vùng thái dương trái kéo dài 3 tuần, tăng khi thức dậy.',
-      status: 'Đang theo dõi',
-      last_scan_date: '2026-10-28 09:15:00',
-      created_at: '2026-10-28 09:15:00',
-      updated_at: '2026-10-28 09:15:00',
+      email: 'demo.doctor@neuroscan.vn',
+      full_name: 'BS.CKII Trần Quốc Bảo',
+      password_hash: '888a7c2e0b57e79c6d3bc0a03bb3c383e20606995079a4087e59670eb82088b3',
+      password_salt: 'neuro_salt_2026',
+      role: 'doctor',
+      created_at: '2026-08-01 08:00:00',
     },
     {
       id: 2,
-      mrn: 'NS-BN-2026-002',
-      full_name: 'Nguyễn Thị Mai',
-      age: 54,
-      gender: 'Nữ',
-      phone: '0983 221 456',
-      email: 'mai.nguyen@email.vn',
-      address: 'Ba Đình, Hà Nội',
-      clinical_history: 'Mãn kinh 3 năm, có triệu chứng giảm thị lực góc ngoài mắt phải.',
-      symptoms: 'Nhìn mờ bán manh thái dương hai mắt nhẹ, mệt mỏi buổi sáng.',
-      status: 'Chờ phân tích',
-      last_scan_date: '2026-11-01 14:30:00',
-      created_at: '2026-11-01 14:30:00',
-      updated_at: '2026-11-01 14:30:00',
+      email: 'demo.user@neuroscan.vn',
+      full_name: 'Nguyễn Minh An',
+      password_hash: 'e81255e4bf51a7e937d94cf212b77fcb2933be7be12269c2df36e053d2bb0c49',
+      password_salt: 'neuro_salt_2026',
+      role: 'patient',
+      created_at: '2026-09-15 08:30:00',
     },
     {
       id: 3,
-      mrn: 'NS-BN-2026-003',
-      full_name: 'Phạm Đức Huy',
-      age: 39,
-      gender: 'Nam',
-      phone: '0908 776 543',
-      email: 'huy.pham@email.vn',
-      address: 'Hải Châu, Đà Nẵng',
-      clinical_history: 'Theo dõi sức khỏe thần kinh định kỳ hàng năm.',
-      symptoms: 'Không ghi nhận triệu chứng thần kinh khu trú, sức khỏe ổn định.',
-      status: 'Đã chẩn đoán',
-      last_scan_date: '2026-11-05 10:00:00',
-      created_at: '2026-11-05 10:00:00',
-      updated_at: '2026-11-05 10:00:00',
+      email: 'admin@neuroscan.vn',
+      full_name: 'Quản trị viên Hệ thống',
+      password_hash: 'fbcf02fe1ba1dc718797926b4843b0d2a84e62a3ea4279b32938cf7873a46698',
+      password_salt: 'neuro_salt_2026',
+      role: 'admin',
+      created_at: '2026-01-01 00:00:00',
+    },
+  ],
+  doctors: [
+    {
+      user_id: 1,
+      specialty: 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)',
+      license_no: 'CCHN-2026-NEURO-8841',
+      organization: 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh',
+      phone: '0909 000 222',
+      created_at: '2026-08-01 08:00:00',
+    },
+  ],
+  patients: [
+    {
+      user_id: 2,
+      date_of_birth: '1981-05-12',
+      phone: '0912 345 678',
+      created_at: '2026-09-15 08:30:00',
     },
   ],
   mri_scans: [
     {
       id: 1,
-      scan_code: 'SCAN-2026-001',
-      patient_id: 1,
-      patient_name: 'Lê Văn Hoàng',
-      file_name: 'patient_hoang_t1gd_axial.png',
-      file_key: 'scans/demo_hoang_t1gd_axial.png',
-      file_url: '/api/v1/files/scans/demo_hoang_t1gd_axial.png',
+      patient_id: 2,
+      r2_key: 'scans/demo_glioma_t1ce.png',
+      file_name: 'patient_an_axial_t1ce.png',
       file_size: 245890,
       mime_type: 'image/png',
       slice_type: 'Axial (Trục ngang)',
       sequence_type: 'T1-Gd (Contrast)',
-      status: 'PENDING_MODEL',
-      findings_summary:
-        'Ảnh chụp MRI đã được tải lên và lưu trữ an toàn trên Cloudflare R2. Tình trạng phân loại AI đang tạm chờ nạp trọng số mô hình sau huấn luyện.',
-      doctor_notes: '',
-      doctor_approved: 0,
-      created_at: '2026-10-28 09:20:00',
-      updated_at: '2026-10-28 09:20:00',
+      uploaded_at: '2026-10-28 09:15:00',
     },
     {
       id: 2,
-      scan_code: 'SCAN-2026-002',
       patient_id: 2,
-      patient_name: 'Nguyễn Thị Mai',
-      file_name: 'patient_mai_flair_sagittal.png',
-      file_key: 'scans/demo_mai_flair_sagittal.png',
-      file_url: '/api/v1/files/scans/demo_mai_flair_sagittal.png',
+      r2_key: 'scans/demo_meningioma_t1ce.png',
+      file_name: 'patient_an_dural_sagittal.png',
       file_size: 312450,
       mime_type: 'image/png',
       slice_type: 'Sagittal (Mặt cắt dọc)',
+      sequence_type: 'T1-Gd (Contrast)',
+      uploaded_at: '2026-11-01 14:30:00',
+    },
+    {
+      id: 3,
+      patient_id: 2,
+      r2_key: 'scans/demo_notumor_flair.png',
+      file_name: 'patient_an_normal_flair.png',
+      file_size: 198760,
+      mime_type: 'image/png',
+      slice_type: 'Axial (Trục ngang)',
       sequence_type: 'T2-FLAIR',
-      status: 'PENDING_MODEL',
-      findings_summary:
-        'Ảnh chụp MRI đã được tải lên và lưu trữ an toàn trên Cloudflare R2. Tình trạng phân loại AI đang tạm chờ nạp trọng số mô hình sau huấn luyện.',
-      doctor_notes: '',
-      doctor_approved: 0,
-      created_at: '2026-11-01 14:35:00',
-      updated_at: '2026-11-01 14:35:00',
+      uploaded_at: '2026-11-05 10:00:00',
     },
   ],
-  rag_chunks: [
+  predictions: [
     {
-      chunk_id: 'kb-glioma-classification',
+      id: 1,
+      scan_id: 1,
+      label: 'Glioma',
+      confidence: 0.892,
+      probabilities: JSON.stringify({ Glioma: 0.892, Meningioma: 0.054, Pituitary: 0.021, 'No Tumor': 0.033 }),
+      model_version: 'brain_mri_student_v1_onnx',
+      inference_time_ms: 45,
+      created_at: '2026-10-28 09:15:05',
+    },
+    {
+      id: 2,
+      scan_id: 2,
+      label: 'Meningioma',
+      confidence: 0.865,
+      probabilities: JSON.stringify({ Glioma: 0.048, Meningioma: 0.865, Pituitary: 0.032, 'No Tumor': 0.055 }),
+      model_version: 'brain_mri_student_v1_onnx',
+      inference_time_ms: 42,
+      created_at: '2026-11-01 14:30:04',
+    },
+    {
+      id: 3,
+      scan_id: 3,
+      label: 'No Tumor',
+      confidence: 0.941,
+      probabilities: JSON.stringify({ Glioma: 0.012, Meningioma: 0.018, Pituitary: 0.029, 'No Tumor': 0.941 }),
+      model_version: 'brain_mri_student_v1_onnx',
+      inference_time_ms: 38,
+      created_at: '2026-11-05 10:00:03',
+    },
+  ],
+  doctor_reviews: [
+    {
+      id: 1,
+      prediction_id: 1,
+      doctor_id: 1,
+      confirmed_label: 'Glioma',
+      note: 'Vùng tổn thương ngấm thuốc dạng viền thùy trán - thái dương trái phù hợp hình ảnh Glioma bậc cao. Khuyến nghị chụp thêm MRI phổ (MRS) và hội chẩn ngoại thần kinh.',
+      ai_assessment: 'CONCORDANT',
+      recommended_step: 'Chụp MRI phổ (MRS) và sinh thiết vi phẫu',
+      created_at: '2026-10-28 11:20:00',
+    },
+  ],
+  chat_sessions: [
+    {
+      id: 1,
+      user_id: 2,
+      title: 'Hỏi về kết quả MRI Glioma',
+      linked_prediction_id: 1,
+      created_at: '2026-10-28 09:20:00',
+    },
+  ],
+  chat_messages: [
+    {
+      id: 1,
+      session_id: 1,
+      sender: 'user',
+      content: 'U tế bào thần kinh đệm (Glioma) có nguy hiểm không bác sĩ?',
+      is_emergency: 0,
+      created_at: '2026-10-28 09:20:05',
+    },
+    {
+      id: 2,
+      session_id: 1,
+      sender: 'bot',
+      content: 'U tế bào thần kinh đệm (Glioma) bắt nguồn từ các tế bào nâng đỡ trong não bộ. Mức độ nguy hiểm phụ thuộc vào độ ác tính theo WHO CNS5 (Độ 1 đến Độ 4). Bệnh nhân cần được bác sĩ chuyên khoa thần kinh thăm khám trực tiếp để lên phác đồ điều trị phù hợp.',
+      is_emergency: 0,
+      created_at: '2026-10-28 09:20:10',
+    },
+  ],
+  faq_documents: [
+    {
+      id: 1,
       title: 'Phân loại U tế bào thần kinh đệm (Glioma) theo WHO 2021',
+      content: 'U tế bào thần kinh đệm (Glioma) bắt nguồn từ các tế bào nâng đỡ (glial cells) trong não bộ. Theo phân loại WHO CNS5 (2021), Glioma được phân tầng từ Độ 1 đến Độ 4, kết hợp hình thái mô học và dấu ấn phân tử như đột biến gen IDH và mất đoạn 1p/19q. Glioblastoma (Độ 4) là dạng tiến triển nhanh nhất, thường có vùng hoại tử trung tâm và bắt thuốc viền dày không đều trên phim T1-Gd.',
+      source: 'WHO CNS5 (2021) Classification of Tumors of the Central Nervous System',
       category: 'tumor_types',
-      source: 'WHO CNS5 (2021)',
-      content:
-        'U tế bào thần kinh đệm (Glioma) bắt nguồn từ các tế bào đệm (glial cells) trong não. Phân loại WHO CNS5 (2021) phân tầng từ Độ 1 đến Độ 4 (Grade 1 - 4), kết hợp hình thái mô học và đột biến gen IDH, mất đoạn 1p/19q. Glioblastoma (GBM - Độ 4) là dạng tiến triển nhanh nhất, thường xuất hiện vùng hoại tử trung tâm và bắt thuốc viền dày không đều trên phim MRI T1-Gd tiêm đối quang từ.',
     },
     {
-      chunk_id: 'kb-meningioma-classification',
-      title: 'U màng não (Meningioma) và đặc điểm chẩn đoán hình ảnh MRI',
+      id: 2,
+      title: 'U màng não (Meningioma) và đặc điểm hình ảnh MRI',
+      content: 'U màng não (Meningioma) phát triển từ màng nhện bao bọc não và tủy sống. Đa số (>80%) là u lành tính (WHO Grade 1). Trên phim MRI, Meningioma điển hình có bờ đều rõ nét, đáy rộng bám sát màng cứng và tạo dấu hiệu kinh điển "Đuôi màng cứng" (Dural Tail Sign) ngấm thuốc tương phản mạnh trên chuỗi xung T1-Gd. Xung T2-FLAIR thường hiển thị dải dịch phù não quanh u.',
+      source: 'National Cancer Institute (NCI) Meningioma Guidelines',
       category: 'tumor_types',
-      source: 'National Cancer Institute (NCI)',
-      content:
-        'U màng não (Meningioma) phát triển từ lớp màng nhện bao bọc não và tủy sống. Đa số (>80%) là u lành tính (WHO Grade 1). Trên phim chụp MRI, Meningioma điển hình có bờ đều rõ nét, đáy rộng bám sát màng cứng và tạo dấu hiệu kinh điển "Đuôi màng cứng" (Dural Tail Sign) ngấm thuốc tương phản mạnh trên chuỗi xung T1-Gd. Xung T2-FLAIR thường hiển thị dải dịch phù não bao quanh u.',
     },
     {
-      chunk_id: 'kb-pituitary-adenoma',
-      title: 'U tuyến yên (Pituitary Adenoma) và ảnh hưởng thị giác',
+      id: 3,
+      title: 'U tuyến yên (Pituitary Adenoma) và ảnh hưởng thị lực',
+      content: 'U tuyến yên (Pituitary Adenoma) là khối u nguyên phát tại thùy trước tuyến yên trong hố yên (Sella Turcica). U phân loại thành Microadenoma (<10mm) hoặc Macroadenoma (>=10mm). Khi phát triển vượt hố yên, khối u chèn ép giao thoa thị giác (Optic Chiasm) gây triệu chứng kinh điển là bán manh thái dương hai mắt. MRI sọ não lát cắt mỏng Sagittal và Coronal qua hố yên là tiêu chuẩn vàng chẩn đoán.',
+      source: 'NHS Foundation Trust & Endocrine Society Clinical Guidelines',
       category: 'tumor_types',
-      source: 'NHS Foundation Trust',
-      content:
-        'U tuyến yên (Pituitary Adenoma) là khối u nguyên phát tại thùy trước tuyến yên trong hố yên (Sella Turcica). Khi u phát triển lớn (Macroadenoma >= 10mm), khối u thường chèn ép giao thoa thị giác (Optic Chiasm) gây triệu chứng bán manh thái dương hai mắt. MRI sọ não lát cắt mỏng Sagittal và Coronal qua hố yên là tiêu chuẩn vàng chẩn đoán.',
     },
     {
-      chunk_id: 'kb-mri-sequences-explained',
+      id: 4,
+      title: 'Ảnh MRI không phát hiện u (No Tumor / Normal Brain)',
+      content: 'Trường hợp No Tumor (không có khối u não) thể hiện các cấu trúc giải phẫu nhu mô não bình thường: hệ thống não thất cân đối, không có hiệu ứng khối chèn ép, rãnh cuộn não rõ nét, không có tổn thương ngấm thuốc đối quang từ bất thường trên xung T1-Gd và không có vùng phù não tăng tín hiệu trên xung FLAIR.',
+      source: 'American College of Radiology (ACR) Appropriateness Criteria',
+      category: 'tumor_types',
+    },
+    {
+      id: 5,
       title: 'Giải thích các chuỗi xung cộng hưởng từ não (T1, T2, FLAIR, T1-Gd)',
+      content: 'Chụp cộng hưởng từ MRI sọ não kết hợp nhiều chuỗi xung vật lý:\n• T1W: Dịch não tủy màu tối, chất trắng sáng hơn chất xám. Tối ưu đánh giá giải phẫu vỏ não.\n• T2W: Nước và dịch não tủy sáng trắng rõ rệt. Giúp phát hiện dịch tích tụ, tổn thương mô.\n• FLAIR: Triệt tín hiệu dịch tự do, giữ lại dịch phù do tổn thương bệnh lý, nhạy nhất nhận diện phù quanh u.\n• T1-Gd: Tiêm thuốc đối quang từ Gadolinium, làm sáng rõ các vùng mạch máu tăng sinh bất thường quanh khối u.',
+      source: 'American College of Radiology (ACR)',
       category: 'mri_sequences',
-      source: 'ACR Appropriateness Criteria',
-      content:
-        'Chụp cộng hưởng từ MRI sọ não kết hợp nhiều chuỗi xung: T1W tối ưu giải phẫu não; T2W nước và dịch não tủy sáng trắng rõ rệt giúp phát hiện tổn thương mô; FLAIR triệt tín hiệu dịch tự do, là chuỗi xung nhạy nhất nhận diện phù não quanh khối u; T1-Gd tiêm đối quang từ Gadolinium giúp làm sáng các vùng mạch máu tăng sinh bất thường hoặc phá vỡ hàng rào máu não.',
     },
     {
-      chunk_id: 'kb-emergency-redflags-115',
-      title: 'CẢNH BÁO CẤP CỨU THẦN KINH: Các dấu hiệu cờ đỏ cần gọi 115 ngay',
+      id: 6,
+      title: 'CẢNH BÁO CẤP CỨU THẦN KINH: Các dấu hiệu cờ đỏ cần gọi 115',
+      content: '⚠️ NGUY HIỂM TÍNH MẠNG — CẦN CẤP CỨU Y TẾ NGAY LẬP TỨC:\nNếu bản thân hoặc người xung quanh có bất kỳ dấu hiệu "cờ đỏ" sau đây, phải GỌI NGAY 115 hoặc đến khoa Cấp cứu bệnh viện gần nhất:\n1. Đau đầu sét đánh (Thunderclap Headache): Đau đầu dữ dội đột ngột đạt đỉnh cực đại trong vài giây.\n2. Co giật hoặc co giật tái diễn lần đầu xuất hiện ở người trưởng thành.\n3. Dấu hiệu đột quỵ FAST: Méo miệng, tê yếu hoặc liệt một bên tay/chân, nói khó, ngọng.\n4. Mất ý thức đột ngột, lú lẫn cấp tính, hôn mê.\n5. Sốt cao kèm cứng cổ, đau đầu dữ dội và sợ ánh sáng.',
+      source: 'Bộ Y tế Việt Nam & WHO — Phác đồ Cấp cứu Thần kinh',
       category: 'emergency',
-      source: 'Bộ Y tế & WHO',
-      content:
-        '⚠️ NGUY HIỂM TÍNH MẠNG — CẦN CẤP CỨU Y TẾ NGAY LẬP TỨC: Nếu có các dấu hiệu: Đau đầu dữ dội đột ngột như sét đánh; Co giật lần đầu; Yếu liệt một bên mặt/tay/chân (FAST); Mất ý thức đột ngột; Sốt cao cứng cổ kèm đau đầu dữ dội -> GỌI NGAY 115 hoặc đến cấp cứu gần nhất!',
     },
   ],
-  chat_messages: [],
+  kv: new Map(),
   r2_objects: new Map(),
 };
 
-// Khởi tạo tài khoản Test ban đầu trong bộ nhớ fallback
-(async () => {
-  const { hash, salt } = await hashPassword('Doctor@123');
-  memoryStore.users.push({
-    id: 1,
-    email: 'demo.doctor@neuroscan.vn',
-    full_name: 'BS.CKII Trần Quốc Bảo',
-    role: 'DOCTOR',
-    specialty: 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)',
-    organization: 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh',
-    license_code: 'DEMO-CCHN-2026-8841',
-    phone: '0909 000 222',
-    is_active: 1,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    ...( { password_hash: hash, password_salt: salt } as any ),
-  });
-})();
-
-export function createFallbackD1(): any {
+export function createFallbackD1(): D1Database {
   return {
-    prepare(sql: string) {
-      let params: any[] = [];
+    prepare(query: string) {
+      let boundParams: any[] = [];
+      const cleanSql = query.trim().replace(/\s+/g, ' ');
+
       return {
         bind(...args: any[]) {
-          params = args;
+          boundParams = args;
           return this;
         },
-        async first<T = any>(col?: string): Promise<T | null> {
-          const res = await this.all();
+
+        async first<T = any>(colName?: string): Promise<T | null> {
+          const res = (await this.all()) as any;
           if (!res.results || res.results.length === 0) return null;
-          return col ? (res.results[0] as any)[col] : (res.results[0] as T);
+          const row = res.results[0] as any;
+          if (colName && typeof row === 'object') {
+            return row[colName] ?? null;
+          }
+          return row as T;
         },
-        async all<T = any>(): Promise<{ results: T[] }> {
-          const s = sql.trim().toLowerCase();
+
+        async all<T = any>(): Promise<D1Result<T>> {
+          const sql = cleanSql.toLowerCase();
 
           // 1. SELECT users
-          if (s.includes('from users')) {
-            if (s.includes('email = ?') && params[0]) {
-              const u = memoryStore.users.find((x) => x.email.toLowerCase() === String(params[0]).toLowerCase());
-              return { results: u ? [u as any] : [] };
+          if (sql.includes('from users')) {
+            let res = [...memoryStore.users];
+            if (sql.includes('where email = ?')) {
+              const email = String(boundParams[0]).toLowerCase();
+              res = res.filter((u) => u.email.toLowerCase() === email);
+            } else if (sql.includes('where id = ?')) {
+              res = res.filter((u) => u.id === Number(boundParams[0]));
             }
-            if (s.includes('id = ?') && params[0]) {
-              const u = memoryStore.users.find((x) => x.id === Number(params[0]));
-              return { results: u ? [u as any] : [] };
-            }
-            return { results: memoryStore.users as any };
+            // Join with doctors / patients if requested
+            const enriched = res.map((u) => {
+              const doc = memoryStore.doctors.find((d) => d.user_id === u.id);
+              const pat = memoryStore.patients.find((p) => p.user_id === u.id);
+              return {
+                ...u,
+                specialty: doc?.specialty,
+                license_no: doc?.license_no,
+                organization: doc?.organization,
+                phone: doc?.phone || pat?.phone,
+                date_of_birth: pat?.date_of_birth,
+              };
+            });
+            return { results: enriched as unknown as T[], success: true, meta: {} as any };
           }
 
-          // 2. SELECT sessions
-          if (s.includes('from sessions')) {
-            if (s.includes('token_hash = ?') && params[0]) {
-              const sess = memoryStore.sessions.find((x) => x.token_hash === String(params[0]));
-              return { results: sess ? [sess] : [] };
+          // 2. SELECT predictions
+          if (sql.includes('from predictions')) {
+            let res = [...memoryStore.predictions];
+            if (sql.includes('where id = ?')) {
+              res = res.filter((p) => p.id === Number(boundParams[0]));
+            } else if (sql.includes('where scan_id = ?')) {
+              res = res.filter((p) => p.scan_id === Number(boundParams[0]));
             }
-            return { results: memoryStore.sessions as any };
+            const joined = res.map((pred) => {
+              const scan = memoryStore.mri_scans.find((s) => s.id === pred.scan_id);
+              const review = memoryStore.doctor_reviews.find((r) => r.prediction_id === pred.id);
+              const doctorUser = review ? memoryStore.users.find((u) => u.id === review.doctor_id) : null;
+              return {
+                ...pred,
+                scan: scan || null,
+                review: review ? { ...review, doctor_name: doctorUser?.full_name || 'BS.CKII Trần Quốc Bảo' } : null,
+              };
+            });
+            joined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return { results: joined as unknown as T[], success: true, meta: {} as any };
           }
 
-          // 3. SELECT patients
-          if (s.includes('from patients')) {
-            if (s.includes('id = ?') && params[0]) {
-              const p = memoryStore.patients.find((x) => x.id === Number(params[0]));
-              return { results: p ? [p as any] : [] };
+          // 3. SELECT mri_scans
+          if (sql.includes('from mri_scans')) {
+            let res = [...memoryStore.mri_scans];
+            if (sql.includes('where id = ?')) {
+              res = res.filter((s) => s.id === Number(boundParams[0]));
+            } else if (sql.includes('where patient_id = ?')) {
+              res = res.filter((s) => s.patient_id === Number(boundParams[0]));
             }
-            if (s.includes('mrn = ?') && params[0]) {
-              const p = memoryStore.patients.find((x) => x.mrn === String(params[0]));
-              return { results: p ? [p as any] : [] };
-            }
-            return { results: [...memoryStore.patients] as any };
+            res.sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
+            return { results: res as unknown as T[], success: true, meta: {} as any };
           }
 
-          // 4. SELECT mri_scans
-          if (s.includes('from mri_scans')) {
-            if (s.includes('id = ?') && params[0]) {
-              const sc = memoryStore.mri_scans.find((x) => x.id === Number(params[0]));
-              return { results: sc ? [sc as any] : [] };
+          // 4. SELECT doctor_reviews
+          if (sql.includes('from doctor_reviews')) {
+            let res = [...memoryStore.doctor_reviews];
+            if (sql.includes('where prediction_id = ?')) {
+              res = res.filter((r) => r.prediction_id === Number(boundParams[0]));
             }
-            if (s.includes('scan_code = ?') && params[0]) {
-              const sc = memoryStore.mri_scans.find((x) => x.scan_code === String(params[0]));
-              return { results: sc ? [sc as any] : [] };
-            }
-            if (s.includes('patient_id = ?') && params[0]) {
-              const list = memoryStore.mri_scans.filter((x) => x.patient_id === Number(params[0]));
-              return { results: list as any };
-            }
-            return { results: [...memoryStore.mri_scans] as any };
+            return { results: res as unknown as T[], success: true, meta: {} as any };
           }
 
-          // 5. SELECT rag_chunks
-          if (s.includes('from rag_chunks')) {
-            if (s.includes('chunk_id = ?') && params[0]) {
-              const c = memoryStore.rag_chunks.find((x) => x.chunk_id === String(params[0]));
-              return { results: c ? [c as any] : [] };
+          // 5. SELECT chat_sessions
+          if (sql.includes('from chat_sessions')) {
+            let res = [...memoryStore.chat_sessions];
+            if (sql.includes('where user_id = ?')) {
+              res = res.filter((s) => s.user_id === Number(boundParams[0]));
             }
-            return { results: [...memoryStore.rag_chunks] as any };
+            res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return { results: res as unknown as T[], success: true, meta: {} as any };
           }
 
           // 6. SELECT chat_messages
-          if (s.includes('from chat_messages')) {
-            if (s.includes('session_id = ?') && params[0]) {
-              const list = memoryStore.chat_messages.filter((x) => x.session_id === String(params[0]));
-              return { results: list as any };
+          if (sql.includes('from chat_messages')) {
+            let res = [...memoryStore.chat_messages];
+            if (sql.includes('where session_id = ?')) {
+              res = res.filter((m) => m.session_id === Number(boundParams[0]));
             }
-            return { results: [...memoryStore.chat_messages] as any };
+            res.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            return { results: res as unknown as T[], success: true, meta: {} as any };
           }
 
-          return { results: [] };
-        },
-        async run(): Promise<{ success: boolean; meta: any }> {
-          const s = sql.trim().toLowerCase();
+          // 7. SELECT faq_documents / rag_chunks
+          if (sql.includes('from faq_documents') || sql.includes('from rag_chunks')) {
+            return { results: memoryStore.faq_documents as unknown as T[], success: true, meta: {} as any };
+          }
 
-          // INSERT INTO sessions
-          if (s.includes('insert into sessions')) {
-            memoryStore.sessions.push({
-              id: memoryStore.sessions.length + 1,
-              token_hash: params[0],
-              user_id: params[1],
-              csrf_token: params[2],
-              ip_address: params[3],
-              user_agent: params[4],
-              expires_at: params[5],
+          return { results: [] as unknown as T[], success: true, meta: {} as any };
+        },
+
+        async run(): Promise<D1Response> {
+          const sql = cleanSql.toLowerCase();
+
+          // INSERT INTO users
+          if (sql.includes('insert into users') || sql.includes('insert or ignore into users')) {
+            const newUser = {
+              id: boundParams[0] && typeof boundParams[0] === 'number' ? boundParams[0] : memoryStore.users.length + 1,
+              email: boundParams[1] || boundParams[0],
+              full_name: boundParams[4] || boundParams[3] || 'Người dùng mới',
+              password_hash: boundParams[2] || boundParams[1],
+              password_salt: boundParams[3] || boundParams[2] || 'salt',
+              role: boundParams[5] || boundParams[4] || 'patient',
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.users.push(newUser);
+            return { success: true, meta: {} as any };
+          }
+
+          // INSERT INTO patients
+          if (sql.includes('insert into patients') || sql.includes('insert or ignore into patients')) {
+            memoryStore.patients.push({
+              user_id: Number(boundParams[0]),
+              date_of_birth: boundParams[1] || '1980-01-01',
+              phone: boundParams[2] || '',
               created_at: new Date().toISOString(),
             });
-            return { success: true, meta: { last_row_id: memoryStore.sessions.length } };
+            return { success: true, meta: {} as any };
           }
 
-          // DELETE FROM sessions
-          if (s.includes('delete from sessions')) {
-            if (s.includes('token_hash = ?')) {
-              memoryStore.sessions = memoryStore.sessions.filter((x) => x.token_hash !== String(params[0]));
-            }
-            return { success: true, meta: {} };
+          // INSERT INTO doctors
+          if (sql.includes('insert into doctors') || sql.includes('insert or ignore into doctors')) {
+            memoryStore.doctors.push({
+              user_id: Number(boundParams[0]),
+              specialty: boundParams[1] || 'Chẩn đoán hình ảnh Thần kinh',
+              license_no: boundParams[2] || 'CCHN-2026',
+              organization: boundParams[3] || 'Bệnh viện',
+              phone: boundParams[4] || '',
+              created_at: new Date().toISOString(),
+            });
+            return { success: true, meta: {} as any };
           }
 
           // INSERT INTO mri_scans
-          if (s.includes('insert into mri_scans')) {
-            const newScan: MriScan = {
+          if (sql.includes('insert into mri_scans')) {
+            const scan = {
               id: memoryStore.mri_scans.length + 1,
-              scan_code: params[0] || `SCAN-${Date.now()}`,
-              patient_id: params[1] || undefined,
-              patient_name: params[2] || 'Bệnh nhân',
-              file_name: params[3] || 'scan.png',
-              file_key: params[4] || '',
-              file_url: params[5] || '',
-              file_size: params[6] || 0,
-              mime_type: params[7] || 'image/png',
-              slice_type: params[8] || 'Axial (Trục ngang)',
-              sequence_type: params[9] || 'T1-Gd (Contrast)',
-              status: params[10] || 'PENDING_MODEL',
-              findings_summary: params[11] || 'Đang chờ nạp trọng số mô hình AI sau khi hoàn tất huấn luyện.',
-              doctor_notes: '',
-              doctor_approved: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
+              patient_id: Number(boundParams[0]),
+              r2_key: boundParams[1],
+              file_name: boundParams[2] || 'mri.png',
+              file_size: Number(boundParams[3]) || 100000,
+              mime_type: boundParams[4] || 'image/png',
+              slice_type: boundParams[5] || 'Axial (Trục ngang)',
+              sequence_type: boundParams[6] || 'T1-Gd (Contrast)',
+              uploaded_at: new Date().toISOString(),
             };
-            memoryStore.mri_scans.unshift(newScan);
-            return { success: true, meta: { last_row_id: newScan.id } };
+            memoryStore.mri_scans.push(scan);
+            return { success: true, meta: { last_row_id: scan.id } as any };
+          }
+
+          // INSERT INTO predictions
+          if (sql.includes('insert into predictions')) {
+            const pred = {
+              id: memoryStore.predictions.length + 1,
+              scan_id: Number(boundParams[0]),
+              label: boundParams[1],
+              confidence: Number(boundParams[2]),
+              probabilities: typeof boundParams[3] === 'string' ? boundParams[3] : JSON.stringify(boundParams[3]),
+              model_version: boundParams[4] || 'brain_mri_student_v1_onnx',
+              inference_time_ms: Number(boundParams[5]) || 40,
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.predictions.push(pred);
+            return { success: true, meta: { last_row_id: pred.id } as any };
+          }
+
+          // INSERT INTO doctor_reviews
+          if (sql.includes('insert into doctor_reviews')) {
+            const rev = {
+              id: memoryStore.doctor_reviews.length + 1,
+              prediction_id: Number(boundParams[0]),
+              doctor_id: Number(boundParams[1]),
+              confirmed_label: boundParams[2],
+              note: boundParams[3] || '',
+              ai_assessment: boundParams[4] || 'CONCORDANT',
+              recommended_step: boundParams[5] || '',
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.doctor_reviews.push(rev);
+            return { success: true, meta: { last_row_id: rev.id } as any };
+          }
+
+          // INSERT INTO chat_sessions
+          if (sql.includes('insert into chat_sessions')) {
+            const sess = {
+              id: memoryStore.chat_sessions.length + 1,
+              user_id: Number(boundParams[0]),
+              title: boundParams[1] || 'Hội thoại Y tế',
+              linked_prediction_id: boundParams[2] ? Number(boundParams[2]) : null,
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.chat_sessions.push(sess);
+            return { success: true, meta: { last_row_id: sess.id } as any };
           }
 
           // INSERT INTO chat_messages
-          if (s.includes('insert into chat_messages')) {
-            memoryStore.chat_messages.push({
+          if (sql.includes('insert into chat_messages')) {
+            const msg = {
               id: memoryStore.chat_messages.length + 1,
-              session_id: params[0],
-              user_id: params[1],
-              role: params[2],
-              content: params[3],
-              is_emergency: params[4] || 0,
-              rag_trace_json: params[5] || null,
+              session_id: Number(boundParams[0]),
+              sender: boundParams[1],
+              content: boundParams[2],
+              is_emergency: Number(boundParams[3]) || 0,
+              sources_json: boundParams[4] || null,
               created_at: new Date().toISOString(),
-            });
-            return { success: true, meta: {} };
+            };
+            memoryStore.chat_messages.push(msg);
+            return { success: true, meta: { last_row_id: msg.id } as any };
           }
 
-          return { success: true, meta: {} };
+          // INSERT INTO faq_documents
+          if (sql.includes('insert into faq_documents')) {
+            const doc = {
+              id: memoryStore.faq_documents.length + 1,
+              title: boundParams[0],
+              content: boundParams[1],
+              source: boundParams[2],
+              category: boundParams[3] || 'tumor_types',
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.faq_documents.push(doc);
+            return { success: true, meta: { last_row_id: doc.id } as any };
+          }
+
+          return { success: true, meta: {} as any };
         },
-      };
+
+        raw() {
+          return Promise.resolve([]);
+        },
+      } as any;
     },
-    async batch(stmts: any[]) {
+
+    async batch(statements: any[]) {
       const results = [];
-      for (const st of stmts) {
-        results.push(await st.run());
+      for (const stmt of statements) {
+        results.push(await stmt.run());
       }
       return results;
     },
-  };
+
+    async dump() {
+      return new ArrayBuffer(0);
+    },
+
+    async exec(_sql: string) {
+      return { count: 0, duration: 0 };
+    },
+  } as D1Database;
 }
 
-export function createFallbackR2(): any {
+export function createFallbackR2(): R2Bucket {
   return {
-    async put(key: string, value: any, options?: { httpMetadata?: { contentType?: string }; customMetadata?: any }) {
+    async put(key: string, value: any, options?: any) {
       let dataBytes: Uint8Array;
       if (value instanceof Uint8Array) {
         dataBytes = value;
@@ -366,7 +524,7 @@ export function createFallbackR2(): any {
         key,
         size: dataBytes.byteLength,
         httpMetadata: { contentType },
-      };
+      } as any;
     },
 
     async get(key: string) {
@@ -390,12 +548,33 @@ export function createFallbackR2(): any {
             controller.close();
           },
         }),
-      };
+      } as any;
     },
 
     async delete(key: string) {
       memoryStore.r2_objects.delete(key);
       return;
+    },
+  } as any;
+}
+
+export function createFallbackKV(): any {
+  return {
+    async get(key: string) {
+      const item = memoryStore.kv.get(key);
+      if (!item) return null;
+      if (item.expiresAt && Date.now() > item.expiresAt) {
+        memoryStore.kv.delete(key);
+        return null;
+      }
+      return item.value;
+    },
+    async put(key: string, value: string, options?: { expirationTtl?: number }) {
+      const expiresAt = options?.expirationTtl ? Date.now() + options.expirationTtl * 1000 : undefined;
+      memoryStore.kv.set(key, { value, expiresAt });
+    },
+    async delete(key: string) {
+      memoryStore.kv.delete(key);
     },
   };
 }
@@ -404,8 +583,8 @@ export function createFallbackVectorize(): any {
   return {
     async query(vector: number[], options?: { topK?: number }) {
       return {
-        matches: memoryStore.rag_chunks.map((c, i) => ({
-          id: c.chunk_id,
+        matches: memoryStore.faq_documents.map((c, i) => ({
+          id: String(c.id),
           score: 0.95 - i * 0.05,
           metadata: { title: c.title, category: c.category, source: c.source },
         })),
@@ -416,4 +595,3 @@ export function createFallbackVectorize(): any {
     },
   };
 }
-

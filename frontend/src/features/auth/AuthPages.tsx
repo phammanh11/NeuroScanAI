@@ -387,6 +387,7 @@ export const RegisterPage: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'USER' | 'DOCTOR'>('USER');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -407,13 +408,13 @@ export const RegisterPage: React.FC = () => {
   const onSubmit = async (values: RegisterFormValues) => {
     setErrorMsg(null);
     try {
-      await registerAccount(values.fullName, values.email, values.password);
+      await registerAccount(values.fullName, values.email, values.password, selectedRole);
       showToast({
         variant: 'success',
-        title: 'Đăng ký tài khoản giả lập (USER) thành công',
-        description: 'Hệ thống đã chuyển bạn tới User Dashboard.',
+        title: `Đăng ký tài khoản ${selectedRole === 'DOCTOR' ? 'Bác sĩ chuyên khoa' : 'Bệnh nhân'} thành công`,
+        description: selectedRole === 'DOCTOR' ? 'Hệ thống đã chuyển bạn tới Bảng điều khiển Bác sĩ.' : 'Hệ thống đã chuyển bạn tới Bảng điều khiển Bệnh nhân.',
       });
-      navigate('/dashboard');
+      navigate(selectedRole === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Đăng ký thất bại.');
     }
@@ -455,6 +456,39 @@ export const RegisterPage: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+            {/* Chọn vai trò đăng ký theo Mục 1.8.10 */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Vai trò tài khoản (Chọn quyền truy cập)
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('USER')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    selectedRole === 'USER'
+                      ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 text-teal-900 dark:text-teal-200 ring-2 ring-teal-500/30'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="text-xs font-bold">Bệnh nhân (Patient)</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Tải ảnh MRI, hỏi đáp chatbot</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('DOCTOR')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    selectedRole === 'DOCTOR'
+                      ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/30 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/30'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="text-xs font-bold">Bác sĩ (Doctor)</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Xác nhận nhãn, ghi chú</p>
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               <label
                 htmlFor="reg-fullname"

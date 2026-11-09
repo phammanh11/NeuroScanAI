@@ -8,7 +8,7 @@ interface AuthContextValue {
   isLoading: boolean;
   loginAsDemoRole: (role: UserRole) => Promise<UserProfile>;
   loginWithCredentials: (email: string, password: string) => Promise<UserProfile>;
-  registerAccount: (fullName: string, email: string, password: string) => Promise<UserProfile>;
+  registerAccount: (fullName: string, email: string, password: string, role?: UserRole) => Promise<UserProfile>;
   updateCurrentUser: (patch: Partial<UserProfile>) => Promise<UserProfile>;
   logout: () => void;
 }
@@ -76,12 +76,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fullName: string,
     email: string,
     password: string,
+    role: UserRole = 'USER',
   ): Promise<UserProfile> => {
     const requestId = ++authRequestRef.current;
     profileRequestRef.current += 1;
     setIsLoading(true);
     try {
-      const nextSession = await neuroscanAdapter.registerUser(fullName, email, password);
+      const nextSession = await neuroscanAdapter.registerUser(fullName, email, password, role);
       if (requestId !== authRequestRef.current) {
         throw new Error('Yêu cầu đăng ký trước đó đã được thay thế.');
       }

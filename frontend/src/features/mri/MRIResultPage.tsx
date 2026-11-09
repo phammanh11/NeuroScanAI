@@ -342,6 +342,15 @@ export const MRIResultPage: React.FC = () => {
                     </span>
                   </div>
 
+                  {record.doctorReview.confirmedLabel && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-teal-500/15 dark:bg-teal-950/40 border border-teal-500/30">
+                      <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                      <span className="text-xs font-semibold text-teal-900 dark:text-teal-100">
+                        Nhãn Bác sĩ xác nhận: <strong className="text-sm font-bold text-teal-700 dark:text-teal-300">{record.doctorReview.confirmedLabel}</strong>
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="text-slate-600 dark:text-slate-400">
                       Đánh giá của Bác sĩ đối với nhãn AI:

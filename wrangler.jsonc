@@ -25,10 +25,26 @@
       "bucket_name": "neuroscan-scans"
     }
   ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION_KV",
+      "id": "neuroscan-sessions-kv"
+    }
+  ],
+  "ratelimits": [
+    {
+      "binding": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ],
   "vars": {
     "ENVIRONMENT": "production",
     "CF_EMBEDDING_MODEL": "@cf/baai/bge-m3",
-    "CF_LLM_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    "CF_LLM_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "AI_GATEWAY_ID": "neuroscan-gateway"
   }
 }
-

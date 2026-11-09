@@ -119,7 +119,8 @@ class InMemoryMockStore {
   }
 
   public loginWithRole(role: UserRole): AuthSession {
-    const demoProfile = DEMO_USERS[role];
+    const key = (role === 'DOCTOR' || role === 'doctor') ? 'DOCTOR' : 'USER';
+    const demoProfile = DEMO_USERS[key];
     const profile = this.profilesById[demoProfile.id] ?? structuredClone(demoProfile);
     this.profilesById[profile.id] = structuredClone(profile);
     return this.createSession(profile);

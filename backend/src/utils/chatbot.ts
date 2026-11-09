@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import type { WorkerEnv } from '../db/init';
-import type { ChatHistoryItem, ChatResponseData, RagTraceInfo, Patient, MriScan } from '../../shared/types';
+import type { ChatHistoryItem, ChatResponseData, RagTraceInfo, Prediction, MriScan } from '../../shared/types';
 import { searchVectorDB, generateRagLLMResponse } from './rag';
 
 const EMERGENCY_KEYWORDS_REGEX =
@@ -10,7 +10,8 @@ export async function handleMedicalChat(
   c: Context<{ Bindings: WorkerEnv; Variables: any }>,
   rawMessage: string,
   history: ChatHistoryItem[] = [],
-  sessionId = 'default-session'
+  sessionId: number = 1,
+  userId: number = 2
 ): Promise<ChatResponseData> {
   const message = rawMessage.trim();
 
@@ -29,8 +30,8 @@ Các triệu chứng bạn vừa mô tả *(đau đầu dữ dội đột ngột
     // Lưu vào bảng chat_messages
     try {
       await c.env.DB.prepare(
-        'INSERT INTO chat_messages (session_id, role, content, is_emergency) VALUES (?, ?, ?, ?)'
-      ).bind(sessionId, 'assistant', emergencyReply, 1).run();
+        'INSERT INTO chat_messages (session_id, sender, content, is_emergency) VALUES (?, ?, ?, 1)'
+      ).bind(sessionId, 'bot', emergencyReply).run();
     } catch {}
 
     return {
@@ -46,53 +47,17 @@ Các triệu chứng bạn vừa mô tả *(đau đầu dữ dội đột ngột
     };
   }
 
-  // 2. KIỂM TRA TRA CỨU HỒ SƠ BỆNH ÁN (MRN) HOẶC MÃ PHIM CHỤP (SCAN CODE)
-  const mrnMatch = message.toUpperCase().match(/NS-BN-[0-9]{4}-[0-9]{3}/);
-  const scanMatch = message.toUpperCase().match(/SCAN-[0-9]{4}-[0-9]{3}/);
-
-  if (mrnMatch || scanMatch) {
-    if (mrnMatch) {
-      const mrn = mrnMatch[0];
-      const patient = await c.env.DB.prepare('SELECT * FROM patients WHERE mrn = ?')
-        .bind(mrn)
-        .first<Patient>();
-
-      if (patient) {
-        const { results: scans } = await c.env.DB.prepare(
-          'SELECT * FROM mri_scans WHERE patient_id = ? ORDER BY created_at DESC'
-        )
-          .bind(patient.id)
-          .all<MriScan>();
-
-        const scansList = scans && scans.length > 0
-          ? scans.map((s) => `• Mã phim: **${s.scan_code}** | Xung: *${s.sequence_type}* | Lát cắt: *${s.slice_type}* | Trạng thái: **${s.status}**`).join('\n')
-          : '• Chưa có bản ghi phim chụp MRI trên hệ thống.';
-
-        return {
-          reply: `📋 **Thông tin Hồ sơ Bệnh nhân [${patient.mrn}]:**\n\n• **Họ tên**: ${patient.full_name}\n• **Tuổi / Giới tính**: ${patient.age} tuổi (${patient.gender})\n• **Tiền sử & Bệnh cảnh**: ${patient.clinical_history || 'Không ghi nhận'}\n• **Triệu chứng lâm sàng**: ${patient.symptoms || 'Không ghi nhận'}\n• **Trạng thái theo dõi**: ${patient.status}\n\n**Danh sách Phim chụp MRI liên kết:**\n${scansList}`,
-          intent: 'patient_lookup',
-          isEmergency: false,
-          suggestions: [
-            `Phân tích ca chụp gần nhất của ${patient.full_name}`,
-            'Giải thích ý nghĩa chuỗi xung T1-Gd và T2-FLAIR',
-            'Quy trình chẩn đoán u não theo WHO CNS5',
-          ],
-        };
-      }
-    }
-  }
-
-  // 3. THỰC THI PIPELINE RAG Y KHOA: CHUNKING -> EMBEDDING (@cf/baai/bge-m3) -> VECTOR DB -> LLM
+  // 2. THỰC THI PIPELINE RAG Y KHOA: CHUNKING -> EMBEDDING (@cf/baai/bge-m3) -> VECTOR DB -> LLM
   const ragResult = await searchVectorDB(c.env, message, 3);
 
   const ragTrace: RagTraceInfo = {
-    pipeline: 'chunking -> word_embedding (@cf/baai/bge-m3) -> vector_db -> llm',
+    pipeline: 'faq_documents -> embedding (@cf/baai/bge-m3) -> vector_db -> llm',
     embeddingModel: ragResult.embeddingModel,
-    llmModel: c.env.CF_LLM_MODEL || 'Cloudflare Workers AI Llama-3.3-70B / Gemini Flash',
+    llmModel: c.env.CF_LLM_MODEL || 'Cloudflare Workers AI Llama-3.3-70B',
     vectorBackend: ragResult.vectorBackend,
     totalChunksIndexed: ragResult.totalChunksIndexed,
     topChunks: ragResult.topChunks.map((ch) => ({
-      chunk_id: ch.chunk_id,
+      id: ch.id,
       title: ch.title,
       category: ch.category,
       source: ch.source,
@@ -111,14 +76,14 @@ Các triệu chứng bạn vừa mô tả *(đau đầu dữ dội đột ngột
 
   const finalReply =
     aiReply ||
-    `Xin chào! Mình là **Trợ lý AI Y tế Chuyên khoa Thần kinh (NeuroScan AI)**.\n\nMình có thể hỗ trợ bạn:\n• 🧠 **Giải thích kiến thức phân loại u não** theo phân loại WHO CNS5 2021 (Glioma, Meningioma, Pituitary Adenoma).\n• 🔬 **Phân biệt ý nghĩa các chuỗi xung MRI** sọ não (T1W, T2W, FLAIR, T1-Gd).\n• 📋 **Tra cứu tiến độ hồ sơ bệnh án** theo mã bệnh nhân (e.g. \`NS-BN-2026-001\`).\n• ⚠️ **Nhận diện các dấu hiệu cờ đỏ cấp cứu thần kinh** cần can thiệp y tế tức thì.\n\nBạn cần tra cứu hoặc tìm hiểu thông tin y khoa nào hôm nay ạ?`;
+    `Xin chào! Mình là **Trợ lý AI Y tế Chuyên khoa Thần kinh (NeuroScan AI)**.\n\nMình có thể hỗ trợ bạn:\n• 🧠 **Giải thích 4 lớp phân loại u não** theo WHO CNS5 (Glioma, Meningioma, Pituitary, No Tumor).\n• 🔬 **Phân biệt ý nghĩa các chuỗi xung MRI** sọ não (T1W, T2W, FLAIR, T1-Gd).\n• 📋 **Giải thích kết quả phân loại tham khảo** từ ảnh MRI của bạn.\n• ⚠️ **Nhận diện các dấu hiệu cờ đỏ cấp cứu thần kinh** cần can thiệp y tế tức thì.\n\nBạn cần tìm hiểu thông tin y khoa nào hôm nay ạ?`;
 
-  // Lưu lịch sử hội thoại vào D1
+  // Lưu tin nhắn người dùng và bot vào D1
   try {
     await c.env.DB.prepare(
-      'INSERT INTO chat_messages (session_id, role, content, is_emergency, rag_trace_json) VALUES (?, ?, ?, 0, ?)'
+      'INSERT INTO chat_messages (session_id, sender, content, is_emergency, sources_json) VALUES (?, ?, ?, 0, ?)'
     )
-      .bind(sessionId, 'assistant', finalReply, JSON.stringify(ragTrace))
+      .bind(sessionId, 'bot', finalReply, JSON.stringify(ragResult.topChunks))
       .run();
   } catch {}
 
@@ -138,8 +103,7 @@ Các triệu chứng bạn vừa mô tả *(đau đầu dữ dội đột ngột
       'Phân biệt u tế bào thần kinh đệm (Glioma) và u màng não (Meningioma)',
       'Tại sao cần tiêm thuốc đối quang từ T1-Gd khi chụp MRI u não?',
       'U tuyến yên có ảnh hưởng đến thị lực như thế nào?',
-      'Tra cứu hồ sơ bệnh nhân NS-BN-2026-001',
+      'Hình ảnh MRI não bình thường (No Tumor) trông như thế nào?',
     ],
   };
 }
-

@@ -491,6 +491,7 @@ export const DoctorCaseDetailPage: React.FC = () => {
 
   const [status, setStatus] =
     useState<Exclude<DoctorReviewStatus, 'NONE'>>('IN_REVIEW');
+  const [confirmedLabel, setConfirmedLabel] = useState<TumorLabel>('Glioma');
   const [aiAssessment, setAiAssessment] =
     useState<AIAssessmentVerdict>('PARTIAL_CONCORDANCE');
   const [clinicalNote, setClinicalNote] = useState('');
@@ -508,6 +509,7 @@ export const DoctorCaseDetailPage: React.FC = () => {
       const data = await neuroscanAdapter.getAnalysisById(id);
       if (requestId !== loadRequestRef.current) return;
       setRecord(data);
+      setConfirmedLabel(data.doctorReview?.confirmedLabel || data.predictedLabel || 'Glioma');
       if (data.doctorReview && data.reviewStatus !== 'PENDING_REVIEW') {
         setStatus(data.doctorReview.status);
         setAiAssessment(data.doctorReview.aiAssessment);
@@ -554,6 +556,7 @@ export const DoctorCaseDetailPage: React.FC = () => {
       const updated = await neuroscanAdapter.submitDoctorReview(
         {
           analysisId: record.id,
+          confirmedLabel,
           status,
           aiAssessment,
           clinicalNoteForPatient: clinicalNote,
@@ -661,12 +664,35 @@ export const DoctorCaseDetailPage: React.FC = () => {
               </span>
             </div>
 
+            <div className="space-y-1.5 p-3 rounded-xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800">
+              <label
+                htmlFor="confirmed-label-select"
+                className="block text-xs font-bold text-sky-900 dark:text-sky-200"
+              >
+                1. Xác nhận hoặc Hiệu chỉnh Nhãn Bệnh học (UC02, FR05)
+              </label>
+              <select
+                id="confirmed-label-select"
+                value={confirmedLabel}
+                onChange={(e) => setConfirmedLabel(e.target.value as TumorLabel)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-bold text-sky-950 dark:text-sky-100"
+              >
+                <option value="Glioma">Glioma (U tế bào thần kinh đệm)</option>
+                <option value="Meningioma">Meningioma (U màng não)</option>
+                <option value="Pituitary">Pituitary (U tuyến yên)</option>
+                <option value="No Tumor">No Tumor (Không phát hiện u / Bình thường)</option>
+              </select>
+              <p className="text-[11px] text-sky-700 dark:text-sky-400">
+                Bác sĩ có thể đồng thuận nhãn AI hoặc hiệu chỉnh sang phân loại chính xác dựa trên kinh nghiệm lâm sàng.
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <label
                 htmlFor="review-status-select"
                 className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
               >
-                1. Cập nhật trạng thái ca bệnh
+                2. Cập nhật trạng thái ca bệnh
               </label>
               <select
                 id="review-status-select"

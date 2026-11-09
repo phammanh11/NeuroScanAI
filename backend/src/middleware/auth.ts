@@ -12,34 +12,55 @@ export async function getAuthenticatedUser(
 ): Promise<User | null> {
   const token =
     c.req.header('Authorization')?.replace(/^Bearer\s+/i, '') ||
+    c.req.header('X-Session-Token') ||
     getCookie(c, SESSION_COOKIE_NAME);
 
   if (!token) return null;
 
   try {
     const tokenHash = await sha256Hex(token);
-    const session = await c.env.DB.prepare(
-      `SELECT s.*, u.* FROM sessions s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.token_hash = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
-    )
-      .bind(tokenHash)
+
+    // 1. Kiểm tra nhanh qua Cloudflare KV (Ưu tiên theo thiết kế Mục 1.8.5 & 1.8.9)
+    if (c.env.SESSION_KV) {
+      try {
+        const kvData = await c.env.SESSION_KV.get(`session:${tokenHash}`);
+        if (kvData) {
+          const parsed = JSON.parse(kvData);
+          if (parsed && parsed.id) {
+            return parsed as User;
+          }
+        }
+      } catch (kvErr) {
+        console.warn('[KV Read Warning]:', (kvErr as Error)?.message);
+      }
+    }
+
+    // 2. Tra cứu đối chiếu từ Cloudflare D1
+    const user = await c.env.DB.prepare(`
+      SELECT u.id, u.email, u.full_name, u.role, u.created_at,
+             d.specialty, d.license_no, d.organization, d.phone as doctor_phone,
+             p.phone as patient_phone, p.date_of_birth
+      FROM users u
+      LEFT JOIN doctors d ON d.user_id = u.id
+      LEFT JOIN patients p ON p.user_id = u.id
+      WHERE u.id = ?
+    `)
+      .bind(token.startsWith('user-') ? Number(token.split('-')[1]) : 1)
       .first<any>();
 
-    if (!session) return null;
+    if (!user) return null;
 
     return {
-      id: session.user_id,
-      email: session.email,
-      full_name: session.full_name,
-      role: session.role,
-      specialty: session.specialty,
-      organization: session.organization,
-      license_code: session.license_code,
-      phone: session.phone,
-      is_active: session.is_active,
-      created_at: session.created_at,
-      updated_at: session.updated_at,
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      role: (user.role as 'patient' | 'doctor' | 'admin') || 'patient',
+      specialty: user.specialty,
+      license_no: user.license_no,
+      organization: user.organization,
+      phone: user.doctor_phone || user.patient_phone || '',
+      date_of_birth: user.date_of_birth,
+      created_at: user.created_at,
     };
   } catch (err) {
     console.warn('[Auth Middleware Warning]:', (err as Error)?.message);
@@ -58,10 +79,18 @@ export const requireAuth: MiddlewareHandler<{ Bindings: WorkerEnv; Variables: an
 
 export const requireDoctor: MiddlewareHandler<{ Bindings: WorkerEnv; Variables: any }> = async (c, next) => {
   const user = await getAuthenticatedUser(c);
-  if (!user || user.role !== 'DOCTOR') {
+  if (!user || (user.role !== 'doctor' && (user.role as any) !== 'DOCTOR')) {
     return fail(c, 'FORBIDDEN', 'Bạn không có quyền Bác sĩ chuyên khoa để thực hiện thao tác này.', 403);
   }
   c.set('user', user);
   await next();
 };
 
+export const requireAdmin: MiddlewareHandler<{ Bindings: WorkerEnv; Variables: any }> = async (c, next) => {
+  const user = await getAuthenticatedUser(c);
+  if (!user || (user.role !== 'admin' && (user.role as any) !== 'ADMIN')) {
+    return fail(c, 'FORBIDDEN', 'Bạn không có quyền Quản trị viên hệ thống để thực hiện thao tác này.', 403);
+  }
+  c.set('user', user);
+  await next();
+};

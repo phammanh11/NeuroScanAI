@@ -19,7 +19,7 @@ import {
 } from '@/components/medical/MRIUploader';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
-import { formatBytes, sanitizeMedicalFileName } from '@/utils/formatters';
+import { formatBytes, formatPercent, sanitizeMedicalFileName } from '@/utils/formatters';
 
 const PIPELINE_STEPS = [
   {
@@ -29,18 +29,18 @@ const PIPELINE_STEPS = [
   },
   {
     id: 2,
-    title: 'Tiền xử lý (Mô phỏng UI)',
-    desc: 'Mô phỏng bước chuẩn hóa ROI Cropping & CLAHE trong giao diện.',
+    title: 'Tiền xử lý ảnh',
+    desc: 'Chuẩn hóa ma trận điểm ảnh [1, 3, 256, 256] và ImageNet mean/std.',
   },
   {
     id: 3,
-    title: 'Suy luận (Mô phỏng UI)',
-    desc: 'Ánh xạ tới bộ kết quả cố định (Mock Fixture) hoặc gọi FastAPI.',
+    title: 'Suy luận ONNX',
+    desc: 'Chạy mô hình học sâu brain_mri_student.onnx phân loại 4 lớp.',
   },
   {
     id: 4,
-    title: 'Hoàn thành',
-    desc: 'Khởi tạo phiên phân tích tham khảo và sẵn sàng mở trình đọc MRI.',
+    title: 'Hoàn thành & Lưu trữ',
+    desc: 'Lưu ảnh vào Cloudflare R2 và ghi kết quả vào D1 predictions.',
   },
 ];
 
@@ -175,8 +175,8 @@ export const MRIAnalysisPage: React.FC = () => {
 
       showToast({
         variant: 'success',
-        title: `Đã lưu phim chụp ${createdRecord.sessionCode} vào Cloudflare R2`,
-        description: 'Tình trạng: Đã lưu trữ an toàn, chờ nạp trọng số mô hình AI.',
+        title: `Phân tích AI hoàn tất: ${createdRecord.predictedLabel}`,
+        description: `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Lưu trữ an toàn trên Cloudflare R2 & D1.`,
       });
       navigate(`/mri-results/${createdRecord.id}`);
     } catch (err) {
