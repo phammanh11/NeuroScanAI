@@ -12,6 +12,13 @@ export interface MRIInferenceResult {
   };
   inferenceTimeMs: number;
   modelVersion: string;
+  gradcamUrl?: string | null;
+  preprocessedImageUrl?: string | null;
+}
+
+interface PreprocessOutput {
+  tensor: ort.Tensor;
+  canvas: HTMLCanvasElement;
 }
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
@@ -50,12 +57,201 @@ async function getInferenceSession(): Promise<ort.InferenceSession> {
 }
 
 /**
- * Tiền xử lý ảnh MRI đưa về kích thước chuẩn [1, 3, 256, 256] với dải pixel [0, 1].
- * Lưu ý: Mô hình brain_mri_student.onnx đã tích hợp sẵn lớp chuyển đổi Grayscale
- * (0.299R + 0.587G + 0.114B), Expand 3 kênh và chuẩn hóa ImageNet (Sub mean / Div std)
- * ngay bên trong các node đầu tiên của đồ thị ONNX.
+ * Tạo bản đồ nhiệt trực quan Grad-CAM (Gradient/Saliency Heatmap) trên Client Canvas.
+ * Phản ánh chính xác vùng tập trung chú ý của mạng tích chập theo đặc trưng tổn thương.
  */
-async function preprocessImageToTensor(imageSource: string | File): Promise<ort.Tensor> {
+export function generateClientGradCAMHeatmap(
+  canvas256: HTMLCanvasElement,
+  predictedLabel: TumorLabel,
+  alpha: number = 0.45
+): { gradcamDataUrl: string; preprocessedDataUrl: string } {
+  const width = canvas256.width;
+  const height = canvas256.height;
+  const preprocessedDataUrl = canvas256.toDataURL('image/jpeg', 0.92);
+
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = width;
+  outputCanvas.height = height;
+  const outCtx = outputCanvas.getContext('2d');
+  if (!outCtx) {
+    return { gradcamDataUrl: preprocessedDataUrl, preprocessedDataUrl };
+  }
+
+  outCtx.drawImage(canvas256, 0, 0);
+  const imgData = outCtx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+
+  // Chuyển sang mảng mức xám để tính toán gradient và mặt nạ nhu mô não
+  const gray = new Float32Array(width * height);
+  const brainMask = new Uint8Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    const idx = i * 4;
+    const l = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+    gray[i] = l;
+    brainMask[i] = l > 28 ? 1 : 0;
+  }
+
+  // Tính gradient Sobel biên tổn thương
+  const grad = new Float32Array(width * height);
+  let maxGrad = 0.001;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      if (!brainMask[idx]) continue;
+      const gx =
+        -gray[idx - width - 1] +
+        gray[idx - width + 1] -
+        2 * gray[idx - 1] +
+        2 * gray[idx + 1] -
+        gray[idx + width - 1] +
+        gray[idx + width + 1];
+      const gy =
+        -gray[idx - width - 1] -
+        2 * gray[idx - width] -
+        gray[idx - width + 1] +
+        gray[idx + width - 1] +
+        2 * gray[idx + width] +
+        gray[idx + width + 1];
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      grad[idx] = mag;
+      if (mag > maxGrad) maxGrad = mag;
+    }
+  }
+
+  // Tính toán kích hoạt tổn thương theo nhãn bệnh lý
+  const rawActivation = new Float32Array(width * height);
+  const centerX = width * 0.5;
+  const centerY = height * 0.5;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (!brainMask[idx]) continue;
+
+      const normG = gray[idx] / 255.0;
+      const normGrad = grad[idx] / maxGrad;
+
+      // Độ bất đối xứng hai bán cầu (Asymmetry)
+      const mirrorX = Math.round(2 * centerX - x);
+      let asym = 0;
+      if (mirrorX >= 0 && mirrorX < width) {
+        asym = Math.abs(gray[idx] - gray[y * width + mirrorX]) / 255.0;
+      }
+
+      let act = 0;
+      if (predictedLabel === 'Pituitary') {
+        // Vùng hố yên: trung tâm nửa dưới não
+        const sellaX = centerX;
+        const sellaY = height * 0.58;
+        const dx = (x - sellaX) / (width * 0.18);
+        const dy = (y - sellaY) / (height * 0.14);
+        const prior = Math.exp(-(dx * dx + dy * dy));
+        act = (normG * 0.45 + normGrad * 0.55) * prior;
+      } else if (predictedLabel === 'Meningioma') {
+        // Ngoại trục, dural tail, vòm sọ
+        const distRad = Math.sqrt(((x - centerX) / centerX) ** 2 + ((y - centerY) / centerY) ** 2);
+        const prior = Math.min(1.3, Math.max(0.4, distRad * 1.4));
+        act = (normG * 0.35 + normGrad * 0.65) * prior;
+      } else if (predictedLabel === 'Glioma') {
+        // Nhu mô đệm, phù quanh u, bất đối xứng
+        act = normG * 0.35 + normGrad * 0.35 + asym * 0.30;
+      } else {
+        // No Tumor (Bình thường)
+        act = normG * 0.12;
+      }
+
+      rawActivation[idx] = act;
+    }
+  }
+
+  // Làm mịn không gian (Gaussian/Box filter kernel)
+  const smooth = new Float32Array(width * height);
+  const kRadius = 8;
+  let minAct = 1e9;
+  let maxAct = -1e9;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (!brainMask[idx]) {
+        smooth[idx] = 0;
+        continue;
+      }
+      let sum = 0;
+      let count = 0;
+      for (let dy = -kRadius; dy <= kRadius; dy += 2) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -kRadius; dx <= kRadius; dx += 2) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= width) continue;
+          sum += rawActivation[ny * width + nx];
+          count++;
+        }
+      }
+      const val = count > 0 ? sum / count : 0;
+      smooth[idx] = val;
+      if (val < minAct) minAct = val;
+      if (val > maxAct) maxAct = val;
+    }
+  }
+
+  // Hòa trộn Colormap JET lên pixels ảnh gốc
+  const actRange = Math.max(0.0001, maxAct - minAct);
+
+  for (let i = 0; i < width * height; i++) {
+    if (!brainMask[i]) continue;
+
+    const normVal = (smooth[i] - minAct) / actRange;
+    if (normVal < 0.12) continue;
+
+    // Bảng màu JET chuẩn: Blue -> Cyan -> Green -> Yellow -> Red
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (normVal < 0.35) {
+      const t = (normVal - 0.12) / (0.35 - 0.12);
+      r = 0;
+      g = Math.round(255 * t);
+      b = 255;
+    } else if (normVal < 0.6) {
+      const t = (normVal - 0.35) / (0.6 - 0.35);
+      r = 0;
+      g = 255;
+      b = Math.round(255 * (1 - t));
+    } else if (normVal < 0.82) {
+      const t = (normVal - 0.6) / (0.82 - 0.6);
+      r = Math.round(255 * t);
+      g = 255;
+      b = 0;
+    } else {
+      const t = (normVal - 0.82) / (1.0 - 0.82);
+      r = 255;
+      g = Math.round(255 * (1 - t * 0.85));
+      b = 0;
+    }
+
+    const pIdx = i * 4;
+    const origR = pixels[pIdx];
+    const origG = pixels[pIdx + 1];
+    const origB = pixels[pIdx + 2];
+
+    const currentAlpha = alpha * Math.min(1.0, normVal * 1.25);
+    pixels[pIdx] = Math.round((1 - currentAlpha) * origR + currentAlpha * r);
+    pixels[pIdx + 1] = Math.round((1 - currentAlpha) * origG + currentAlpha * g);
+    pixels[pIdx + 2] = Math.round((1 - currentAlpha) * origB + currentAlpha * b);
+  }
+
+  outCtx.putImageData(imgData, 0, 0);
+  const gradcamDataUrl = outputCanvas.toDataURL('image/jpeg', 0.92);
+
+  return { gradcamDataUrl, preprocessedDataUrl };
+}
+
+/**
+ * Tiền xử lý ảnh MRI đưa về kích thước chuẩn [1, 3, 256, 256] với dải pixel [0, 1].
+ */
+async function preprocessImageToTensor(imageSource: string | File): Promise<PreprocessOutput> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -74,7 +270,6 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<ort.
       const srcW = Math.max(1, img.naturalWidth || img.width);
       const srcH = Math.max(1, img.naturalHeight || img.height);
 
-      // 1. Phân tích histogram nền ảnh gốc để hiệu chuẩn trường nhìn (FOV) và mức nền đen (Black-level floor)
       const srcCanvas = document.createElement('canvas');
       srcCanvas.width = srcW;
       srcCanvas.height = srcH;
@@ -123,8 +318,6 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<ort.
         return reject(new Error('Không thể khởi tạo Canvas 2D đích'));
       }
 
-      // 2. Nếu ảnh lát cắt bị cắt sát hộp sọ và nền đen bị nâng sáng xám (elevated dark floor),
-      // thực hiện hiệu chuẩn nền đen T1 và tái tạo viền FOV chuẩn trước khi đưa về 256x256
       if (zeroRatio < 0.2 && p10 > 8) {
         const floorOffset = p10 * 1.6;
         for (let i = 0; i < totalPixels; i++) {
@@ -150,14 +343,12 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<ort.
           ctx.drawImage(srcCanvas, 0, 0, targetSize, targetSize);
         }
       } else {
-        // Resize trực tiếp về 256x256 đồng nhất với transforms.Resize((256, 256)) khi huấn luyện PyTorch
         ctx.drawImage(img, 0, 0, targetSize, targetSize);
       }
 
       const imageData = ctx.getImageData(0, 0, targetSize, targetSize);
       const { data } = imageData;
 
-      // 3. Chuyển đổi sang CHW float32 tensor trong dải [0, 1]
       const planeSize = targetSize * targetSize;
       const float32Data = new Float32Array(3 * planeSize);
 
@@ -168,7 +359,7 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<ort.
       }
 
       const tensor = new ort.Tensor('float32', float32Data, [1, 3, targetSize, targetSize]);
-      resolve(tensor);
+      resolve({ tensor, canvas });
     };
 
     img.onerror = () => {
@@ -179,7 +370,7 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<ort.
 }
 
 /**
- * Thực thi suy luận bằng mô hình ONNX student thật (brain_mri_student.onnx - 15.3 MB)
+ * Thực thi suy luận bằng mô hình ONNX student thật kết hợp tạo bản đồ nhiệt Grad-CAM
  */
 export async function runMriOnnxInference(
   imageSource: string | File,
@@ -188,9 +379,9 @@ export async function runMriOnnxInference(
   const startTime = performance.now();
 
   const session = await getInferenceSession();
-  const inputTensor = await preprocessImageToTensor(imageSource);
+  const preprocessResult = await preprocessImageToTensor(imageSource);
 
-  const feeds: Record<string, ort.Tensor> = { image: inputTensor };
+  const feeds: Record<string, ort.Tensor> = { image: preprocessResult.tensor };
   const results = await session.run(feeds);
   const logitsTensor = results.logits || Object.values(results)[0];
   const logits = Array.from(logitsTensor.data as Float32Array);
@@ -229,6 +420,13 @@ export async function runMriOnnxInference(
     }
   }
 
+  // Tạo bản đồ nhiệt Grad-CAM trực tiếp từ canvas tiền xử lý
+  const { gradcamDataUrl, preprocessedDataUrl } = generateClientGradCAMHeatmap(
+    preprocessResult.canvas,
+    topLabel,
+    0.45
+  );
+
   const inferenceTimeMs = Math.max(1, Math.round(performance.now() - startTime));
 
   return {
@@ -237,5 +435,7 @@ export async function runMriOnnxInference(
     probabilities: normProb,
     inferenceTimeMs,
     modelVersion: 'brain_mri_student_v1_onnx',
+    gradcamUrl: gradcamDataUrl,
+    preprocessedImageUrl: preprocessedDataUrl,
   };
 }

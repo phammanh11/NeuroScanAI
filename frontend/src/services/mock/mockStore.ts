@@ -357,6 +357,8 @@ class InMemoryMockStore {
       probabilities: Record<TumorLabel, number> | ClassProbabilities;
       modelVersion: string;
       inferenceTimeMs: number;
+      gradcamUrl?: string | null;
+      preprocessedImageUrl?: string | null;
     },
   ): MRIAnalysisRecord {
     if (!payload.consentAccepted) {
@@ -422,8 +424,8 @@ class InMemoryMockStore {
       createdAt: new Date().toISOString(),
       isDemoFixture: false,
       imageUrl: previewObjectUrl || SYNTHETIC_MRI_SLICES[predictedLabel] || '/sample_scans/sample_notumor_axial.jpg',
-      preprocessedImageUrl: null,
-      gradcamUrl: null,
+      preprocessedImageUrl: aiResult?.preprocessedImageUrl || null,
+      gradcamUrl: aiResult?.gradcamUrl || null,
       predictedLabel,
       confidenceScore,
       probabilities,

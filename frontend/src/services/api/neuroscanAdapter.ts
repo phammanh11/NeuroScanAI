@@ -104,8 +104,8 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
     createdAt: item.created_at || new Date().toISOString(),
     isDemoFixture: false,
     imageUrl: fileUrl,
-    preprocessedImageUrl: null,
-    gradcamUrl: null,
+    preprocessedImageUrl: item.preprocessed_image_url || item.preprocessedImageUrl || null,
+    gradcamUrl: item.gradcam_url || item.gradcamUrl || null,
     predictedLabel: item.label || 'No Tumor',
     confidenceScore: item.confidence ? Number(item.confidence) : 0.9,
     probabilities: probObj,
@@ -458,7 +458,14 @@ export const neuroscanAdapter = {
       });
 
       if (predictRes.data?.data?.prediction) {
-        return mapPredictionToAnalysisRecord(predictRes.data.data.prediction, owner);
+        const mapped = mapPredictionToAnalysisRecord(predictRes.data.data.prediction, owner);
+        if (!mapped.gradcamUrl && aiResult?.gradcamUrl) {
+          mapped.gradcamUrl = aiResult.gradcamUrl;
+        }
+        if (!mapped.preprocessedImageUrl && aiResult?.preprocessedImageUrl) {
+          mapped.preprocessedImageUrl = aiResult.preprocessedImageUrl;
+        }
+        return mapped;
       }
     } catch (err: any) {
       console.warn('[Real AI Pipeline Warning, continuing with client ONNX inference]:', err?.message);

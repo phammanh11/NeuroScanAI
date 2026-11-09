@@ -214,7 +214,7 @@ export const INITIAL_MOCK_ANALYSES: MRIAnalysisRecord[] = [
     isDemoFixture: false,
     imageUrl: '/sample_scans/sample_glioma_axial.jpg',
     preprocessedImageUrl: null,
-    gradcamUrl: null,
+    gradcamUrl: '/sample_scans/sample_glioma_gradcam.jpg',
     predictedLabel: 'Glioma',
     confidenceScore: 0.934,
     probabilities: {
@@ -272,7 +272,7 @@ export const INITIAL_MOCK_ANALYSES: MRIAnalysisRecord[] = [
     isDemoFixture: false,
     imageUrl: '/sample_scans/sample_meningioma_axial.jpg',
     preprocessedImageUrl: null,
-    gradcamUrl: null,
+    gradcamUrl: '/sample_scans/sample_meningioma_gradcam.jpg',
     predictedLabel: 'Meningioma',
     confidenceScore: 0.918,
     probabilities: {
@@ -317,7 +317,7 @@ export const INITIAL_MOCK_ANALYSES: MRIAnalysisRecord[] = [
     isDemoFixture: false,
     imageUrl: '/sample_scans/sample_pituitary_coronal.jpg',
     preprocessedImageUrl: null,
-    gradcamUrl: null,
+    gradcamUrl: '/sample_scans/sample_pituitary_coronal_gradcam.jpg',
     predictedLabel: 'Pituitary',
     confidenceScore: 0.905,
     probabilities: {
@@ -360,7 +360,7 @@ export const INITIAL_MOCK_ANALYSES: MRIAnalysisRecord[] = [
     isDemoFixture: false,
     imageUrl: '/sample_scans/sample_notumor_axial.jpg',
     preprocessedImageUrl: null,
-    gradcamUrl: null,
+    gradcamUrl: '/sample_scans/sample_notumor_gradcam.jpg',
     predictedLabel: 'No Tumor',
     confidenceScore: 0.968,
     probabilities: {

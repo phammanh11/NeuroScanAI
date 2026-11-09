@@ -54,6 +54,17 @@ try:
 except Exception:
     ai_engine_preprocess = None
 
+try:
+    from gradcam import (
+        generate_contrast_saliency_heatmap,
+        apply_heatmap_overlay,
+        image_to_base64_data_url,
+    )
+    gradcam_engine_available = True
+except Exception:
+    gradcam_engine_available = False
+
+
 UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
@@ -177,6 +188,7 @@ class PredictPayload(BaseModel):
     probabilities: Optional[Dict[str, float]] = None
     model_version: Optional[str] = "brain_mri_student_v1_onnx"
     inference_time_ms: Optional[int] = 42
+    gradcam_url: Optional[str] = None
 
 class ReviewPayload(BaseModel):
     prediction_id: int
@@ -457,11 +469,28 @@ def predict_mri(body: PredictPayload):
             confidence = 0.892
             probabilities = {"Glioma": 0.892, "Meningioma": 0.054, "Pituitary": 0.021, "No Tumor": 0.033}
 
+    # Tạo hoặc nhận Grad-CAM Data URL
+    gradcam_data_url = body.gradcam_url
+    if not gradcam_data_url and gradcam_engine_available:
+        saved_file = os.path.join(UPLOADS_DIR, scan["r2_key"].replace("scans/", ""))
+        if not os.path.exists(saved_file) and os.path.exists(os.path.join(SAMPLE_SCANS_DIR, scan["file_name"])):
+            saved_file = os.path.join(SAMPLE_SCANS_DIR, scan["file_name"])
+
+        if os.path.exists(saved_file):
+            try:
+                orig_pil = Image.open(saved_file).convert("RGB")
+                orig_np = np.array(orig_pil)
+                hm = generate_contrast_saliency_heatmap(orig_np, target_class_name=label)
+                overlay = apply_heatmap_overlay(orig_np, hm, alpha=0.45)
+                gradcam_data_url = image_to_base64_data_url(overlay)
+            except Exception as e:
+                print(f"[!] Lỗi sinh Grad-CAM: {e}")
+
     prob_str = json.dumps(probabilities)
     cursor.execute("""
-    INSERT INTO predictions (scan_id, label, confidence, probabilities, model_version, inference_time_ms)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (body.scan_id, label, confidence, prob_str, body.model_version, infer_time))
+    INSERT INTO predictions (scan_id, label, confidence, probabilities, model_version, inference_time_ms, gradcam_data_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (body.scan_id, label, confidence, prob_str, body.model_version, infer_time, gradcam_data_url))
     pred_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -474,6 +503,7 @@ def predict_mri(body: PredictPayload):
         "probabilities": probabilities,
         "model_version": body.model_version,
         "inference_time_ms": infer_time,
+        "gradcam_url": gradcam_data_url,
         "scan": {
             "id": scan["id"],
             "patient_id": scan["patient_id"],
@@ -491,7 +521,7 @@ def list_predictions(current_user: Optional[dict] = Depends(get_current_user)):
     conn = get_db()
     cursor = conn.cursor()
     query = """
-    SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.created_at,
+    SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.gradcam_data_url, p.created_at,
            s.r2_key, s.file_name, s.file_size, s.slice_type, s.sequence_type, s.uploaded_at, s.patient_id,
            u.full_name as patient_name,
            r.id as review_id, r.confirmed_label, r.note as doctor_note, r.ai_assessment, r.created_at as reviewed_at,
@@ -557,7 +587,7 @@ def get_prediction(pred_id: int):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.created_at,
+    SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.gradcam_data_url, p.created_at,
            s.r2_key, s.file_name, s.file_size, s.slice_type, s.sequence_type, s.uploaded_at, s.patient_id,
            u.full_name as patient_name,
            r.id as review_id, r.confirmed_label, r.note as doctor_note, r.ai_assessment, r.recommended_step, r.created_at as reviewed_at,
@@ -939,3 +969,36 @@ def health_check():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
+
+@app.get("/api/gradcam/{pred_id}")
+def get_prediction_gradcam(pred_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT p.id, p.label, p.gradcam_data_url, s.r2_key, s.file_name
+    FROM predictions p
+    JOIN mri_scans s ON s.id = p.scan_id
+    WHERE p.id = ?
+    """, (pred_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bản ghi dự đoán")
+
+    if row["gradcam_data_url"]:
+        return {"success": True, "gradcam_url": row["gradcam_data_url"]}
+
+    saved_file = os.path.join(UPLOADS_DIR, row["r2_key"].replace("scans/", ""))
+    if not os.path.exists(saved_file) and os.path.exists(os.path.join(SAMPLE_SCANS_DIR, row["file_name"])):
+        saved_file = os.path.join(SAMPLE_SCANS_DIR, row["file_name"])
+
+    if os.path.exists(saved_file) and gradcam_engine_available:
+        orig_pil = Image.open(saved_file).convert("RGB")
+        orig_np = np.array(orig_pil)
+        hm = generate_contrast_saliency_heatmap(orig_np, target_class_name=row["label"])
+        overlay = apply_heatmap_overlay(orig_np, hm, alpha=0.45)
+        data_url = image_to_base64_data_url(overlay)
+        return {"success": True, "gradcam_url": data_url}
+
+    raise HTTPException(status_code=404, detail="Không thể tạo Grad-CAM cho ảnh này.")

@@ -1,7 +1,15 @@
 import sqlite3
 import os
+import sys
 import hashlib
 import json
+
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "neuroscan_fastapi.db")
 
@@ -90,6 +98,12 @@ def init_db():
         FOREIGN KEY (scan_id) REFERENCES mri_scans(id) ON DELETE CASCADE
     );
     """)
+
+    # Bổ sung cột gradcam_data_url nếu chưa có
+    try:
+        cursor.execute("ALTER TABLE predictions ADD COLUMN gradcam_data_url TEXT")
+    except Exception:
+        pass
 
     # 6. Bảng doctor_reviews
     cursor.execute("""
