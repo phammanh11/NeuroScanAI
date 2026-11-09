@@ -179,90 +179,83 @@ export const FloatingMedicalChatbot: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 font-sans">
-      {/* Nút mở Chatbot nổi */}
+    <div className="fixed bottom-4 right-4 z-40 font-sans">
+      {/* Nút mở Chatbot nổi thu gọn cân đối, không che khuất nội dung trang */}
       {!isOpen && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
           aria-label="Mở Trợ lý AI Y tế NeuroScan"
-          className="group relative flex items-center gap-3 bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600 hover:from-teal-600 hover:to-cyan-500 text-white pl-4 pr-5 py-3.5 rounded-full shadow-2xl shadow-teal-950/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-teal-400/30"
+          title="Mở Trợ lý AI Y tế (Giải thích MRI & Tra cứu Ca bệnh)"
+          className="group relative flex items-center gap-2 bg-gradient-to-r from-teal-700 to-teal-600 hover:from-teal-600 hover:to-teal-500 text-white pl-2.5 pr-3.5 py-2 rounded-full shadow-lg shadow-teal-950/30 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-teal-400/30"
         >
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm">
-            <Bot className="w-5 h-5 text-white" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+          <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm">
+            <Bot className="w-4 h-4 text-white" />
+            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-teal-800" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-teal-800" />
             </span>
           </span>
-          <div className="text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm tracking-tight">Trợ lý AI Y tế</span>
-              <span className="text-[10px] uppercase tracking-wider bg-white/20 px-1.5 py-0.5 rounded-full font-semibold">
-                RAG AI
-              </span>
-            </div>
-            <p className="text-[11px] text-teal-100/90 leading-tight">
-              Giải thích MRI • Tra cứu Ca bệnh
-            </p>
-          </div>
+          <span className="font-semibold text-xs tracking-tight whitespace-nowrap">
+            Trợ lý AI
+          </span>
         </button>
       )}
 
-      {/* Cửa sổ Chatbot nổi */}
+      {/* Cửa sổ Chatbot nổi kích thước cân đối */}
       {isOpen && (
-        <div className="w-[370px] sm:w-[420px] h-[590px] max-h-[84vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+        <div className="w-[325px] sm:w-[356px] h-[450px] max-h-[72vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white px-4 py-3.5 flex items-center justify-between shrink-0 border-b border-teal-500/20">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative w-10 h-10 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center shrink-0">
-                <Bot className="w-5 h-5 text-teal-300" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-900" />
+          <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white px-3.5 py-2.5 flex items-center justify-between shrink-0 border-b border-teal-500/20">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4 text-teal-300" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full ring-2 ring-slate-900" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-bold text-sm leading-tight truncate">
+                  <h3 className="font-bold text-xs leading-tight truncate">
                     NeuroScan Clinical AI
                   </h3>
-                  <Sparkles className="w-3.5 h-3.5 text-teal-300 shrink-0" />
+                  <Sparkles className="w-3 h-3 text-teal-300 shrink-0" />
                 </div>
-                <p className="text-[11px] text-teal-200/80 flex items-center gap-1 truncate">
-                  <Database className="w-3 h-3 text-teal-400 shrink-0" />
+                <p className="text-[10px] text-teal-200/80 flex items-center gap-1 truncate">
+                  <Database className="w-2.5 h-2.5 text-teal-400 shrink-0" />
                   <span>RAG Vector DB • Llama 3.3 70B</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <Link
                 to={fullChatPath}
                 onClick={() => setIsOpen(false)}
                 title="Mở toàn màn hình"
-                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
               >
-                <Maximize2 className="w-4 h-4" />
+                <Maximize2 className="w-3.5 h-3.5" />
               </Link>
               <button
                 type="button"
                 onClick={handleResetChat}
                 title="Làm mới cuộc trò chuyện"
-                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Đóng cửa sổ chat"
-                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Danh sách tin nhắn */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/70 dark:bg-slate-950/50">
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/70 dark:bg-slate-950/50">
             {messages.map((msg) => {
               const isUser = msg.sender === 'user';
               return (

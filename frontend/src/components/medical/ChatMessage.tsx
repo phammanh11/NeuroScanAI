@@ -62,7 +62,7 @@ function renderFormattedMedicalContent(content: string): React.ReactNode {
   const flushList = (keyPrefix: string) => {
     if (listBuffer.length === 0) return;
     elements.push(
-      <ul key={`${keyPrefix}-ul`} className="space-y-1.5 my-2 pl-4 list-disc marker:text-teal-500">
+      <ul key={`${keyPrefix}-ul`} className="space-y-1 my-1.5 pl-4 list-disc marker:text-teal-500">
         {listBuffer.map((item, idx) => (
           <li key={idx} className="leading-relaxed">
             {renderFormattedInline(item)}
@@ -85,7 +85,7 @@ function renderFormattedMedicalContent(content: string): React.ReactNode {
       elements.push(
         <h4
           key={`h4-${index}`}
-          className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-400 mt-3 mb-1"
+          className="text-[11px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-400 mt-2 mb-1"
         >
           {renderFormattedInline(line.replace(/^###\s+/, ''))}
         </h4>
@@ -100,7 +100,7 @@ function renderFormattedMedicalContent(content: string): React.ReactNode {
 
     flushList(`line-${index}`);
     elements.push(
-      <p key={`p-${index}`} className="leading-relaxed my-1.5 first:mt-0 last:mb-0">
+      <p key={`p-${index}`} className="leading-relaxed my-1 first:mt-0 last:mb-0">
         {renderFormattedInline(line)}
       </p>
     );
@@ -122,57 +122,57 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
   if (isUser) {
     return (
-      <div className="flex justify-end items-start gap-3">
-        <div className="max-w-2xl rounded-2xl rounded-tr-sm px-4 py-3 bg-teal-600 text-white shadow-sm">
-          <p className="text-sm whitespace-pre-line leading-relaxed">{message.content}</p>
-          <span className="block text-[10px] text-teal-100/80 mt-1.5 text-right font-mono">
+      <div className="flex justify-end items-start gap-2.5">
+        <div className="max-w-xl rounded-2xl rounded-tr-sm px-3.5 py-2.5 bg-teal-600 text-white shadow-xs">
+          <p className="text-xs sm:text-[13px] whitespace-pre-line leading-relaxed">{message.content}</p>
+          <span className="block text-[9.5px] text-teal-100/80 mt-1 text-right font-mono">
             {new Date(message.createdAt).toLocaleTimeString('vi-VN', {
               hour: '2-digit',
               minute: '2-digit',
             })}
           </span>
         </div>
-        <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
-          <User className="w-4 h-4" />
+        <div className="w-7 h-7 rounded-xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+          <User className="w-3.5 h-3.5" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex justify-start items-start gap-3">
+    <div className="flex justify-start items-start gap-2.5">
       <div
-        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+        className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border ${
           isEmergency
             ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800'
             : 'bg-slate-900 dark:bg-teal-950 text-teal-400 border-slate-700 dark:border-teal-800'
         }`}
       >
-        {isEmergency ? <ShieldAlert className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+        {isEmergency ? <ShieldAlert className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
       </div>
 
       <div
-        className={`max-w-2xl w-full rounded-2xl rounded-tl-sm p-4 border shadow-xs ${
+        className={`max-w-2xl w-full rounded-2xl rounded-tl-sm p-3 sm:p-3.5 border shadow-2xs ${
           isEmergency
             ? 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/80 text-rose-950 dark:text-rose-100'
             : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200'
         }`}
       >
         {/* Header Badges */}
-        <div className="flex flex-wrap items-center gap-2 mb-2.5 pb-2 border-b border-slate-200/70 dark:border-slate-800/80">
-          <span className="text-xs font-bold text-slate-900 dark:text-white">
+        <div className="flex flex-wrap items-center gap-2 mb-2 pb-1.5 border-b border-slate-200/70 dark:border-slate-800/80">
+          <span className="text-[11.5px] font-bold text-slate-900 dark:text-white">
             Trợ lý AI Y tế NeuroScan
           </span>
 
           {isEmergency && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-600 text-white">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white">
               <AlertTriangle className="w-3 h-3" />
               CẢNH BÁO CẤP CỨU Y KHOA (RED FLAGS)
             </span>
           )}
 
           {message.urgency === 'prompt_evaluation' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
               Cần thăm khám chuyên khoa sớm
             </span>
           )}
@@ -180,7 +180,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           {message.linkedAnalysisLabel && <TumorClassBadge label={message.linkedAnalysisLabel} size="sm" />}
 
           {message.isOutOfScope && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
               <Info className="w-3 h-3" />
               Giới hạn phạm vi an toàn y khoa
             </span>
@@ -188,7 +188,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         </div>
 
         {/* Body Content */}
-        <div className="text-sm leading-relaxed">
+        <div className="text-xs sm:text-[13px] leading-relaxed">
           {renderFormattedMedicalContent(message.content)}
         </div>
 
