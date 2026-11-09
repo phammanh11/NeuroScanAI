@@ -82,6 +82,7 @@ export const PublicHeader: React.FC = () => {
         >
           <NavLink
             to="/"
+            end
             className={({ isActive }) =>
               isActive
                 ? 'text-teal-600 dark:text-teal-400 font-semibold'
@@ -92,13 +93,21 @@ export const PublicHeader: React.FC = () => {
           </NavLink>
           <NavLink
             to={mriAnalysisPath}
-            className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-teal-600 dark:text-teal-400 font-semibold'
+                : 'hover:text-teal-600 dark:hover:text-teal-400 transition-colors'
+            }
           >
             Phân tích MRI
           </NavLink>
           <NavLink
             to={aiAssistantPath}
-            className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-teal-600 dark:text-teal-400 font-semibold'
+                : 'hover:text-teal-600 dark:hover:text-teal-400 transition-colors'
+            }
           >
             Trợ lý AI
           </NavLink>
@@ -114,7 +123,11 @@ export const PublicHeader: React.FC = () => {
           </NavLink>
           <NavLink
             to="/model-overview"
-            className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-teal-600 dark:text-teal-400 font-semibold'
+                : 'hover:text-teal-600 dark:hover:text-teal-400 transition-colors'
+            }
           >
             Kiến trúc AI
           </NavLink>

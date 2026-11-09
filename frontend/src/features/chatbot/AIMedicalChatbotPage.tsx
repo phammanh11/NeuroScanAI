@@ -78,13 +78,14 @@ export const AIMedicalChatbotPage: React.FC = () => {
     });
   };
 
+  const effectiveUserId = user?.id || '2';
+
   useEffect(() => {
-    if (!user) return;
     let mounted = true;
 
     const initChat = async () => {
       try {
-        const existingSessions = await neuroscanAdapter.getChatSessions(user.id);
+        const existingSessions = await neuroscanAdapter.getChatSessions(effectiveUserId);
         if (!mounted) return;
 
         if (analysisIdParam) {
@@ -98,7 +99,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
               setActiveSessionId(matched.id);
               return;
             }
-            const created = await neuroscanAdapter.createChatSession(user.id, analysis);
+            const created = await neuroscanAdapter.createChatSession(effectiveUserId, analysis);
             if (!mounted) return;
             setSessions([created, ...existingSessions]);
             setActiveSessionId(created.id);
@@ -107,7 +108,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
         }
 
         if (existingSessions.length === 0) {
-          const created = await neuroscanAdapter.createChatSession(user.id, null);
+          const created = await neuroscanAdapter.createChatSession(effectiveUserId, null);
           if (!mounted) return;
           setSessions([created]);
           setActiveSessionId(created.id);
@@ -129,7 +130,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [user, analysisIdParam, showToast]);
+  }, [effectiveUserId, analysisIdParam, showToast]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
 
@@ -141,8 +142,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
   }, [activeSession?.messages.length, sending]);
 
   const handleCreateNewSession = async () => {
-    if (!user) return;
-    const created = await neuroscanAdapter.createChatSession(user.id, null);
+    const created = await neuroscanAdapter.createChatSession(effectiveUserId, null);
     setLinkedAnalysis(null);
     setSearchParams({});
     setSessions((prev) => [created, ...prev]);
@@ -155,7 +155,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
   };
 
   const handleConfirmDeleteSession = async () => {
-    if (!sessionToDelete || !user) return;
+    if (!sessionToDelete) return;
     const deletedId = sessionToDelete.id;
     await neuroscanAdapter.deleteChatSession(deletedId);
 
@@ -163,7 +163,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
     setSessionToDelete(null);
 
     if (remaining.length === 0) {
-      const fresh = await neuroscanAdapter.createChatSession(user.id, null);
+      const fresh = await neuroscanAdapter.createChatSession(effectiveUserId, null);
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
     } else {
@@ -182,11 +182,11 @@ export const AIMedicalChatbotPage: React.FC = () => {
   const handleSendMessage = async (textOverride?: string) => {
     const rawText = textOverride ?? inputValue;
     const trimmed = rawText.trim();
-    if (!trimmed || !user || sending) return;
+    if (!trimmed || sending) return;
 
     let targetSession = activeSession;
     if (!targetSession) {
-      const created = await neuroscanAdapter.createChatSession(user.id, linkedAnalysis);
+      const created = await neuroscanAdapter.createChatSession(effectiveUserId, linkedAnalysis);
       setSessions((prev) => [created, ...prev]);
       setActiveSessionId(created.id);
       targetSession = created;

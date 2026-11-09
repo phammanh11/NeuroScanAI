@@ -47,13 +47,14 @@ export const AnalysisHistoryPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const loadRequestRef = useRef(0);
 
+  const effectiveUserId = user?.id || '2';
+
   const loadHistory = useCallback(async () => {
-    if (!user) return;
     const requestId = ++loadRequestRef.current;
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const list = await neuroscanAdapter.getUserAnalyses(user.id);
+      const list = await neuroscanAdapter.getUserAnalyses(effectiveUserId);
       if (requestId !== loadRequestRef.current) return;
       setAnalyses(list);
     } catch (err) {
@@ -64,7 +65,7 @@ export const AnalysisHistoryPage: React.FC = () => {
     } finally {
       if (requestId === loadRequestRef.current) setIsLoading(false);
     }
-  }, [user]);
+  }, [effectiveUserId]);
 
   useEffect(() => {
     void loadHistory();

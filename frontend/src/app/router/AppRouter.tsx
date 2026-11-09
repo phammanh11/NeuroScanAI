@@ -1,9 +1,11 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { ProtectedRoute } from '@/app/router/ProtectedRoute';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { DoctorLayout } from '@/components/layout/DoctorLayout';
+import { PublicHeader } from '@/components/layout/PublicHeader';
+import { RouteErrorBoundary } from '@/components/common/RouteErrorBoundary';
 import { LoadingState } from '@/components/common/LoadingState';
 import { FloatingMedicalChatbot } from '@/components/medical/FloatingMedicalChatbot';
 import { MOCK_ERROR_SIMULATION_EVENT } from '@/constants/appEvents';
@@ -92,9 +94,39 @@ const DoctorVisionAnalysisPage = lazy(() =>
   })),
 );
 
-const RoleAwareSharedLayout: React.FC = () => {
-  const { user } = useAuth();
-  if (user?.role === 'DOCTOR') {
+const PublicPageLayout: React.FC = () => {
+  const { pathname } = useLocation();
+  const isChatbotRoute =
+    pathname.includes('/ai-assistant') || pathname.includes('/ai-chatbot');
+
+  return (
+    <div
+      className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 ${
+        isChatbotRoute ? 'lg:h-dvh lg:overflow-hidden' : ''
+      }`}
+    >
+      <PublicHeader />
+      <main
+        className={
+          isChatbotRoute
+            ? 'flex-1 min-h-0 flex flex-col p-3 sm:p-4 lg:px-6 lg:py-3 max-w-7xl w-full mx-auto lg:overflow-hidden'
+            : 'flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto'
+        }
+      >
+        <RouteErrorBoundary>
+          <Outlet />
+        </RouteErrorBoundary>
+      </main>
+    </div>
+  );
+};
+
+const PublicOrRoleLayout: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated || !user) {
+    return <PublicPageLayout />;
+  }
+  if (user.role === 'DOCTOR' || user.role === 'doctor') {
     return <DoctorLayout />;
   }
   return <UserLayout />;
@@ -122,17 +154,15 @@ export const AppRouter: React.FC = () => {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Shared Authenticated Routes (Knowledge Base & Model Overview) */}
-          <Route
-            element={
-              <ProtectedRoute allowedRoles={['USER', 'DOCTOR']}>
-                <RoleAwareSharedLayout />
-              </ProtectedRoute>
-            }
-          >
+          {/* Publicly Accessible & Role-Aware Routes (No forced redirect to /login) */}
+          <Route element={<PublicOrRoleLayout />}>
+            <Route path="/mri-analysis" element={<MRIAnalysisPage />} />
+            <Route path="/mri-results/:id" element={<MRIResultPage />} />
+            <Route path="/ai-assistant" element={<AIMedicalChatbotPage />} />
             <Route path="/knowledge" element={<KnowledgeBasePage />} />
             <Route path="/medical-knowledge" element={<KnowledgeBasePage />} />
             <Route path="/model-overview" element={<ModelOverviewPage />} />
+            <Route path="/history" element={<AnalysisHistoryPage />} />
           </Route>
 
           {/* USER Role Protected Routes */}
@@ -144,10 +174,6 @@ export const AppRouter: React.FC = () => {
             }
           >
             <Route path="/dashboard" element={<UserDashboardPage />} />
-            <Route path="/mri-analysis" element={<MRIAnalysisPage />} />
-            <Route path="/mri-results/:id" element={<MRIResultPage />} />
-            <Route path="/history" element={<AnalysisHistoryPage />} />
-            <Route path="/ai-assistant" element={<AIMedicalChatbotPage />} />
             <Route path="/profile" element={<ProfileAndSettingsPage />} />
             <Route path="/settings" element={<ProfileAndSettingsPage />} />
           </Route>

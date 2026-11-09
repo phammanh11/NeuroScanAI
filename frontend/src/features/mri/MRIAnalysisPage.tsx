@@ -126,7 +126,22 @@ export const MRIAnalysisPage: React.FC = () => {
       );
       return;
     }
-    if (!user) return;
+
+    const effectiveUser = user ?? {
+      id: '2',
+      email: 'demo.user@neuroscan.vn',
+      fullName: 'Khách truy cập (Chế độ Trải nghiệm)',
+      role: 'USER' as const,
+      organizationOrUnit: 'Cổng Trải nghiệm Công khai NeuroScan AI',
+      isDemoAccount: true,
+      joinedAt: new Date().toISOString(),
+      preferences: {
+        emailNotifications: false,
+        doctorReviewAlerts: false,
+        saveHistoryConsent: true,
+        anonymizeExports: true,
+      },
+    };
 
     setValidationError(null);
     setApiError(null);
@@ -162,7 +177,7 @@ export const MRIAnalysisPage: React.FC = () => {
           symptomNote,
           imageDimensions,
         },
-        user,
+        effectiveUser,
         durablePreviewUrl,
         abortController.signal,
       );
