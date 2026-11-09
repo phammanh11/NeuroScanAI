@@ -53,12 +53,14 @@ export const PublicHeader: React.FC = () => {
 
   const handleConfirmLogout = () => {
     setIsLogoutConfirmOpen(false);
-    logout();
-    showToast({
-      variant: 'info',
-      title: 'Đã đăng xuất khỏi phiên làm việc an toàn',
-    });
-    navigate('/login');
+    navigate('/', { replace: true });
+    window.setTimeout(() => {
+      logout();
+      showToast({
+        variant: 'info',
+        title: 'Đã đăng xuất khỏi phiên làm việc an toàn',
+      });
+    }, 0);
   };
 
   return (
