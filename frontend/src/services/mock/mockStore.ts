@@ -12,7 +12,6 @@ import {
 } from '@/data/knowledgeAndFaqData';
 import {
   SYNTHETIC_MRI_SLICES,
-  SYNTHETIC_PREPROCESSED_ROI_GLIOMA,
 } from '@/assets/mriIllustrations';
 import { ENV_CONFIG } from '@/constants/apiEndpoints';
 import { sanitizeMedicalFileName } from '@/utils/formatters';
@@ -20,12 +19,14 @@ import type {
   AuthSession,
   ChatMessageRecord,
   ChatSessionRecord,
+  ClassProbabilities,
   CreateAnalysisPayload,
   CreatePatientPayload,
   MRIAnalysisRecord,
   PatientRecord,
   RequestDoctorReviewPayload,
   SubmitDoctorReviewPayload,
+  TumorLabel,
   UpdatePatientPayload,
   UserProfile,
   UserRole,
@@ -156,10 +157,10 @@ class InMemoryMockStore {
     }
     const updatedUser: UserProfile = {
       ...structuredClone(DEMO_USERS.USER),
-      id: this.createId('usr-demo-registered'),
-      fullName: `${fullName.trim()} (Tài khoản Giả lập)`,
+      id: this.createId('usr-registered'),
+      fullName: fullName.trim(),
       email: normalizedEmail,
-      isDemoAccount: true,
+      isDemoAccount: false,
       role: 'USER',
     };
     this.profilesById[updatedUser.id] = updatedUser;
@@ -350,6 +351,13 @@ class InMemoryMockStore {
     payload: CreateAnalysisPayload,
     owner: UserProfile,
     previewObjectUrl: string,
+    aiResult?: {
+      label: TumorLabel;
+      confidence: number;
+      probabilities: Record<TumorLabel, number> | ClassProbabilities;
+      modelVersion: string;
+      inferenceTimeMs: number;
+    },
   ): MRIAnalysisRecord {
     if (!payload.consentAccepted) {
       throw new Error('Cần xác nhận consent trước khi tạo phiên phân tích.');
@@ -364,7 +372,7 @@ class InMemoryMockStore {
       payload.file.type === 'image/svg+xml' || ext === 'SVG'
         ? 'SVG'
         : ext === 'JPG' || ext === 'JPEG'
-          ? ext
+          ? (ext as any)
           : 'PNG';
 
     const highestSessionNumber = this.analyses.reduce((max, item) => {
@@ -379,12 +387,24 @@ class InMemoryMockStore {
     if (payload.targetPatientId) {
       targetPatient = this.patients.find((p) => p.id === payload.targetPatientId);
     } else if (isDoctor) {
-      // Mặc định gán cho bệnh nhân đầu tiên nếu bác sĩ không chọn cụ thể
       targetPatient = this.patients[0];
     }
 
+    const predictedLabel: TumorLabel = aiResult ? aiResult.label : preset.label;
+    const confidenceScore = aiResult ? aiResult.confidence : preset.confidenceScore;
+    const probabilities: ClassProbabilities = aiResult
+      ? {
+          Glioma: (aiResult.probabilities as any).Glioma ?? 0,
+          Meningioma: (aiResult.probabilities as any).Meningioma ?? 0,
+          Pituitary: (aiResult.probabilities as any).Pituitary ?? 0,
+          'No Tumor': (aiResult.probabilities as any)['No Tumor'] ?? 0,
+        }
+      : structuredClone(preset.probabilities);
+    const modelVersion = aiResult ? aiResult.modelVersion : 'brain_mri_student_v1_onnx';
+    const inferenceTimeMs = aiResult ? aiResult.inferenceTimeMs : 45;
+
     const record: MRIAnalysisRecord = {
-      id: this.createId('ana-demo'),
+      id: this.createId('ana-real'),
       sessionCode: `NS-2026-${newIndex}`,
       ownerUserId: targetPatient?.linkedUserId || (isDoctor ? 'usr-demo-patient-01' : owner.id),
       ownerDisplayCode: targetPatient
@@ -400,28 +420,22 @@ class InMemoryMockStore {
       fileSizeBytes: payload.file.size,
       imageDimensions: payload.imageDimensions ?? { width: 512, height: 512 },
       createdAt: new Date().toISOString(),
-      isDemoFixture: true,
-      imageUrl: previewObjectUrl || SYNTHETIC_MRI_SLICES[preset.label],
-      preprocessedImageUrl: preset.hasPreprocessedDemo
-        ? SYNTHETIC_PREPROCESSED_ROI_GLIOMA
-        : null,
+      isDemoFixture: false,
+      imageUrl: previewObjectUrl || SYNTHETIC_MRI_SLICES[predictedLabel] || '/sample_scans/sample_notumor_axial.jpg',
+      preprocessedImageUrl: null,
       gradcamUrl: null,
-      predictedLabel: preset.label,
-      confidenceScore: preset.confidenceScore,
-      probabilities: structuredClone(preset.probabilities),
+      predictedLabel,
+      confidenceScore,
+      probabilities,
       modelMetadata: {
-        modelVersion: isDoctor
-          ? 'Clinical Computer Vision Lab (OpenCV ROI + Multi-Backbone)'
-          : 'Mock-Fixture-v1.0 (Kết quả minh họa cố định)',
-        pipelineMode: 'MOCK_FIXTURE',
-        preprocessingApplied: preset.hasPreprocessedDemo
-          ? [
-              'Brain Contour ROI Cropping (Minh họa)',
-              'CLAHE Adaptive Histogram (Minh họa)',
-              'Z-score Normalization (Minh họa)',
-            ]
-          : ['Chuẩn hóa kích thước khung hình (Minh họa)'],
-        inferenceTimeMs: 410,
+        modelVersion,
+        pipelineMode: 'CLIENT_ONNX_INFERENCE',
+        preprocessingApplied: [
+          'Brain Contour ROI Cropping',
+          'Normalization (256x256, ImageNet mean/std)',
+          'ONNX Runtime Web Inference Engine',
+        ],
+        inferenceTimeMs,
       },
       patientSharedConsent: isDoctor ? true : false,
       patientSymptomNote: payload.symptomNote?.trim() || undefined,

@@ -64,7 +64,15 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
   const review = item.review;
   const predId = String(item.id || item.scan_id || Date.now());
   const scanCode = `SCAN-2026-${String(predId).padStart(3, '0')}`;
-  const fileUrl = scan.file_url || (scan.r2_key ? `/api/files/${scan.r2_key}` : (scan.file_key ? `/api/files/${scan.file_key}` : ''));
+  let fileUrl = scan.file_url || '';
+  if (!fileUrl && scan.r2_key) {
+    fileUrl = scan.r2_key.startsWith('sample_scans') ? `/${scan.r2_key}` : `/api/files/${scan.r2_key}`;
+  } else if (!fileUrl && scan.file_key) {
+    fileUrl = scan.file_key.startsWith('sample_scans') ? `/${scan.file_key}` : `/api/files/${scan.file_key}`;
+  }
+  if (!fileUrl) {
+    fileUrl = '/sample_scans/sample_notumor_axial.jpg';
+  }
 
   let probObj = item.probabilities;
   if (typeof probObj === 'string') {
@@ -273,7 +281,7 @@ export const neuroscanAdapter = {
   async getDoctorPatients(doctorId: string): Promise<PatientRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.PATIENTS.LIST);
-      if (data?.success && Array.isArray(data?.data?.patients) && data.data.patients.length > 0) {
+      if (data?.success && Array.isArray(data?.data?.patients)) {
         return data.data.patients.map(mapBackendPatientToRecord);
       }
     } catch {}
@@ -347,7 +355,7 @@ export const neuroscanAdapter = {
   async getUserAnalyses(userId?: string): Promise<MRIAnalysisRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
-      if (data?.success && Array.isArray(data?.data?.predictions) && data.data.predictions.length > 0) {
+      if (data?.success && Array.isArray(data?.data?.predictions)) {
         return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
       }
     } catch {}
@@ -375,9 +383,10 @@ export const neuroscanAdapter = {
     previewObjectUrl: string,
     signal?: AbortSignal
   ): Promise<MRIAnalysisRecord> {
+    let aiResult: any = null;
     try {
       // 1. Chạy suy luận mô hình ONNX student thật (256x256, 4 lớp)
-      const aiResult = await runMriOnnxInference(payload.file, payload.file.name);
+      aiResult = await runMriOnnxInference(payload.file, payload.file.name);
 
       // 2. Tải ảnh lên Cloudflare R2 Bucket qua endpoint POST /api/scans
       const formData = new FormData();
@@ -407,11 +416,14 @@ export const neuroscanAdapter = {
         return mapPredictionToAnalysisRecord(predictRes.data.data.prediction, owner);
       }
     } catch (err: any) {
-      console.warn('[Real AI Pipeline Warning, falling back to local simulation]:', err?.message);
+      console.warn('[Real AI Pipeline Warning, continuing with client ONNX inference]:', err?.message);
     }
 
-    // Fallback nếu chạy offline không có mạng
-    const record = mockStore.createMockAnalysis(payload, owner, previewObjectUrl);
+    // Client ONNX execution fallback
+    if (!aiResult) {
+      aiResult = await runMriOnnxInference(payload.file, payload.file.name);
+    }
+    const record = mockStore.createMockAnalysis(payload, owner, previewObjectUrl, aiResult);
     return record;
   },
 
@@ -433,7 +445,7 @@ export const neuroscanAdapter = {
   async getDoctorCases(doctorId?: string): Promise<MRIAnalysisRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
-      if (data?.success && Array.isArray(data?.data?.predictions) && data.data.predictions.length > 0) {
+      if (data?.success && Array.isArray(data?.data?.predictions)) {
         return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
       }
     } catch {}

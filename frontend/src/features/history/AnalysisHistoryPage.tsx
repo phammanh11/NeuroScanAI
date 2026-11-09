@@ -447,7 +447,7 @@ export const AnalysisHistoryPage: React.FC = () => {
             <span>
               Hiển thị {(safePage - 1) * PAGE_SIZE + 1}–
               {Math.min(safePage * PAGE_SIZE, filteredList.length)} trên tổng số{' '}
-              <strong>{filteredList.length}</strong> phiên (DEMO)
+              <strong>{filteredList.length}</strong> phiên
             </span>
 
             <div className="flex items-center gap-1.5">

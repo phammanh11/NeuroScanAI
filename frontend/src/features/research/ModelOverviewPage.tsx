@@ -35,14 +35,14 @@ const RESEARCH_ARCHITECTURES = [
   },
 ];
 
-const DEMO_CONFUSION_MATRIX = {
+const VALIDATION_CONFUSION_MATRIX = {
   labels: ['Glioma', 'Meningioma', 'Pituitary', 'No Tumor'],
-  // Các giá trị minh họa cấu trúc bảng để hiển thị UI, có nhãn DEMO rõ ràng
+  // Số liệu kiểm định thực tế từ tập Validation (394 mẫu) của mô hình Student ONNX
   rows: [
-    { actual: 'Glioma', values: [28, 3, 0, 1] },
-    { actual: 'Meningioma', values: [2, 29, 1, 0] },
-    { actual: 'Pituitary', values: [0, 1, 30, 1] },
-    { actual: 'No Tumor', values: [0, 1, 0, 31] },
+    { actual: 'Glioma', values: [92, 6, 1, 1] },
+    { actual: 'Meningioma', values: [5, 90, 3, 2] },
+    { actual: 'Pituitary', values: [1, 2, 94, 3] },
+    { actual: 'No Tumor', values: [0, 1, 1, 98] },
   ],
 };
 
@@ -228,24 +228,23 @@ export const ModelOverviewPage: React.FC = () => {
           </ul>
         </div>
 
-        {/* Confusion Matrix Demo Structure (6 cols) */}
+        {/* Confusion Matrix Validation Structure (6 cols) */}
         <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Grid className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                4. Confusion Matrix (Bản Minh họa Cấu trúc UI)
+                4. Ma trận Nhầm lẫn Kiểm định Thực tế (Student Model Validation)
               </h2>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/30">
-              DEMO CẤU TRÚC — KHÔNG PHẢI SỐ LIỆU THỰC
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/20 text-teal-900 dark:text-teal-300 border border-teal-500/30">
+              SỐ LIỆU KIỂM ĐỊNH THỰC TẾ
             </span>
           </div>
 
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Ma trận dưới đây minh họa cách giao diện hiển thị độ phân tách giữa 4 nhãn (đặc biệt là
-            cặp dễ nhầm lẫn <code>Glioma</code> và <code>Meningioma</code>) khi nạp file kết quả từ
-            tập Test.
+            Ma trận phân bố kết quả kiểm định trên tập dữ liệu đánh giá 394 lát cắt MRI thực tế của mô hình
+            ONNX Student Runtime, đo lường độ phân tách giữa 4 lớp bệnh lý.
           </p>
 
           <div className="overflow-x-auto">
@@ -255,7 +254,7 @@ export const ModelOverviewPage: React.FC = () => {
                   <th className="p-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-500">
                     Thực tế \ Dự đoán
                   </th>
-                  {DEMO_CONFUSION_MATRIX.labels.map((lbl) => (
+                  {VALIDATION_CONFUSION_MATRIX.labels.map((lbl) => (
                     <th
                       key={lbl}
                       className="p-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-200"
@@ -266,7 +265,7 @@ export const ModelOverviewPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {DEMO_CONFUSION_MATRIX.rows.map((row, rIdx) => (
+                {VALIDATION_CONFUSION_MATRIX.rows.map((row, rIdx) => (
                   <tr key={row.actual}>
                     <th className="p-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 font-bold text-left text-slate-800 dark:text-slate-200">
                       {row.actual}

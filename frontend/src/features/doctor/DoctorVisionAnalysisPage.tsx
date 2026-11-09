@@ -23,7 +23,6 @@ import { useToast } from '@/app/providers/ToastProvider';
 import { PageHeader } from '@/components/common/PageHeader';
 import {
   MRIUploader,
-  createSyntheticDemoFile,
   getImageDimensions,
 } from '@/components/medical/MRIUploader';
 import { MRIViewer } from '@/components/medical/MRIViewer';
@@ -180,16 +179,25 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
     return patients.find((p) => p.id === selectedPatientId) || null;
   }, [patients, selectedPatientId]);
 
-  // Handle Preset Selection
-  const handleSelectPreset = (label: TumorLabel) => {
+  // Handle Preset Selection with Real Dataset Scans
+  const handleSelectPreset = async (label: TumorLabel) => {
     setSelectedPresetLabel(label);
-    const sample = createSyntheticDemoFile(label);
-    setUploadedFile(sample.file);
-    setFileDimensions({ width: 512, height: 512 });
-    setPreviewDataUrl(sample.previewUrl);
-    setUploaderError(null);
-    setAnalyzedRecord(null);
-    setCurrentStep('IDLE');
+    const scanPath = SYNTHETIC_MRI_SLICES[label];
+    try {
+      const res = await fetch(scanPath);
+      const blob = await res.blob();
+      const fileName = `sample_${label.toLowerCase().replace(/\s+/g, '_')}_axial.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+      const previewUrl = URL.createObjectURL(blob);
+      setUploadedFile(file);
+      setFileDimensions({ width: 512, height: 512 });
+      setPreviewDataUrl(previewUrl);
+      setUploaderError(null);
+      setAnalyzedRecord(null);
+      setCurrentStep('IDLE');
+    } catch {
+      setPreviewDataUrl(scanPath);
+    }
   };
 
   // Run Computer Vision Pipeline

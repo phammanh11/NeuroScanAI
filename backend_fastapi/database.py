@@ -192,7 +192,7 @@ def init_db():
         # Sample Scans & Predictions
         cursor.execute("""
         INSERT INTO mri_scans (id, patient_id, r2_key, file_name, file_size, mime_type, slice_type, sequence_type)
-        VALUES (1, 2, 'scans/demo_glioma_t1ce.png', 'patient_an_axial_t1ce.png', 245890, 'image/png', 'Axial (Trục ngang)', 'T1-Gd (Contrast)')
+        VALUES (1, 2, 'sample_scans/sample_glioma_axial.jpg', 'sample_glioma_axial.jpg', 154200, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)')
         """)
         probs = json.dumps({"Glioma": 0.892, "Meningioma": 0.054, "Pituitary": 0.021, "No Tumor": 0.033})
         cursor.execute("""

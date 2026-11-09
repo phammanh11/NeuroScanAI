@@ -263,8 +263,8 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
 
         {isDemoFixture && (
           <div className="absolute top-3 right-3 z-10 pointer-events-none">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              ẢNH & KẾT QUẢ MINH HỌA (DEMO)
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/40">
+              LÁT CẮT THAM CHIẾU HỌC THUẬT
             </span>
           </div>
         )}

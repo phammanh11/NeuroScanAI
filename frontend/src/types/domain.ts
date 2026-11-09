@@ -131,7 +131,7 @@ export interface MRIAnalysisRecord {
   probabilities: ClassProbabilities | null;
   modelMetadata: {
     modelVersion: string;
-    pipelineMode: 'MOCK_FIXTURE' | 'BACKEND_INFERENCE';
+    pipelineMode: 'MOCK_FIXTURE' | 'BACKEND_INFERENCE' | 'CLIENT_ONNX_INFERENCE';
     preprocessingApplied: string[];
     inferenceTimeMs?: number;
   };

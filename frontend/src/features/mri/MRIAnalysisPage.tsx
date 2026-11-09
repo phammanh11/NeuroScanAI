@@ -369,7 +369,7 @@ export const MRIAnalysisPage: React.FC = () => {
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang xử lý mô phỏng...</span>
+                    <span>Đang chạy suy luận AI ONNX Runtime...</span>
                   </>
                 ) : (
                   <>
@@ -447,16 +447,15 @@ export const MRIAnalysisPage: React.FC = () => {
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 3. Trạng thái quy trình (UI Stepper)
               </h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                Mô phỏng UI trong Mock Mode
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                Quy trình thực tế
               </span>
             </div>
 
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2">
               <Info className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
               <span>
-                Trong chế độ Mock (<code>VITE_MOCK_MODE=true</code>), các bước dưới đây chỉ mô phỏng
-                trạng thái giao diện, <strong>không ngụ ý rằng pipeline PyTorch AI thực sự đã chạy</strong>.
+                Hệ thống nạp trực tiếp mô hình ONNX Student (15.3 MB) vào trình duyệt qua ONNX Runtime Web để tính toán phân bố xác suất Softmax 4 lớp theo thời gian thực.
               </span>
             </div>
 

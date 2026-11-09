@@ -194,7 +194,7 @@ export const DoctorDashboardPage: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              Danh sách yêu cầu xem xét MRI được phân công (DEMO)
+              Danh sách yêu cầu xem xét MRI được phân công
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Nhấn “Mở Trạm Đọc & Review” để xem MRI Viewer, đối chiếu xác suất AI và ghi chú

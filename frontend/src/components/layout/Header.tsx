@@ -157,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Thông báo Demo
+                  Thông báo Hệ thống
                 </span>
                 <button
                   type="button"
@@ -178,10 +178,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
                   <p className="font-semibold text-slate-800 dark:text-slate-100">
-                    Trạng thái phiên làm việc Demo
+                    Trạng thái kết nối Hệ thống
                   </p>
                   <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-                    Các thông báo hiện tại là dữ liệu minh họa, không đại diện cho hồ sơ y tế thực tế.
+                    Hệ thống AI ONNX Runtime và cơ sở dữ liệu đã sẵn sàng phục vụ phân tích.
                   </p>
                 </div>
               </div>
@@ -213,7 +213,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                   {user.fullName}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  {user.role} • {user.isDemoAccount ? 'Giả lập' : 'Tài khoản'}
+                  {user.role === 'DOCTOR' ? 'Bác sĩ Chuyên khoa' : 'Người dùng'}
                 </p>
               </div>
             </Link>

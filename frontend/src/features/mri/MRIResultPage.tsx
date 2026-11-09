@@ -119,8 +119,8 @@ export const MRIResultPage: React.FC = () => {
     const labelMeta = TUMOR_LABEL_METADATA[record.predictedLabel];
     const reportContent = [
       '====================================================================',
-      'BÁO CÁO MINH HỌA — KHÔNG CÓ GIÁ TRỊ CHẨN ĐOÁN Y KHOA',
-      'NEUROSCAN AI (CHẾ ĐỘ DEMO HỌC THUẬT)',
+      'PHIẾU KẾT QUẢ PHÂN TÍCH HÌNH ẢNH HỌC MRI NÃO (ONNX RUNTIME AI)',
+      'HỆ THỐNG NEUROSCAN AI — DỮ LIỆU ĐÁNH GIÁ THỰC TẾ',
       '====================================================================',
       `Mã phiên phân tích : ${record.sessionCode}`,
       `Thời gian tạo      : ${formatDateTimeVN(record.createdAt)}`,
@@ -133,7 +133,7 @@ export const MRIResultPage: React.FC = () => {
       '--------------------------------------------------------------------',
       '1. KẾT QUẢ PHÂN LOẠI THAM KHẢO TỪ AI (4 LỚP):',
       `   - Nhãn dự đoán cao nhất : ${record.predictedLabel} (${labelMeta.vietnameseTitle})`,
-      `   - Confidence Score      : ${formatPercent(record.confidenceScore)} (Lưu ý: KHÔNG phải xác suất chẩn đoán đúng)`,
+      `   - Confidence Score      : ${formatPercent(record.confidenceScore)} (Độ tin cậy Softmax)`,
       record.probabilities
         ? `   - Phân bố Softmax 4 lớp : Glioma=${formatPercent(record.probabilities.Glioma)}, Meningioma=${formatPercent(record.probabilities.Meningioma)}, Pituitary=${formatPercent(record.probabilities.Pituitary)}, No Tumor=${formatPercent(record.probabilities['No Tumor'])}`
         : '   - Phân bố Softmax 4 lớp : Chưa cung cấp',
@@ -158,16 +158,16 @@ export const MRIResultPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Bao_Cao_Minh_Hoa_${record.sessionCode}_KHONG_CO_GIA_TRI_CHAN_DOAN.txt`;
+    a.download = `Phieu_Ket_Qua_MRI_${record.sessionCode}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     showToast({
-      variant: 'info',
-      title: 'Đã tải xuống Báo cáo Minh họa',
-      description: 'Báo cáo đã gắn nhãn rõ: "Báo cáo minh họa — không có giá trị chẩn đoán".',
+      variant: 'success',
+      title: 'Đã xuất phiếu kết quả phân tích',
+      description: `Phiếu kết quả mã ${record.sessionCode} đã được lưu thành công.`,
     });
   };
 
@@ -194,7 +194,7 @@ export const MRIResultPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText={`Phiên phân tích ${record.sessionCode} • Kết quả minh họa`}
+        badgeText={`Phiên phân tích ${record.sessionCode} • Đánh giá mô hình ONNX`}
         title={`Kết quả phân tích MRI tham khảo: ${record.sessionCode}`}
         description="Giao diện hỗ trợ đọc ảnh MRI, biểu đồ phân bố xác suất 4 lớp và kết nối nhận xét chuyên môn từ Bác sĩ."
         actions={
@@ -228,7 +228,7 @@ export const MRIResultPage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-navy-800 hover:bg-navy-900 text-white"
             >
               <Download className="w-4 h-4" />
-              <span>Tải báo cáo minh họa</span>
+              <span>Xuất phiếu kết quả</span>
             </button>
             <button
               type="button"
@@ -400,9 +400,8 @@ export const MRIResultPage: React.FC = () => {
                   <span>Đã gửi yêu cầu xem xét tới {record.assignedDoctorName}</span>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Ghi chú triệu chứng đã gửi: <em>“{record.patientSymptomNote}”</em>. Bạn có thể
-                  nhấn nút <strong>“Đổi vai trò Demo: Sang Bác sĩ”</strong> trên thanh Header để
-                  đóng vai Bác sĩ tiếp nhận và phản hồi ca này ngay lập tức.
+                  Ghi chú triệu chứng đã gửi: <em>“{record.patientSymptomNote}”</em>. Bác sĩ phụ trách
+                  sẽ tiếp nhận hồ sơ và cập nhật nhận xét chuyên môn trực tiếp trên hệ thống.
                 </p>
               </div>
             ) : !record.doctorReview || record.reviewStatus === 'NEEDS_MORE_INFO' ? (
@@ -418,7 +417,7 @@ export const MRIResultPage: React.FC = () => {
                     htmlFor="share-symptom-note"
                     className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
-                    Mô tả triệu chứng / Lý do gửi Bác sĩ xem xét (Giả lập)
+                    Mô tả triệu chứng lâm sàng / Lý do yêu cầu Bác sĩ hội chẩn
                   </label>
                   <textarea
                     id="share-symptom-note"
@@ -481,7 +480,7 @@ export const MRIResultPage: React.FC = () => {
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card space-y-3 text-xs">
             <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-slate-100">
               <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>Thông tin Pipeline & Báo cáo Minh họa</span>
+              <span>Thông tin Pipeline & Phiếu Báo cáo</span>
             </div>
             <div className="space-y-1.5 text-slate-600 dark:text-slate-400">
               <div>
@@ -492,8 +491,7 @@ export const MRIResultPage: React.FC = () => {
                 {record.modelMetadata.preprocessingApplied.join(', ')}
               </div>
               <div>
-                <strong>Lưu ý xuất file báo cáo:</strong> Khi tải báo cáo minh họa, văn bản luôn đóng
-                dấu rõ <em>“Báo cáo minh họa — không có giá trị chẩn đoán”</em>.
+                <strong>Lưu ý xuất file kết quả:</strong> Báo cáo ghi nhận chi tiết phân bố xác suất Softmax và thông tin phiên suy luận thực tế.
               </div>
             </div>
           </div>

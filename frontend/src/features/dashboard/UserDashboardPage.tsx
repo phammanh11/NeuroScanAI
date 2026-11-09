@@ -203,24 +203,22 @@ export const UserDashboardPage: React.FC = () => {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Tổng lượt phân tích (DEMO)
+              Tổng lượt phân tích
             </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              DEMO
-            </span>
+            <ScanLine className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
           <div className="text-2xl font-bold text-slate-900 dark:text-white">
             {analyses.length} phiên
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Bao gồm {reviewedByDoctorCount} phiên đã có nhận xét của Bác sĩ Demo
+            Bao gồm {reviewedByDoctorCount} phiên đã có nhận xét của Bác sĩ chuyên khoa
           </p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Lần phân tích gần nhất (DEMO)
+              Lần phân tích gần nhất
             </span>
             <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
@@ -232,14 +230,14 @@ export const UserDashboardPage: React.FC = () => {
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {latestAnalysis
               ? formatDateTimeVN(latestAnalysis.createdAt)
-              : 'Hãy tải ảnh MRI mẫu để bắt đầu'}
+              : 'Hãy tải ảnh MRI hoặc chọn mẫu để bắt đầu'}
           </p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Phiên hội thoại AI (DEMO)
+              Phiên hội thoại AI
             </span>
             <MessageSquareHeart className="w-4 h-4 text-sky-600 dark:text-sky-400" />
           </div>
@@ -408,14 +406,14 @@ export const UserDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Phân bố 4 nhãn MRI trong phiên của bạn (DEMO)
+                Phân bố 4 nhãn phân loại MRI
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Thống kê số lượng phiên minh họa theo nhãn dự đoán của mô hình
+                Thống kê số lượng phiên theo nhãn dự đoán của mô hình ONNX
               </p>
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/15 text-amber-800 dark:text-amber-300">
-              DỮ LIỆU DEMO
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-teal-500/15 text-teal-800 dark:text-teal-300">
+              THỐNG KÊ THỰC TẾ
             </span>
           </div>
 
@@ -427,7 +425,7 @@ export const UserDashboardPage: React.FC = () => {
                 <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
                 <Tooltip
                   cursor={{ fill: 'rgba(148, 163, 184, 0.12)' }}
-                  formatter={(val: number) => [`${val} phiên (Demo)`, 'Số lượng']}
+                  formatter={(val: number) => [`${val} phiên`, 'Số lượng']}
                   contentStyle={{
                     borderRadius: '12px',
                     border: '1px solid #334155',
@@ -453,14 +451,14 @@ export const UserDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Tần suất sử dụng của tài khoản trong 4 tuần gần nhất
+                Tần suất sử dụng tài khoản trong 6 tuần gần nhất
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tính trực tiếp từ các phiên MRI và câu hỏi hiện có trong bộ nhớ Demo
+                Ghi nhận số lượng phiên phân tích và tương tác trợ lý AI
               </p>
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/15 text-amber-800 dark:text-amber-300">
-              DỮ LIỆU DEMO
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-teal-500/15 text-teal-800 dark:text-teal-300">
+              NHẬT KÝ HOẠT ĐỘNG
             </span>
           </div>
 
@@ -485,7 +483,7 @@ export const UserDashboardPage: React.FC = () => {
                 <Line
                   type="monotone"
                   dataKey="analysesCount"
-                  name="Phân tích MRI (Demo)"
+                  name="Phân tích MRI"
                   stroke="#0d9488"
                   strokeWidth={2.5}
                   dot={{ r: 4 }}
@@ -493,7 +491,7 @@ export const UserDashboardPage: React.FC = () => {
                 <Line
                   type="monotone"
                   dataKey="chatQueries"
-                  name="Câu hỏi Trợ lý AI (Demo)"
+                  name="Câu hỏi Trợ lý AI"
                   stroke="#0284c7"
                   strokeWidth={2.5}
                   dot={{ r: 4 }}
@@ -510,7 +508,7 @@ export const UserDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Các phiên phân tích MRI gần đây (DEMO)
+                Các phiên phân tích MRI gần đây
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Nhấn vào từng phiên để xem trình đọc ảnh MRI, xác suất 4 lớp và phản hồi của Bác sĩ
