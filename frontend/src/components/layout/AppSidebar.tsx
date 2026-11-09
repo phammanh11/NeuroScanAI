@@ -184,15 +184,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         }`}
       >
         {collapsed ? (
-          <button
-            type="button"
-            onClick={toggleCollapse}
-            title="Mở rộng thanh điều hướng (Alt + S)"
-            className="w-10 h-10 rounded-xl bg-navy-800 dark:bg-teal-600 text-white flex items-center justify-center shadow-xs hover:scale-105 transition-all group"
+          <NavLink
+            to="/"
+            onClick={onCloseMobile}
+            title="NeuroScan AI — Trang chủ"
+            className="w-10 h-10 rounded-xl bg-navy-800 dark:bg-teal-600 text-white flex items-center justify-center shadow-xs hover:scale-105 transition-all"
           >
-            <Brain className="w-5 h-5 group-hover:hidden" />
-            <PanelLeftOpen className="w-5 h-5 hidden group-hover:block text-teal-300" />
-          </button>
+            <Brain className="w-5 h-5" />
+          </NavLink>
         ) : (
           <>
             <NavLink
@@ -212,16 +211,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 </div>
               </div>
             </NavLink>
-
-            {/* Desktop Collapse Button */}
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              title="Thu gọn thanh điều hướng (Alt + S)"
-              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-2xs active:scale-95"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
 
             {/* Mobile Close Button */}
             <button
