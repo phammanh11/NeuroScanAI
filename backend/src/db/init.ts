@@ -349,12 +349,17 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
 
     // 5. Dọn dẹp các bản ghi fallback cũ (nếu có) và đảm bảo có đủ 4 Ca chụp MRI chuẩn ONNX
     await env.DB.prepare(
-      `DELETE FROM mri_scans WHERE id > 4 AND id IN (SELECT scan_id FROM predictions WHERE confidence IN (0.892, 0.884, 0.912, 0.956))`
+      `DELETE FROM doctor_reviews WHERE prediction_id IN (SELECT id FROM predictions WHERE ROUND(confidence, 3) IN (0.892, 0.884, 0.912, 0.956))`
     )
       .run()
       .catch(() => {});
     await env.DB.prepare(
-      `DELETE FROM predictions WHERE id > 4 AND confidence IN (0.892, 0.884, 0.912, 0.956)`
+      `DELETE FROM mri_scans WHERE id > 4 AND id IN (SELECT scan_id FROM predictions WHERE ROUND(confidence, 3) IN (0.892, 0.884, 0.912, 0.956))`
+    )
+      .run()
+      .catch(() => {});
+    await env.DB.prepare(
+      `DELETE FROM predictions WHERE id > 4 AND ROUND(confidence, 3) IN (0.892, 0.884, 0.912, 0.956)`
     )
       .run()
       .catch(() => {});

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -121,6 +122,20 @@ export const DoctorPatientsPage: React.FC = () => {
   useEffect(() => {
     void loadPatients();
   }, [loadPatients]);
+
+  // Khóa thanh cuộn trang nền khi mở bất kỳ Modal / Drawer nào trên trang Quản lý Bệnh nhân
+  const isAnyOverlayOpen = Boolean(
+    isCreateModalOpen || editingPatient || evaluatingPatient || selectedPatientForDetail
+  );
+
+  useEffect(() => {
+    if (!isAnyOverlayOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isAnyOverlayOpen]);
 
   // Load analyses when opening Patient Detail Drawer
   const openPatientDetail = async (patient: PatientRecord) => {
@@ -732,726 +747,758 @@ export const DoctorPatientsPage: React.FC = () => {
       )}
 
       {/* MODAL 1: CREATE PATIENT */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Tiếp nhận Bệnh nhân mới vào Danh sách Theo dõi
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreatePatientSubmit} className="space-y-4 text-xs sm:text-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1 sm:col-span-2">
-                  <label htmlFor="create-patient-name" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Họ và tên bệnh nhân <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    id="create-patient-name"
-                    type="text"
-                    required
-                    value={fullNameInput}
-                    onChange={(e) => setFullNameInput(e.target.value)}
-                    placeholder="Nguyễn Văn A"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
+      {isCreateModalOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsCreateModalOpen(false);
+            }}
+            className="fixed inset-0 z-[90] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+          >
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 shadow-2xl space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+                    Tiếp nhận Bệnh nhân mới vào Danh sách Theo dõi
+                  </h3>
                 </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="create-patient-dob" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Ngày sinh <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    id="create-patient-dob"
-                    type="date"
-                    required
-                    value={dobInput}
-                    onChange={(e) => setDobInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="create-patient-gender" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Giới tính
-                  </label>
-                  <select
-                    id="create-patient-gender"
-                    value={genderInput}
-                    onChange={(e) => setGenderInput(e.target.value as 'Nam' | 'Nữ' | 'Khác')}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  >
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="create-patient-phone" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Số điện thoại
-                  </label>
-                  <input
-                    id="create-patient-phone"
-                    type="tel"
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    placeholder="0912 345 678"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="create-patient-addr" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Địa chỉ liên hệ
-                  </label>
-                  <input
-                    id="create-patient-addr"
-                    type="text"
-                    value={addressInput}
-                    onChange={(e) => setAddressInput(e.target.value)}
-                    placeholder="Hà Nội, Việt Nam"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="create-patient-symptoms" className="block font-semibold text-slate-700 dark:text-slate-300">
-                  Triệu chứng lâm sàng ghi nhận ban đầu
-                </label>
-                <input
-                  id="create-patient-symptoms"
-                  type="text"
-                  value={symptomsInput}
-                  onChange={(e) => setSymptomsInput(e.target.value)}
-                  placeholder="Đau đầu buổi sáng, nhìn đôi, chóng mặt..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="create-patient-history" className="block font-semibold text-slate-700 dark:text-slate-300">
-                  Tiền sử bệnh lý
-                </label>
-                <input
-                  id="create-patient-history"
-                  type="text"
-                  value={historyInput}
-                  onChange={(e) => setHistoryInput(e.target.value)}
-                  placeholder="Tăng huyết áp, Động kinh, Chấn thương đầu..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingForm}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
-                >
-                  {isSubmittingForm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  <span>Lưu hồ sơ bệnh nhân</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* MODAL 2: EDIT PATIENT */}
-      {editingPatient && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Edit className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Chỉnh sửa Hồ sơ: {editingPatient.fullName} ({editingPatient.patientCode})
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingPatient(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+              <form onSubmit={handleCreatePatientSubmit} className="space-y-3 text-xs sm:text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="space-y-1 sm:col-span-2">
+                    <label htmlFor="create-patient-name" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Họ và tên bệnh nhân <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      id="create-patient-name"
+                      type="text"
+                      required
+                      value={fullNameInput}
+                      onChange={(e) => setFullNameInput(e.target.value)}
+                      placeholder="Nguyễn Văn A"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
 
-            <form onSubmit={handleEditPatientSubmit} className="space-y-4 text-xs sm:text-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1 sm:col-span-2">
-                  <label htmlFor="edit-patient-name" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Họ và tên bệnh nhân
-                  </label>
-                  <input
-                    id="edit-patient-name"
-                    type="text"
-                    required
-                    value={fullNameInput}
-                    onChange={(e) => setFullNameInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="edit-patient-dob" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Ngày sinh
-                  </label>
-                  <input
-                    id="edit-patient-dob"
-                    type="date"
-                    required
-                    value={dobInput}
-                    onChange={(e) => setDobInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="edit-patient-gender" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Giới tính
-                  </label>
-                  <select
-                    id="edit-patient-gender"
-                    value={genderInput}
-                    onChange={(e) => setGenderInput(e.target.value as 'Nam' | 'Nữ' | 'Khác')}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  >
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="edit-patient-phone" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Số điện thoại
-                  </label>
-                  <input
-                    id="edit-patient-phone"
-                    type="tel"
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="edit-patient-addr" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Địa chỉ liên hệ
-                  </label>
-                  <input
-                    id="edit-patient-addr"
-                    type="text"
-                    value={addressInput}
-                    onChange={(e) => setAddressInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="edit-patient-symptoms" className="block font-semibold text-slate-700 dark:text-slate-300">
-                  Triệu chứng lâm sàng ghi nhận
-                </label>
-                <input
-                  id="edit-patient-symptoms"
-                  type="text"
-                  value={symptomsInput}
-                  onChange={(e) => setSymptomsInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="edit-patient-history" className="block font-semibold text-slate-700 dark:text-slate-300">
-                  Tiền sử bệnh lý
-                </label>
-                <input
-                  id="edit-patient-history"
-                  type="text"
-                  value={historyInput}
-                  onChange={(e) => setHistoryInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingPatient(null)}
-                  className="px-4 py-2 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingForm}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
-                >
-                  {isSubmittingForm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  <span>Cập nhật hồ sơ</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: WRITE CLINICAL EVALUATION REVIEW */}
-      {evaluatingPatient && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Stethoscope className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Viết Đánh giá & Nhận xét Chuyên môn Bác sĩ
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Bệnh nhân: <strong>{evaluatingPatient.fullName}</strong> ({evaluatingPatient.patientCode})
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEvaluatingPatient(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {patientAnalyses.length === 0 ? (
-              <div className="p-6 text-center space-y-3">
-                <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
-                <h4 className="font-bold text-slate-900 dark:text-slate-100">
-                  Bệnh nhân này chưa có ảnh lát cắt MRI nào trong hồ sơ
-                </h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Để viết nhận xét lâm sàng đối chiếu với AI, bác sĩ hãy sử dụng chức năng Computer Vision MRI để tải ảnh lên cho bệnh nhân trước.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const pid = evaluatingPatient.id;
-                    setEvaluatingPatient(null);
-                    navigate(`/doctor/vision-analysis?patientId=${pid}`);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700"
-                >
-                  <ScanLine className="w-4 h-4" />
-                  <span>Tải ảnh & Chạy Computer Vision ngay</span>
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveEvaluationSubmit} className="space-y-4 text-xs sm:text-sm">
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-                  <label htmlFor="eval-analysis-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Chọn phiên ảnh MRI của bệnh nhân cần đánh giá:
-                  </label>
-                  <select
-                    id="eval-analysis-select"
-                    value={evaluatingAnalysis?.id || ''}
-                    onChange={(e) => {
-                      const found = patientAnalyses.find((a) => a.id === e.target.value);
-                      setEvaluatingAnalysis(found || null);
-                      if (found?.doctorReview) {
-                        setReviewStatus(found.doctorReview.status);
-                        setAiVerdict(found.doctorReview.aiAssessment);
-                        setClinicalNote(found.doctorReview.clinicalNoteForPatient);
-                        setRecommendedStep(found.doctorReview.recommendedNextStep);
-                        setInternalNote(found.doctorReview.internalTechnicalNote || '');
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs font-semibold"
-                  >
-                    {patientAnalyses.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.sessionCode} — Nhãn AI: {a.predictedLabel} ({formatPercent(a.confidenceScore)}) — {a.uploadedByRole === 'DOCTOR' ? 'Bác sĩ tải qua Computer Vision' : 'Bệnh nhân gửi'}
-                      </option>
-                    ))}
-                  </select>
-
-                  {evaluatingAnalysis && (
-                    <div className="flex items-center gap-3 pt-1">
-                      <img
-                        src={evaluatingAnalysis.imageUrl}
-                        alt="Ảnh lát cắt"
-                        className="w-12 h-12 rounded-lg object-cover bg-black border border-slate-700"
-                      />
-                      <div className="text-xs min-w-0 flex-1">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 block">
-                          Nhãn mô hình AI: {evaluatingAnalysis.predictedLabel} ({formatPercent(evaluatingAnalysis.confidenceScore)})
-                        </span>
-                        <div className="text-slate-500 truncate">
-                          File: {evaluatingAnalysis.sanitizedFileName} • {formatDateTimeVN(evaluatingAnalysis.createdAt)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="eval-status-select" className="block font-semibold text-slate-700 dark:text-slate-300">
-                      Trạng thái xử lý ca
+                    <label htmlFor="create-patient-dob" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Ngày sinh <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      id="create-patient-dob"
+                      type="date"
+                      required
+                      value={dobInput}
+                      onChange={(e) => setDobInput(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="create-patient-gender" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Giới tính
                     </label>
                     <select
-                      id="eval-status-select"
-                      value={reviewStatus}
-                      onChange={(e) => setReviewStatus(e.target.value as Exclude<DoctorReviewStatus, 'NONE'>)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-semibold"
+                      id="create-patient-gender"
+                      value={genderInput}
+                      onChange={(e) => setGenderInput(e.target.value as 'Nam' | 'Nữ' | 'Khác')}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
                     >
-                      <option value="REVIEWED">Đã xem xét — Hoàn tất nhận định</option>
-                      <option value="IN_REVIEW">Đang tiếp tục theo dõi lâm sàng</option>
-                      <option value="NEEDS_MORE_INFO">Cần bổ sung chuỗi xung DICOM / Xét nghiệm</option>
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="eval-ai-verdict-select" className="block font-semibold text-slate-700 dark:text-slate-300">
-                      Đánh giá mức độ đồng thuận với nhãn AI
+                    <label htmlFor="create-patient-phone" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Số điện thoại
                     </label>
-                    <select
-                      id="eval-ai-verdict-select"
-                      value={aiVerdict}
-                      onChange={(e) => setAiVerdict(e.target.value as AIAssessmentVerdict)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                    >
-                      {Object.entries(AI_ASSESSMENT_VERDICT_META).map(([key, meta]) => (
-                        <option key={key} value={key}>
-                          {meta.label}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      id="create-patient-phone"
+                      type="tel"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      placeholder="0912 345 678"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="create-patient-addr" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Địa chỉ liên hệ
+                    </label>
+                    <input
+                      id="create-patient-addr"
+                      type="text"
+                      value={addressInput}
+                      onChange={(e) => setAddressInput(e.target.value)}
+                      placeholder="Hà Nội, Việt Nam"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="eval-clinical-note" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Nhận xét chuyên môn lâm sàng gửi cho Bệnh nhân <span className="text-rose-500">*</span>
+                  <label htmlFor="create-patient-symptoms" className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Triệu chứng lâm sàng ghi nhận ban đầu
                   </label>
-                  <textarea
-                    id="eval-clinical-note"
-                    rows={4}
-                    required
-                    value={clinicalNote}
-                    onChange={(e) => setClinicalNote(e.target.value)}
-                    placeholder="Nhập nhận định của bác sĩ sau khi đọc lát cắt và đối chiếu triệu chứng..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 leading-relaxed"
+                  <input
+                    id="create-patient-symptoms"
+                    type="text"
+                    value={symptomsInput}
+                    onChange={(e) => setSymptomsInput(e.target.value)}
+                    placeholder="Đau đầu buổi sáng, nhìn đôi, chóng mặt..."
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="eval-rec-step" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Khuyến nghị phác đồ / Hướng xử trí tiếp theo cho bệnh nhân
+                  <label htmlFor="create-patient-history" className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Tiền sử bệnh lý
                   </label>
                   <input
-                    id="eval-rec-step"
+                    id="create-patient-history"
                     type="text"
-                    value={recommendedStep}
-                    onChange={(e) => setRecommendedStep(e.target.value)}
-                    placeholder="Chụp MRI sọ não có cản quang, hội chẩn chuyên khoa Ngoại thần kinh..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    value={historyInput}
+                    onChange={(e) => setHistoryInput(e.target.value)}
+                    placeholder="Tăng huyết áp, Động kinh, Chấn thương đầu..."
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label htmlFor="eval-internal-note" className="block font-semibold text-slate-700 dark:text-slate-300">
-                    Ghi chú kỹ thuật nội bộ (Chỉ lưu trong hồ sơ bác sĩ, không hiển thị cho bệnh nhân)
-                  </label>
-                  <input
-                    id="eval-internal-note"
-                    type="text"
-                    value={internalNote}
-                    onChange={(e) => setInternalNote(e.target.value)}
-                    placeholder="Hiện tượng tín hiệu T2 cao, đường kính vùng giảm đậm độ ~24mm..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-end gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setEvaluatingPatient(null)}
-                    className="px-4 py-2 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                    onClick={() => setIsCreateModalOpen(false)}
+                    className="px-4 py-1.5 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    disabled={isSavingReview}
-                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl font-semibold bg-sky-600 hover:bg-sky-700 text-white shadow-xs"
+                    disabled={isSubmittingForm}
+                    className="inline-flex items-center gap-2 px-5 py-1.5 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
                   >
-                    {isSavingReview ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    <span>Lưu Nhận xét & Đồng bộ Hồ sơ</span>
+                    {isSubmittingForm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>Lưu hồ sơ bệnh nhân</span>
                   </button>
                 </div>
               </form>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
-      {/* DRAWER: PATIENT FULL RECORD & MRI GALLERY DETAIL */}
-      {selectedPatientForDetail && (
-        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 w-full max-w-4xl lg:max-w-5xl h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
-            {/* Drawer Header */}
-            <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shrink-0 z-10">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-                  {selectedPatientForDetail.fullName.slice(0, 2).toUpperCase()}
+      {/* MODAL 2: EDIT PATIENT */}
+      {editingPatient &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEditingPatient(null);
+            }}
+            className="fixed inset-0 z-[90] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+          >
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 shadow-2xl space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Edit className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+                    Chỉnh sửa Hồ sơ: {editingPatient.fullName} ({editingPatient.patientCode})
+                  </h3>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-                      Hồ sơ chi tiết: {selectedPatientForDetail.fullName}
-                    </h3>
-                    <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 font-semibold">
-                      {selectedPatientForDetail.patientCode}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                    <span>{selectedPatientForDetail.gender}</span>
-                    <span>•</span>
-                    <span>{selectedPatientForDetail.age} tuổi</span>
-                    <span>•</span>
-                    <span>Ngày sinh: {formatDateVN(selectedPatientForDetail.dateOfBirth)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons in Header */}
-              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    const pid = selectedPatientForDetail.id;
-                    setSelectedPatientForDetail(null);
-                    navigate(`/doctor/vision-analysis?patientId=${pid}`);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors"
-                >
-                  <ScanLine className="w-4 h-4" />
-                  <span className="hidden sm:inline">Tải ảnh MRI Computer Vision</span>
-                  <span className="sm:hidden">Tải MRI</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const p = selectedPatientForDetail;
-                    setSelectedPatientForDetail(null);
-                    openReviewModal(p);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-sky-500/30 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors"
-                >
-                  <Stethoscope className="w-4 h-4" />
-                  <span className="hidden sm:inline">Viết đánh giá chuyên môn</span>
-                  <span className="sm:hidden">Đánh giá</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPatientForDetail(null)}
-                  aria-label="Đóng chi tiết hồ sơ"
-                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                  onClick={() => setEditingPatient(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-            </div>
 
-            {/* Drawer Body: 2-Column Responsive Layout */}
-            <div className="p-5 sm:p-6 flex-1 overflow-y-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column: Demographics & MRI Thumbnails (5 cols on lg) */}
-                <div className="lg:col-span-5 space-y-5">
-                  {/* Patient Demographics Card */}
-                  <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-3 text-xs">
-                    <div className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] pb-1 border-b border-slate-200/80 dark:border-slate-700/80">
-                      Thông tin hành chính & Liên hệ
+              <form onSubmit={handleEditPatientSubmit} className="space-y-3 text-xs sm:text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="space-y-1 sm:col-span-2">
+                    <label htmlFor="edit-patient-name" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Họ và tên bệnh nhân
+                    </label>
+                    <input
+                      id="edit-patient-name"
+                      type="text"
+                      required
+                      value={fullNameInput}
+                      onChange={(e) => setFullNameInput(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="edit-patient-dob" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Ngày sinh
+                    </label>
+                    <input
+                      id="edit-patient-dob"
+                      type="date"
+                      required
+                      value={dobInput}
+                      onChange={(e) => setDobInput(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="edit-patient-gender" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Giới tính
+                    </label>
+                    <select
+                      id="edit-patient-gender"
+                      value={genderInput}
+                      onChange={(e) => setGenderInput(e.target.value as 'Nam' | 'Nữ' | 'Khác')}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    >
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="edit-patient-phone" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Số điện thoại
+                    </label>
+                    <input
+                      id="edit-patient-phone"
+                      type="tel"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="edit-patient-addr" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Địa chỉ liên hệ
+                    </label>
+                    <input
+                      id="edit-patient-addr"
+                      type="text"
+                      value={addressInput}
+                      onChange={(e) => setAddressInput(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="edit-patient-symptoms" className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Triệu chứng lâm sàng ghi nhận
+                  </label>
+                  <input
+                    id="edit-patient-symptoms"
+                    type="text"
+                    value={symptomsInput}
+                    onChange={(e) => setSymptomsInput(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="edit-patient-history" className="block font-semibold text-slate-700 dark:text-slate-300">
+                    Tiền sử bệnh lý
+                  </label>
+                  <input
+                    id="edit-patient-history"
+                    type="text"
+                    value={historyInput}
+                    onChange={(e) => setHistoryInput(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPatient(null)}
+                    className="px-4 py-1.5 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingForm}
+                    className="inline-flex items-center gap-2 px-5 py-1.5 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
+                  >
+                    {isSubmittingForm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>Cập nhật hồ sơ</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* MODAL 3: WRITE CLINICAL EVALUATION REVIEW */}
+      {evaluatingPatient &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEvaluatingPatient(null);
+            }}
+            className="fixed inset-0 z-[90] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-in fade-in duration-150"
+          >
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-5 shadow-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+                      Viết Đánh giá & Nhận xét Chuyên môn Bác sĩ
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Bệnh nhân: <strong>{evaluatingPatient.fullName}</strong> ({evaluatingPatient.patientCode})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEvaluatingPatient(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {patientAnalyses.length === 0 ? (
+                <div className="p-6 text-center space-y-3">
+                  <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+                  <h4 className="font-bold text-slate-900 dark:text-slate-100">
+                    Bệnh nhân này chưa có ảnh lát cắt MRI nào trong hồ sơ
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Để viết nhận xét lâm sàng đối chiếu với AI, bác sĩ hãy sử dụng chức năng Computer Vision MRI để tải ảnh lên cho bệnh nhân trước.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pid = evaluatingPatient.id;
+                      setEvaluatingPatient(null);
+                      navigate(`/doctor/vision-analysis?patientId=${pid}`);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    <span>Tải ảnh & Chạy Computer Vision ngay</span>
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSaveEvaluationSubmit} className="space-y-3 text-xs sm:text-sm">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
+                    <label htmlFor="eval-analysis-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Chọn phiên ảnh MRI của bệnh nhân cần đánh giá:
+                    </label>
+                    <select
+                      id="eval-analysis-select"
+                      value={evaluatingAnalysis?.id || ''}
+                      onChange={(e) => {
+                        const found = patientAnalyses.find((a) => a.id === e.target.value);
+                        setEvaluatingAnalysis(found || null);
+                        if (found?.doctorReview) {
+                          setReviewStatus(found.doctorReview.status);
+                          setAiVerdict(found.doctorReview.aiAssessment);
+                          setClinicalNote(found.doctorReview.clinicalNoteForPatient);
+                          setRecommendedStep(found.doctorReview.recommendedNextStep);
+                          setInternalNote(found.doctorReview.internalTechnicalNote || '');
+                        }
+                      }}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs font-semibold"
+                    >
+                      {patientAnalyses.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.sessionCode} — Nhãn AI: {a.predictedLabel} ({formatPercent(a.confidenceScore)}) — {a.uploadedByRole === 'DOCTOR' ? 'Bác sĩ tải qua Computer Vision' : 'Bệnh nhân gửi'}
+                        </option>
+                      ))}
+                    </select>
+
+                    {evaluatingAnalysis && (
+                      <div className="flex items-center gap-3 pt-1">
+                        <img
+                          src={evaluatingAnalysis.imageUrl}
+                          alt="Ảnh lát cắt"
+                          className="w-10 h-10 rounded-lg object-cover bg-black border border-slate-700 shrink-0"
+                        />
+                        <div className="text-xs min-w-0 flex-1">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                            Nhãn mô hình AI: {evaluatingAnalysis.predictedLabel} ({formatPercent(evaluatingAnalysis.confidenceScore)})
+                          </span>
+                          <div className="text-slate-500 truncate">
+                            File: {evaluatingAnalysis.sanitizedFileName} • {formatDateTimeVN(evaluatingAnalysis.createdAt)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label htmlFor="eval-status-select" className="block font-semibold text-slate-700 dark:text-slate-300">
+                        Trạng thái xử lý ca
+                      </label>
+                      <select
+                        id="eval-status-select"
+                        value={reviewStatus}
+                        onChange={(e) => setReviewStatus(e.target.value as Exclude<DoctorReviewStatus, 'NONE'>)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-semibold"
+                      >
+                        <option value="REVIEWED">Đã xem xét — Hoàn tất nhận định</option>
+                        <option value="IN_REVIEW">Đang tiếp tục theo dõi lâm sàng</option>
+                        <option value="NEEDS_MORE_INFO">Cần bổ sung chuỗi xung DICOM / Xét nghiệm</option>
+                      </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
-                      <div><strong>Số điện thoại:</strong> {selectedPatientForDetail.phone}</div>
-                      <div><strong>Địa chỉ:</strong> {selectedPatientForDetail.address || 'Hà Nội'}</div>
-                      <div className="col-span-2"><strong>Bác sĩ phụ trách:</strong> {selectedPatientForDetail.assignedDoctorName}</div>
-                    </div>
-                    <div className="border-t border-slate-200/80 dark:border-slate-700/80 pt-2.5 space-y-1.5 text-slate-700 dark:text-slate-300">
-                      <div><strong>Triệu chứng ban đầu:</strong> {selectedPatientForDetail.symptomsInitial || 'Chưa ghi nhận'}</div>
-                      <div><strong>Tiền sử bệnh án:</strong> {selectedPatientForDetail.medicalHistory || 'Không có tiền sử bệnh lý mạn tính'}</div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="eval-ai-verdict-select" className="block font-semibold text-slate-700 dark:text-slate-300">
+                        Đánh giá mức độ đồng thuận với nhãn AI
+                      </label>
+                      <select
+                        id="eval-ai-verdict-select"
+                        value={aiVerdict}
+                        onChange={(e) => setAiVerdict(e.target.value as AIAssessmentVerdict)}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                      >
+                        {Object.entries(AI_ASSESSMENT_VERDICT_META).map(([key, meta]) => (
+                          <option key={key} value={key}>
+                            {meta.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
-                  {/* MRI Thumbnails Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <ScanLine className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
-                          Bộ sưu tập ảnh MRI ({patientAnalyses.length})
-                        </h4>
+                  <div className="space-y-1">
+                    <label htmlFor="eval-clinical-note" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Nhận xét chuyên môn lâm sàng gửi cho Bệnh nhân <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      id="eval-clinical-note"
+                      rows={3}
+                      required
+                      value={clinicalNote}
+                      onChange={(e) => setClinicalNote(e.target.value)}
+                      placeholder="Nhập nhận định của bác sĩ sau khi đọc lát cắt và đối chiếu triệu chứng..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 leading-relaxed resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="eval-rec-step" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Khuyến nghị phác đồ / Hướng xử trí tiếp theo cho bệnh nhân
+                    </label>
+                    <input
+                      id="eval-rec-step"
+                      type="text"
+                      value={recommendedStep}
+                      onChange={(e) => setRecommendedStep(e.target.value)}
+                      placeholder="Chụp MRI sọ não có cản quang, hội chẩn chuyên khoa Ngoại thần kinh..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="eval-internal-note" className="block font-semibold text-slate-700 dark:text-slate-300">
+                      Ghi chú kỹ thuật nội bộ (Chỉ lưu trong hồ sơ bác sĩ, không hiển thị cho bệnh nhân)
+                    </label>
+                    <input
+                      id="eval-internal-note"
+                      type="text"
+                      value={internalNote}
+                      onChange={(e) => setInternalNote(e.target.value)}
+                      placeholder="Hiện tượng tín hiệu T2 cao, đường kính vùng giảm đậm độ ~24mm..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setEvaluatingPatient(null)}
+                      className="px-4 py-1.5 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingReview}
+                      className="inline-flex items-center gap-2 px-5 py-1.5 rounded-xl font-semibold bg-sky-600 hover:bg-sky-700 text-white shadow-xs"
+                    >
+                      {isSavingReview ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      <span>Lưu Nhận xét & Đồng bộ Hồ sơ</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* DRAWER: PATIENT FULL RECORD & MRI GALLERY DETAIL */}
+      {selectedPatientForDetail &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setSelectedPatientForDetail(null);
+            }}
+            className="fixed inset-0 z-[90] bg-slate-950/65 backdrop-blur-xs flex justify-end overflow-hidden animate-in fade-in duration-200"
+          >
+            <div className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 w-full max-w-4xl lg:max-w-5xl h-dvh shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+              {/* Drawer Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shrink-0 z-10">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                    {selectedPatientForDetail.fullName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                        Hồ sơ chi tiết: {selectedPatientForDetail.fullName}
+                      </h3>
+                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20 font-semibold">
+                        {selectedPatientForDetail.patientCode}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                      <span>{selectedPatientForDetail.gender}</span>
+                      <span>•</span>
+                      <span>{selectedPatientForDetail.age} tuổi</span>
+                      <span>•</span>
+                      <span>Ngày sinh: {formatDateVN(selectedPatientForDetail.dateOfBirth)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons in Header */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pid = selectedPatientForDetail.id;
+                      setSelectedPatientForDetail(null);
+                      navigate(`/doctor/vision-analysis?patientId=${pid}`);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    <span className="hidden sm:inline">Tải ảnh MRI Computer Vision</span>
+                    <span className="sm:hidden">Tải MRI</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = selectedPatientForDetail;
+                      setSelectedPatientForDetail(null);
+                      openReviewModal(p);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-sky-500/30 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 transition-colors"
+                  >
+                    <Stethoscope className="w-4 h-4" />
+                    <span className="hidden sm:inline">Viết đánh giá chuyên môn</span>
+                    <span className="sm:hidden">Đánh giá</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPatientForDetail(null)}
+                    aria-label="Đóng chi tiết hồ sơ"
+                    className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Drawer Body: 2-Column Responsive Layout */}
+              <div className="p-4 sm:p-5 flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  {/* Left Column: Demographics & MRI Thumbnails (5 cols on lg) */}
+                  <div className="lg:col-span-5 space-y-4">
+                    {/* Patient Demographics Card */}
+                    <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-2.5 text-xs">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px] pb-1 border-b border-slate-200/80 dark:border-slate-700/80">
+                        Thông tin hành chính & Liên hệ
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
+                        <div><strong>Số điện thoại:</strong> {selectedPatientForDetail.phone}</div>
+                        <div><strong>Địa chỉ:</strong> {selectedPatientForDetail.address || 'Hà Nội'}</div>
+                        <div className="col-span-2"><strong>Bác sĩ phụ trách:</strong> {selectedPatientForDetail.assignedDoctorName}</div>
+                      </div>
+                      <div className="border-t border-slate-200/80 dark:border-slate-700/80 pt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+                        <div><strong>Triệu chứng ban đầu:</strong> {selectedPatientForDetail.symptomsInitial || 'Chưa ghi nhận'}</div>
+                        <div><strong>Tiền sử bệnh án:</strong> {selectedPatientForDetail.medicalHistory || 'Không có tiền sử bệnh lý mạn tính'}</div>
                       </div>
                     </div>
 
-                    {isLoadingAnalyses ? (
-                      <div className="p-8 text-center text-xs text-slate-500 rounded-2xl border border-slate-200 dark:border-slate-800">
-                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
-                        Đang đồng bộ lát cắt MRI của bệnh nhân...
+                    {/* MRI Thumbnails Section */}
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ScanLine className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
+                            Bộ sưu tập ảnh MRI ({patientAnalyses.length})
+                          </h4>
+                        </div>
                       </div>
-                    ) : patientAnalyses.length === 0 ? (
-                      <div className="p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2">
-                        <ScanLine className="w-8 h-8 text-slate-400 mx-auto" />
-                        <p className="text-xs text-slate-500">
-                          Bệnh nhân này chưa có ảnh lát cắt MRI nào trong hồ sơ.
-                        </p>
+
+                      {isLoadingAnalyses ? (
+                        <div className="p-8 text-center text-xs text-slate-500 rounded-2xl border border-slate-200 dark:border-slate-800">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                          Đang đồng bộ lát cắt MRI của bệnh nhân...
+                        </div>
+                      ) : patientAnalyses.length === 0 ? (
+                        <div className="p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2">
+                          <ScanLine className="w-8 h-8 text-slate-400 mx-auto" />
+                          <p className="text-xs text-slate-500">
+                            Bệnh nhân này chưa có ảnh lát cắt MRI nào trong hồ sơ.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2.5">
+                          {patientAnalyses.map((item) => {
+                            const isSelected = previewAnalysis?.id === item.id;
+                            const labelMeta = TUMOR_LABEL_METADATA[item.predictedLabel];
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setPreviewAnalysis(item)}
+                                className={`rounded-xl border p-2 transition-all text-left space-y-1.5 focus:outline-none ${
+                                  isSelected
+                                    ? 'border-teal-500 bg-teal-500/10 dark:bg-teal-950/40 ring-2 ring-teal-500/30'
+                                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                                }`}
+                              >
+                                <div className="w-full h-20 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center relative">
+                                  <img
+                                    src={item.imageUrl}
+                                    alt=""
+                                    onError={(e) => {
+                                      e.currentTarget.onerror = null;
+                                      e.currentTarget.src =
+                                        SYNTHETIC_MRI_SLICES[item.predictedLabel] ||
+                                        SYNTHETIC_MRI_SLICES['No Tumor'];
+                                    }}
+                                    className="w-full h-full object-contain p-0.5"
+                                  />
+                                  {isSelected && (
+                                    <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-600 text-white">
+                                      Đang xem
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="font-mono font-semibold text-[11px] text-slate-900 dark:text-slate-100 truncate">
+                                  {item.sessionCode}
+                                </div>
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${labelMeta.badgeColorClass}`}>
+                                    {item.predictedLabel}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    {formatPercent(item.confidenceScore)}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Active MRI Workstation Viewer (7 cols on lg) */}
+                  <div className="lg:col-span-7 space-y-4">
+                    {previewAnalysis ? (
+                      <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950 space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
+                              Lát cắt: {previewAnalysis.sessionCode}
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${TUMOR_LABEL_METADATA[previewAnalysis.predictedLabel].badgeColorClass}`}>
+                              {previewAnalysis.predictedLabel}
+                            </span>
+                          </div>
+                          <Link
+                            to={`/doctor/cases/${previewAnalysis.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                          >
+                            <span>Mở trạm đọc đầy đủ</span>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+
+                        {/* MRI Workstation Viewer with bounded comfortable viewport */}
+                        <div className="rounded-xl overflow-hidden">
+                          <MRIViewer
+                            imageUrl={previewAnalysis.imageUrl || SYNTHETIC_MRI_SLICES[previewAnalysis.predictedLabel]}
+                            preprocessedImageUrl={previewAnalysis.preprocessedImageUrl}
+                            gradcamUrl={previewAnalysis.gradcamUrl}
+                            sessionCode={previewAnalysis.sessionCode}
+                            sanitizedFileName={previewAnalysis.sanitizedFileName}
+                            dimensions={previewAnalysis.imageDimensions}
+                            isDemoFixture={previewAnalysis.isDemoFixture}
+                          />
+                        </div>
+
+                        {/* Doctor clinical review note if present */}
+                        {previewAnalysis.doctorReview && (
+                          <div className="p-3.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-500/30 text-xs space-y-1.5">
+                            <div className="font-bold text-sky-900 dark:text-sky-200 flex items-center justify-between">
+                              <span>Nhận xét chuyên môn Bác sĩ:</span>
+                              <span className="font-normal text-[11px] text-slate-500">
+                                {previewAnalysis.doctorReview.doctorName}
+                              </span>
+                            </div>
+                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                              {previewAnalysis.doctorReview.clinicalNoteForPatient}
+                            </p>
+                            {previewAnalysis.doctorReview.recommendedNextStep && (
+                              <div className="text-[11px] text-sky-800 dark:text-sky-300 pt-1 font-semibold border-t border-sky-200 dark:border-sky-800/60">
+                                Khuyến nghị tiếp theo: {previewAnalysis.doctorReview.recommendedNextStep}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2.5">
-                        {patientAnalyses.map((item) => {
-                          const isSelected = previewAnalysis?.id === item.id;
-                          const labelMeta = TUMOR_LABEL_METADATA[item.predictedLabel];
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => setPreviewAnalysis(item)}
-                              className={`rounded-xl border p-2 transition-all text-left space-y-1.5 focus:outline-none ${
-                                isSelected
-                                  ? 'border-teal-500 bg-teal-500/10 dark:bg-teal-950/40 ring-2 ring-teal-500/30'
-                                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
-                              }`}
-                            >
-                              <div className="w-full h-20 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center relative">
-                                <img
-                                  src={item.imageUrl}
-                                  alt=""
-                                  onError={(e) => {
-                                    e.currentTarget.onerror = null;
-                                    e.currentTarget.src =
-                                      SYNTHETIC_MRI_SLICES[item.predictedLabel] ||
-                                      SYNTHETIC_MRI_SLICES['No Tumor'];
-                                  }}
-                                  className="w-full h-full object-contain p-0.5"
-                                />
-                                {isSelected && (
-                                  <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-600 text-white">
-                                    Đang xem
-                                  </span>
-                                )}
-                              </div>
-                              <div className="font-mono font-semibold text-[11px] text-slate-900 dark:text-slate-100 truncate">
-                                {item.sessionCode}
-                              </div>
-                              <div className="flex items-center justify-between gap-1">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${labelMeta.badgeColorClass}`}>
-                                  {item.predictedLabel}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-mono">
-                                  {formatPercent(item.confidenceScore)}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
+                      <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
+                        <ScanLine className="w-10 h-10 text-slate-400 mx-auto" />
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          Chưa chọn lát cắt MRI nào
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Nhấn vào một ảnh trong danh sách bên trái để mở trạm đọc ảnh và phân tích.
+                        </p>
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* Right Column: Active MRI Workstation Viewer (7 cols on lg) */}
-                <div className="lg:col-span-7 space-y-4">
-                  {previewAnalysis ? (
-                    <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950 space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
-                            Lát cắt: {previewAnalysis.sessionCode}
-                          </span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${TUMOR_LABEL_METADATA[previewAnalysis.predictedLabel].badgeColorClass}`}>
-                            {previewAnalysis.predictedLabel}
-                          </span>
-                        </div>
-                        <Link
-                          to={`/doctor/cases/${previewAnalysis.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-                        >
-                          <span>Mở trạm đọc đầy đủ</span>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
-
-                      {/* MRI Workstation Viewer with bounded comfortable viewport */}
-                      <div className="rounded-xl overflow-hidden">
-                        <MRIViewer
-                          imageUrl={previewAnalysis.imageUrl || SYNTHETIC_MRI_SLICES[previewAnalysis.predictedLabel]}
-                          preprocessedImageUrl={previewAnalysis.preprocessedImageUrl}
-                          gradcamUrl={previewAnalysis.gradcamUrl}
-                          sessionCode={previewAnalysis.sessionCode}
-                          sanitizedFileName={previewAnalysis.sanitizedFileName}
-                          dimensions={previewAnalysis.imageDimensions}
-                          isDemoFixture={previewAnalysis.isDemoFixture}
-                        />
-                      </div>
-
-                      {/* Doctor clinical review note if present */}
-                      {previewAnalysis.doctorReview && (
-                        <div className="p-3.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-500/30 text-xs space-y-1.5">
-                          <div className="font-bold text-sky-900 dark:text-sky-200 flex items-center justify-between">
-                            <span>Nhận xét chuyên môn Bác sĩ:</span>
-                            <span className="font-normal text-[11px] text-slate-500">
-                              {previewAnalysis.doctorReview.doctorName}
-                            </span>
-                          </div>
-                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                            {previewAnalysis.doctorReview.clinicalNoteForPatient}
-                          </p>
-                          {previewAnalysis.doctorReview.recommendedNextStep && (
-                            <div className="text-[11px] text-sky-800 dark:text-sky-300 pt-1 font-semibold border-t border-sky-200 dark:border-sky-800/60">
-                              Khuyến nghị tiếp theo: {previewAnalysis.doctorReview.recommendedNextStep}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
-                      <ScanLine className="w-10 h-10 text-slate-400 mx-auto" />
-                      <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        Chưa chọn lát cắt MRI nào
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Nhấn vào một ảnh trong danh sách bên trái để mở trạm đọc ảnh và phân tích.
-                      </p>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* CONFIRM DELETE DIALOG */}
       <ConfirmDialog
