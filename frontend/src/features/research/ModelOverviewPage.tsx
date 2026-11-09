@@ -18,81 +18,82 @@ import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
 const RESEARCH_ARCHITECTURES = [
   {
     name: 'ConvNeXt (Base / Large)',
-    params: '89M Params • 15.4 GFLOPs',
+    params: '~89M tham số',
     status: 'Nghiên cứu Khảo nghiệm (PyTorch Backbone)',
     badgeColor: 'bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-500/30',
     role: 'Trích xuất đặc trưng cục bộ (Local Visual Features)',
     details:
       'Sử dụng các khối 7×7 Depthwise Convolution mô phỏng trường nhìn rộng của Transformer nhưng vẫn bảo toàn tính bất biến dịch chuyển của CNN. Tối ưu hóa phân tích viền ngấm thuốc dạng vòng và phù não vận mạch xung quanh Glioma.',
-    benchmarkExpected: 'F1 Dự kiến: 96.8% • Focus: Ranh giới u nội trục & ngoài trục',
+    benchmarkExpected: 'Trọng tâm: Ranh giới u nội trục & ngoài trục • Chưa huấn luyện / chưa đo',
   },
   {
     name: 'Swin Transformer V2 (Base)',
-    params: '88M Params • 15.1 GFLOPs',
+    params: '~88M tham số',
     status: 'Nghiên cứu Khảo nghiệm (PyTorch Backbone)',
     badgeColor: 'bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30',
     role: 'Thu nhận ngữ cảnh diện rộng (Global Context & Symmetry)',
     details:
       'Dựa trên cơ chế Shifted Window Self-Attention giúp mô hình học tương quan đối xứng giải phẫu giữa hai bán cầu đại não, phát hiện hiệu ứng đè ép đường giữa (Midline Shift) và giãn não thất do khối u choán chỗ.',
-    benchmarkExpected: 'F1 Dự kiến: 97.2% • Focus: Cấu trúc đối xứng & chèn ép đường giữa',
+    benchmarkExpected: 'Trọng tâm: Cấu trúc đối xứng & chèn ép đường giữa • Chưa huấn luyện / chưa đo',
   },
   {
     name: 'EfficientNetV2-L',
-    params: '118M Params • 24.3 GFLOPs',
+    params: '~118M tham số',
     status: 'Nghiên cứu Khảo nghiệm (PyTorch Backbone)',
     badgeColor: 'bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/30',
     role: 'Biểu diễn đặc trưng đa tỷ lệ (Multi-scale Representation)',
     details:
       'Kết hợp các khối Fused-MBConv và kỹ thuật Progressive Resizing (256×256 → 384×384) giúp mô hình nhận diện chuẩn xác các khối u có kích thước vi mô trong hố yên (Microadenoma < 10mm).',
-    benchmarkExpected: 'F1 Dự kiến: 96.5% • Focus: Khối u kích thước vi mô hố yên',
+    benchmarkExpected: 'Trọng tâm: Khối u kích thước vi mô hố yên • Chưa huấn luyện / chưa đo',
   },
 ];
 
+// Số liệu đo thực tế bằng ai_engine/evaluate.py (onnxruntime) trên thư mục Testing
+// của Brain Tumor MRI Dataset: 4 lớp x 400 ảnh = 1.600 ảnh. Báo cáo gốc: ai_engine/eval_report.json
 const VALIDATION_METRICS = {
-  accuracy: '94.92%',
-  macroPrecision: '93.49%',
-  macroRecall: '93.50%',
-  macroF1: '93.48%',
-  totalSamples: 394,
-  correctSamples: 374,
-  datasetSource: 'Brain Tumor MRI Dataset (7.023 lát cắt phân bổ 4 lớp)',
+  accuracy: '95.50%',
+  macroPrecision: '95.60%',
+  macroRecall: '95.50%',
+  macroF1: '95.45%',
+  totalSamples: 1600,
+  correctSamples: 1528,
 };
 
 const PER_CLASS_METRICS = [
   {
     label: 'Glioma',
     vietnamese: 'U tế bào thần kinh đệm',
-    precision: '93.88%',
-    recall: '92.00%',
-    f1Score: '92.93%',
-    support: 100,
+    precision: '96.93%',
+    recall: '86.75%',
+    f1Score: '91.56%',
+    support: 400,
     badgeClass: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30',
   },
   {
     label: 'Meningioma',
     vietnamese: 'U màng não',
-    precision: '90.91%',
-    recall: '90.00%',
-    f1Score: '90.45%',
-    support: 100,
+    precision: '90.63%',
+    recall: '96.75%',
+    f1Score: '93.59%',
+    support: 400,
     badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
   },
   {
     label: 'Pituitary',
     vietnamese: 'U tuyến yên',
-    precision: '94.95%',
-    recall: '94.00%',
-    f1Score: '94.47%',
-    support: 100,
+    precision: '98.03%',
+    recall: '99.75%',
+    f1Score: '98.88%',
+    support: 400,
     badgeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
   },
   {
     label: 'No Tumor',
     vietnamese: 'Bình thường / Không u',
-    precision: '94.23%',
-    recall: '98.00%',
-    f1Score: '96.08%',
-    support: 94,
+    precision: '96.81%',
+    recall: '98.75%',
+    f1Score: '97.77%',
+    support: 400,
     badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
   },
 ];
@@ -100,10 +101,10 @@ const PER_CLASS_METRICS = [
 const VALIDATION_CONFUSION_MATRIX = {
   labels: ['Glioma', 'Meningioma', 'Pituitary', 'No Tumor'],
   rows: [
-    { actual: 'Glioma', values: [92, 6, 1, 1] },
-    { actual: 'Meningioma', values: [5, 90, 3, 2] },
-    { actual: 'Pituitary', values: [1, 2, 94, 3] },
-    { actual: 'No Tumor', values: [0, 1, 1, 98] },
+    { actual: 'Glioma', values: [347, 40, 1, 12] },
+    { actual: 'Meningioma', values: [5, 387, 7, 1] },
+    { actual: 'Pituitary', values: [1, 0, 399, 0] },
+    { actual: 'No Tumor', values: [5, 0, 0, 395] },
   ],
 };
 
@@ -113,7 +114,7 @@ export const ModelOverviewPage: React.FC = () => {
       <PageHeader
         badgeText="Góc Nghiên cứu & Mô hình AI • Báo cáo Thực nghiệm & Minh bạch Học thuật"
         title="Tổng quan Chiến lược Mô hình & Báo cáo Đánh giá Thực nghiệm"
-        description="Báo cáo kết quả kiểm định thực nghiệm của mô hình Student ONNX trên tập Validation chuẩn và định hướng nâng cấp kiến trúc Hybrid Multi-Backbone Ensemble."
+        description="Báo cáo kết quả đo thực tế của mô hình Student ONNX trên tập Testing và định hướng nâng cấp kiến trúc Hybrid Multi-Backbone Ensemble."
       />
 
       {/* Academic Transparency Notice */}
@@ -124,10 +125,10 @@ export const ModelOverviewPage: React.FC = () => {
             Nguyên tắc Minh bạch Học thuật & Y đức (Academic & Clinical Integrity):
           </p>
           <p>
-            Mọi chỉ số đánh giá bên dưới được trích xuất trực tiếp từ quá trình kiểm định thực tế của mô hình{' '}
-            <code className="px-1 py-0.5 rounded bg-teal-500/10 font-mono text-teal-800 dark:text-teal-300">brain_mri_student.onnx</code>{' '}
-            trên tập Validation độc lập (394 lát cắt). Các mô hình mở rộng <code>ConvNeXt</code>, <code>Swin Transformer V2</code> và{' '}
-            <code>EfficientNetV2</code> được trình bày trung thực như <strong>định hướng nghiên cứu nâng cao</strong> để mở rộng trong tương lai.
+            Các chỉ số đánh giá bên dưới được đo thực tế bằng script{' '}
+            <code className="px-1 py-0.5 rounded bg-teal-500/10 font-mono text-teal-800 dark:text-teal-300">ai_engine/evaluate.py</code>{' '}
+            chạy mô hình <code>brain_mri_student.onnx</code> trên thư mục <code>Testing</code> của Brain Tumor MRI Dataset (1.600 ảnh, mỗi lớp 400 ảnh). Chưa xác minh được tập này tách biệt hoàn toàn với dữ liệu huấn luyện của mô hình, nên cần đọc như kết quả tham khảo. Các kiến trúc <code>ConvNeXt</code>, <code>Swin Transformer V2</code> và{' '}
+            <code>EfficientNetV2</code> chỉ là <strong>định hướng nghiên cứu</strong>, chưa được huấn luyện hay đo đạc.
           </p>
         </div>
       </div>
@@ -182,12 +183,12 @@ export const ModelOverviewPage: React.FC = () => {
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Kết quả đối soát thực nghiệm từ tập Validation chuẩn ({VALIDATION_METRICS.totalSamples} lát cắt MRI đối chiếu 4 nhóm bệnh lý).
+              Kết quả đo thực tế trên tập Testing ({VALIDATION_METRICS.totalSamples} lát cắt MRI, 4 nhóm bệnh lý).
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            Đã Kiểm Định Thực Nghiệm ({VALIDATION_METRICS.correctSamples}/{VALIDATION_METRICS.totalSamples} Mẫu Đúng)
+            Đo thực tế ({VALIDATION_METRICS.correctSamples}/{VALIDATION_METRICS.totalSamples} mẫu đúng)
           </span>
         </div>
 
@@ -304,12 +305,12 @@ export const ModelOverviewPage: React.FC = () => {
               </h2>
             </div>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/20 text-teal-900 dark:text-teal-300 border border-teal-500/30">
-              394 LÁT CẮT KIỂM ĐỊNH
+              1.600 LÁT CẮT TESTING
             </span>
           </div>
 
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            Phân bố kết quả dự đoán đối chiếu với nhãn thực tế trên tập Validation. Đường chéo chính (màu xanh ngọc) thể hiện các ca nhận diện chính xác tuyệt đối.
+            Phân bố kết quả dự đoán đối chiếu với nhãn thực tế trên tập Testing. Đường chéo chính (màu xanh ngọc) là các ca dự đoán đúng.
           </p>
 
           <div className="overflow-x-auto">
@@ -359,9 +360,9 @@ export const ModelOverviewPage: React.FC = () => {
           </div>
 
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed space-y-1">
-            <strong>Ghi nhận lâm sàng & Thách thức thị giác máy tính:</strong>
+            <strong>Nhận xét từ số liệu:</strong>
             <p>
-              Tỷ lệ nhầm lẫn nhỏ nhất (6 ca giữa Glioma và Meningioma) xảy ra chủ yếu ở các lát cắt ngấm thuốc mạnh có viền không rõ nét hoặc u nằm sát màng não gần vòm sọ — đây là hiện tượng thường gặp cả trong đọc phim đối chiếu thực tế.
+              Lỗi lớn nhất là 40/400 ca Glioma bị dự đoán thành Meningioma, kéo Recall của Glioma xuống 86.75%. Mô hình có xu hướng bỏ sót Glioma nhiều hơn các lớp còn lại, nên kết quả AI cần bác sĩ đối chiếu, nhất là với nhãn Meningioma và No Tumor.
             </p>
           </div>
         </div>
@@ -414,7 +415,7 @@ export const ModelOverviewPage: React.FC = () => {
             </h2>
           </div>
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-800 dark:text-teal-300 border border-teal-500/30">
-            Chiến lược Ensemble Voting: 0.35 ConvNeXt + 0.35 SwinV2 + 0.30 EfficientNetV2
+            Ý tưởng Ensemble (đề xuất, chưa triển khai)
           </span>
         </div>
 

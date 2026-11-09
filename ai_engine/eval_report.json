@@ -1,0 +1,71 @@
+{
+  "dataset": "C:\\Users\\Admin\\Downloads\\archive\\Testing",
+  "totalSamples": 1600,
+  "correctSamples": 1528,
+  "accuracy": 0.955,
+  "macroPrecision": 0.956,
+  "macroRecall": 0.955,
+  "macroF1": 0.9545,
+  "labels": [
+    "Glioma",
+    "Meningioma",
+    "Pituitary",
+    "No Tumor"
+  ],
+  "confusionMatrix": [
+    [
+      347,
+      40,
+      1,
+      12
+    ],
+    [
+      5,
+      387,
+      7,
+      1
+    ],
+    [
+      1,
+      0,
+      399,
+      0
+    ],
+    [
+      5,
+      0,
+      0,
+      395
+    ]
+  ],
+  "perClass": [
+    {
+      "label": "Glioma",
+      "precision": 0.9693,
+      "recall": 0.8675,
+      "f1": 0.9156,
+      "support": 400
+    },
+    {
+      "label": "Meningioma",
+      "precision": 0.9063,
+      "recall": 0.9675,
+      "f1": 0.9359,
+      "support": 400
+    },
+    {
+      "label": "Pituitary",
+      "precision": 0.9803,
+      "recall": 0.9975,
+      "f1": 0.9888,
+      "support": 400
+    },
+    {
+      "label": "No Tumor",
+      "precision": 0.9681,
+      "recall": 0.9875,
+      "f1": 0.9777,
+      "support": 400
+    }
+  ]
+}
