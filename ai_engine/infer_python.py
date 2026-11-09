@@ -32,17 +32,33 @@ def softmax(x: np.ndarray) -> np.ndarray:
     return e_x / e_x.sum(axis=-1, keepdims=True)
 
 def preprocess_image(image_path: str) -> np.ndarray:
-    """Chuẩn hóa ảnh theo chuẩn ImageNet [1, 3, 256, 256]."""
+    """
+    Tiền xử lý ảnh về [1, 3, 256, 256] trong dải [0, 1].
+    Mô hình brain_mri_student.onnx đã tích hợp sẵn lớp chuyển đổi Grayscale
+    và chuẩn hóa ImageNet (Sub mean / Div std) ngay bên trong đồ thị ONNX.
+    """
     im = Image.open(image_path).convert("RGB")
-    im = im.resize((256, 256))
-    arr = np.array(im, dtype=np.float32) / 255.0
-    
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    
-    arr = (arr - mean) / std
-    arr = arr.transpose(2, 0, 1)  # HWC -> CHW
-    return np.expand_dims(arr, 0) # [1, 3, 256, 256]
+    arr = np.array(im, dtype=np.float32)
+    gray = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
+
+    hist, _ = np.histogram(gray.astype(np.uint8), bins=256, range=(0, 256))
+    cdf = np.cumsum(hist)
+    p10 = float(np.searchsorted(cdf, 0.10 * gray.size))
+    zero_ratio = float((gray < 15).mean())
+
+    if zero_ratio < 0.20 and p10 > 8.0:
+        arr = np.clip(np.round((arr - p10 * 1.6) * 0.85), 0, 255).astype(np.uint8)
+        h, w, _ = arr.shape
+        pad_y, pad_x = round(h * 0.22), round(w * 0.22)
+        padded = np.zeros((h + 2 * pad_y, w + 2 * pad_x, 3), dtype=np.uint8)
+        padded[pad_y:pad_y + h, pad_x:pad_x + w] = arr
+        im_256 = Image.fromarray(padded).resize((256, 256), Image.BILINEAR)
+    else:
+        im_256 = im.resize((256, 256), Image.BILINEAR)
+
+    norm_arr = np.array(im_256, dtype=np.float32) / 255.0
+    norm_arr = norm_arr.transpose(2, 0, 1)  # HWC -> CHW
+    return np.expand_dims(norm_arr, 0)      # [1, 3, 256, 256]
 
 def predict(image_path: str, model_path: str):
     if not os.path.exists(model_path):

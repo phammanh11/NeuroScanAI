@@ -379,7 +379,15 @@ export const neuroscanAdapter = {
   },
 
   async getPatientAnalyses(patientId: string): Promise<MRIAnalysisRecord[]> {
-    return this.getUserAnalyses(patientId);
+    const all = await this.getUserAnalyses(patientId);
+    const cleanId = String(patientId).replace(/^pt-|^usr-user-0|^usr-user-/, '');
+    const filtered = all.filter(
+      (a) =>
+        a.patientId === patientId ||
+        a.ownerUserId === patientId ||
+        (cleanId && (a.patientId === cleanId || a.ownerUserId === cleanId))
+    );
+    return filtered;
   },
 
   // ==========================================

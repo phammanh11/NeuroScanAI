@@ -347,7 +347,18 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
       }
     }
 
-    // 5. Đảm bảo có đủ 4 Ca chụp MRI thực tế & Kết quả AI (Predictions) + Thẩm định Bác sĩ
+    // 5. Dọn dẹp các bản ghi fallback cũ (nếu có) và đảm bảo có đủ 4 Ca chụp MRI chuẩn ONNX
+    await env.DB.prepare(
+      `DELETE FROM mri_scans WHERE id > 4 AND id IN (SELECT scan_id FROM predictions WHERE confidence IN (0.892, 0.884, 0.912, 0.956))`
+    )
+      .run()
+      .catch(() => {});
+    await env.DB.prepare(
+      `DELETE FROM predictions WHERE id > 4 AND confidence IN (0.892, 0.884, 0.912, 0.956)`
+    )
+      .run()
+      .catch(() => {});
+
     const predCountRes: any = await env.DB.prepare('SELECT count(*) as count FROM predictions')
       .first()
       .catch(() => ({ count: 0 }));
@@ -357,7 +368,13 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
       .first()
       .catch(() => ({ count: 0 }));
 
-    if ((predCountRes?.count || 0) < 4 || (oldScanKeyRes?.count || 0) > 0) {
+    const oldSeedPredRes: any = await env.DB.prepare(
+      'SELECT count(*) as count FROM predictions WHERE id IN (1,2,3,4) AND confidence IN (0.934, 0.918, 0.905, 0.968)'
+    )
+      .first()
+      .catch(() => ({ count: 0 }));
+
+    if ((predCountRes?.count || 0) < 4 || (oldScanKeyRes?.count || 0) > 0 || (oldSeedPredRes?.count || 0) > 0) {
       await env.DB.prepare(`
         INSERT OR REPLACE INTO mri_scans (id, patient_id, r2_key, file_name, file_size, mime_type, slice_type, sequence_type, uploaded_at)
         VALUES
@@ -373,10 +390,10 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
       await env.DB.prepare(`
         INSERT OR REPLACE INTO predictions (id, scan_id, label, confidence, probabilities, model_version, inference_time_ms, created_at)
         VALUES
-          (1, 1, 'Glioma', 0.934, '{"Glioma":0.934,"Meningioma":0.041,"Pituitary":0.015,"No Tumor":0.010}', 'brain_mri_student_v1_onnx', 45, '2026-10-28 09:15:05'),
-          (2, 2, 'Meningioma', 0.918, '{"Glioma":0.032,"Meningioma":0.918,"Pituitary":0.035,"No Tumor":0.015}', 'brain_mri_student_v1_onnx', 42, '2026-11-01 14:30:04'),
-          (3, 3, 'Pituitary', 0.905, '{"Glioma":0.024,"Meningioma":0.048,"Pituitary":0.905,"No Tumor":0.023}', 'brain_mri_student_v1_onnx', 39, '2026-11-04 11:20:03'),
-          (4, 4, 'No Tumor', 0.968, '{"Glioma":0.008,"Meningioma":0.012,"Pituitary":0.012,"No Tumor":0.968}', 'brain_mri_student_v1_onnx', 38, '2026-11-05 10:00:03')
+          (1, 1, 'Glioma', 0.9884, '{"Glioma":0.9884,"Meningioma":0.0041,"Pituitary":0.0008,"No Tumor":0.0067}', 'brain_mri_student_v1_onnx', 45, '2026-10-28 09:15:05'),
+          (2, 2, 'Meningioma', 0.9956, '{"Glioma":0.0007,"Meningioma":0.9956,"Pituitary":0.0017,"No Tumor":0.0020}', 'brain_mri_student_v1_onnx', 42, '2026-11-01 14:30:04'),
+          (3, 3, 'Pituitary', 0.9975, '{"Glioma":0.0006,"Meningioma":0.0006,"Pituitary":0.9975,"No Tumor":0.0013}', 'brain_mri_student_v1_onnx', 39, '2026-11-04 11:20:03'),
+          (4, 4, 'No Tumor', 0.9923, '{"Glioma":0.0025,"Meningioma":0.0022,"Pituitary":0.0029,"No Tumor":0.9923}', 'brain_mri_student_v1_onnx', 38, '2026-11-05 10:00:03')
       `).run().catch(() => {});
 
       await env.DB.prepare(`

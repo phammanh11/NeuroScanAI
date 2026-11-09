@@ -140,10 +140,10 @@ export const MRIAnalysisPage: React.FC = () => {
 
     try {
       setCurrentStep(1);
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 450));
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(2);
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 550));
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(3);
 
@@ -170,13 +170,13 @@ export const MRIAnalysisPage: React.FC = () => {
 
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(4);
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 450));
       if (runId !== analysisRunRef.current) return;
 
       showToast({
         variant: 'success',
         title: `Phân tích AI hoàn tất: ${createdRecord.predictedLabel}`,
-        description: `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Lưu trữ an toàn trên Cloudflare R2 & D1.`,
+        description: `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận ONNX: ${createdRecord.modelMetadata.inferenceTimeMs}ms • Lưu trữ Cloudflare R2 & D1.`,
       });
       navigate(`/mri-results/${createdRecord.id}`);
     } catch (err) {

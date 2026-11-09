@@ -1101,11 +1101,11 @@ export const DoctorPatientsPage: React.FC = () => {
                         alt="Ảnh lát cắt"
                         className="w-12 h-12 rounded-lg object-cover bg-black border border-slate-700"
                       />
-                      <div className="text-xs">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          Nhãn mô hình AI: {evaluatingAnalysis.predictedLabel}
+                      <div className="text-xs min-w-0 flex-1">
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                          Nhãn mô hình AI: {evaluatingAnalysis.predictedLabel} ({formatPercent(evaluatingAnalysis.confidenceScore)})
                         </span>
-                        <div className="text-slate-500">
+                        <div className="text-slate-500 truncate">
                           File: {evaluatingAnalysis.sanitizedFileName} • {formatDateTimeVN(evaluatingAnalysis.createdAt)}
                         </div>
                       </div>
