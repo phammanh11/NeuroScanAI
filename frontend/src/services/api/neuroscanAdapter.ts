@@ -427,6 +427,9 @@ export const neuroscanAdapter = {
       formData.append('file', payload.file);
       formData.append('sliceType', 'Axial (Trục ngang)');
       formData.append('sequenceType', 'T1-Gd (Contrast)');
+      if (payload.targetPatientId) {
+        formData.append('patientId', String(payload.targetPatientId));
+      }
 
       const uploadRes = await httpClient.post(API_ENDPOINTS.MRI.UPLOAD, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

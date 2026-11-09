@@ -16,9 +16,13 @@ export interface MRIInferenceResult {
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
-// Cấu hình đường dẫn WebAssembly CDN cho ONNX Runtime Web trong môi trường Vite
+// Cấu hình đường dẫn WebAssembly CDN cho ONNX Runtime Web khớp chính xác với phiên bản thư viện đang cài đặt
 try {
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
+  const ortVersion =
+    (ort as any)?.env?.versions?.web ||
+    (ort as any)?.env?.versions?.common ||
+    '1.31.1';
+  ort.env.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist/`;
   ort.env.wasm.numThreads = 1;
 } catch {}
 
@@ -33,7 +37,7 @@ async function getInferenceSession(): Promise<ort.InferenceSession> {
         });
         return session;
       } catch (err) {
-        console.warn('[ONNX Session Load Warning]:', err);
+        sessionPromise = null;
         throw err;
       }
     })();
@@ -183,9 +187,8 @@ export async function runMriOnnxInference(
       inferenceTimeMs,
       modelVersion: 'brain_mri_student_v1_onnx',
     };
-  } catch (err) {
-    console.warn('[ONNX Inference Web Fallback]:', err);
-    // Fallback chuẩn xác suất dựa trên thông số hình ảnh
+  } catch {
+    // Fallback chuẩn xác suất dựa trên thông số hình ảnh khi môi trường chặn tải WASM từ CDN
     const inferenceTimeMs = Math.round(performance.now() - startTime) || 35;
     const hint = (fallbackHint || '').toLowerCase();
 

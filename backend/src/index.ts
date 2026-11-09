@@ -400,7 +400,13 @@ const handleUploadScan = async (c: any) => {
     const formData = await c.req.formData();
     const file = formData.get('file') as File | null;
     const user = await getAuthenticatedUser(c);
-    const patientId = user ? user.id : 2; // Mặc định patient id
+    const requestedPatientId = Number(formData.get('patientId') || formData.get('patient_id'));
+    const patientId =
+      !isNaN(requestedPatientId) && requestedPatientId > 0
+        ? requestedPatientId
+        : user && user.role === 'patient'
+          ? user.id
+          : 2; // Mặc định patient id
     const sliceType = (formData.get('sliceType') as string) || 'Axial (Trục ngang)';
     const sequenceType = (formData.get('sequenceType') as string) || 'T1-Gd (Contrast)';
 
@@ -797,14 +803,7 @@ const handleChat = async (c: any) => {
     return fail(c, 'EMPTY_MESSAGE', 'Nội dung câu hỏi không được để trống.', 400);
   }
 
-  // 1. Lưu tin nhắn người dùng vào chat_messages
-  try {
-    await c.env.DB.prepare(
-      'INSERT INTO chat_messages (session_id, sender, content) VALUES (?, ?, ?)'
-    ).bind(sessionId, 'user', message.trim()).run();
-  } catch {}
-
-  // 2. Chạy quy trình RAG (Vectorize/Embedding/Workers AI LLM)
+  // Chạy quy trình RAG (Vectorize/Embedding/Workers AI LLM) và ghi đồng bộ cặp tin nhắn user + bot vào D1
   const responseData = await handleMedicalChat(c, message, history, sessionId, userId);
   return ok(c, responseData);
 };
@@ -885,6 +884,22 @@ app.get('/api/chat/sessions', async (c) => {
         .bind(sess.id)
         .all();
       msgRows = reloaded?.results || [];
+    } else {
+      // Tự động dọn dẹp các tin nhắn user bị treo chưa có phản hồi bot
+      const validMessages = [];
+      for (let i = 0; i < msgRows.length; i++) {
+        const cur = msgRows[i];
+        const next = msgRows[i + 1];
+        if (cur.sender === 'user' && (!next || next.sender === 'user')) {
+          await c.env.DB.prepare('DELETE FROM chat_messages WHERE id = ?')
+            .bind(cur.id)
+            .run()
+            .catch(() => {});
+          continue;
+        }
+        validMessages.push(cur);
+      }
+      msgRows = validMessages;
     }
 
     enrichedSessions.push({

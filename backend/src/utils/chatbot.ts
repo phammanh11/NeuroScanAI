@@ -132,8 +132,16 @@ function classifyMedicalIntent(message: string): {
   if (
     norm === 'hi' ||
     norm === 'hello' ||
+    norm === 'hey' ||
     norm === 'xin chao' ||
     norm === 'chao' ||
+    norm === 'alo' ||
+    norm === 'e' ||
+    norm === 'oi' ||
+    norm === 'bot oi' ||
+    norm === 'ai oi' ||
+    norm === 'bac si oi' ||
+    norm === 'cho hoi' ||
     norm.startsWith('xin chao') ||
     norm.startsWith('chao bac si') ||
     norm.startsWith('chao ai')
@@ -352,8 +360,11 @@ ${ragContextFormatted}
 
 ${scanContextText ? `=== DỮ LIỆU CA CHỤP MRI & HỒ SƠ BỆNH NHÂN TRONG HỆ THỐNG D1 ===\n${scanContextText}` : ''}`;
 
-  // 4. Gọi LLM (Cloudflare Workers AI Llama-3.3-70B -> Gemini 2.5 Flash)
-  const llmResult = await generateRagLLMResponse(env, systemPrompt, cleanMessage, history);
+  // 4. Gọi LLM (Cloudflare Workers AI Llama-3.3-70B -> Gemini 2.5 Flash) cho câu hỏi chuyên môn (bỏ qua lời chào ngắn)
+  const llmResult =
+    intent === 'greeting'
+      ? { text: null, llmModel: 'neuroscan-rag-synthesizer-v2' }
+      : await generateRagLLMResponse(env, systemPrompt, cleanMessage, history);
   let finalReply = llmResult.text;
 
   // 5. Nếu môi trường không bật LLM ngoài, sử dụng Bộ tổng hợp RAG Y khoa Nội bộ (NeuroScan Medical RAG Synthesizer)
@@ -519,8 +530,28 @@ export async function handleMedicalChat(
 ): Promise<ChatResponseData> {
   const response = await processChatbotMessage(c.env, rawMessage, history);
 
-  // Lưu tin nhắn phản hồi của Trợ lý AI cùng metadata RAG + Matched Scans vào D1
+  // Lưu đồng bộ cặp tin nhắn Người dùng + Trợ lý AI cùng metadata RAG + Matched Scans vào D1
   try {
+    const lastRow: any = await c.env.DB.prepare(
+      'SELECT id, sender FROM chat_messages WHERE session_id = ? ORDER BY id DESC LIMIT 1'
+    )
+      .bind(sessionId)
+      .first()
+      .catch(() => null);
+
+    if (lastRow && lastRow.sender === 'user') {
+      await c.env.DB.prepare('DELETE FROM chat_messages WHERE id = ?')
+        .bind(lastRow.id)
+        .run()
+        .catch(() => {});
+    }
+
+    await c.env.DB.prepare(
+      'INSERT INTO chat_messages (session_id, sender, content, is_emergency) VALUES (?, ?, ?, 0)'
+    )
+      .bind(sessionId, 'user', rawMessage.trim())
+      .run();
+
     const metadataPayload = JSON.stringify({
       sources: response.sources || [],
       ragTrace: response.ragTrace,

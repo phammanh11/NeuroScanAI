@@ -166,8 +166,8 @@ export const MRIUploader: React.FC<MRIUploaderProps> = ({
         <div className="leading-relaxed">
           <strong>Khuyến cáo Bảo mật Dữ liệu Sức khỏe:</strong> Không tải lên ảnh MRI có chứa họ
           tên thật, số căn cước, mã hồ sơ bệnh án hoặc thông tin định danh cá nhân (PII/PHI) trên
-          viền ảnh nếu chưa được ẩn danh. Trong chế độ Demo, ảnh chỉ xử lý cục bộ trong phiên trình
-          duyệt và không gửi ra máy chủ bên ngoài.
+          viền ảnh nếu chưa được ẩn danh. Hệ thống tự động chuẩn hóa tên tệp và mã hóa bảo mật
+          khi lưu trữ trên Cloudflare R2.
         </div>
       </div>
 

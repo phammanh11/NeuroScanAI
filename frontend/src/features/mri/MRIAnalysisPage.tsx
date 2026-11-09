@@ -104,28 +104,6 @@ export const MRIAnalysisPage: React.FC = () => {
     setCurrentStep(0);
   };
 
-  const loadSampleScan = async (samplePath: string, fileName: string) => {
-    try {
-      const res = await fetch(samplePath);
-      const blob = await res.blob();
-      const file = new File([blob], fileName, { type: 'image/jpeg' });
-      const url = URL.createObjectURL(blob);
-      handleSelectFile(file, url);
-      setConsentChecked(true);
-      showToast({
-        variant: 'info',
-        title: 'Đã nạp ảnh MRI mẫu thực tế',
-        description: `Tệp ${fileName} từ tập dữ liệu huấn luyện đã sẵn sàng. Bấm "Phân tích ảnh MRI" để chạy mô hình AI.`,
-      });
-    } catch {
-      showToast({
-        variant: 'error',
-        title: 'Không thể nạp ảnh mẫu',
-        description: 'Vui lòng thử lại hoặc tải ảnh từ máy tính.',
-      });
-    }
-  };
-
   const runAnalysis = async () => {
     if (!selectedFile || !previewUrl) {
       setValidationError('Vui lòng chọn hoặc nạp một file ảnh MRI hợp lệ trước khi phân tích.');
@@ -220,8 +198,8 @@ export const MRIAnalysisPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         badgeText="Tính năng Trọng tâm • Tải lên & Phân tích MRI"
-        title="Phân tích ảnh MRI sọ não (Hỗ trợ 4 lớp tham chiếu)"
-        description="Tải lên ảnh lát cắt MRI (PNG, JPG, JPEG) hoặc chọn mẫu tổng hợp để trải nghiệm quy trình kiểm tra, xem trước tỷ lệ chuẩn và nhận kết quả phân loại minh họa."
+        title="Phân tích ảnh MRI sọ não (Hỗ trợ 4 lớp WHO CNS5)"
+        description="Tải lên ảnh lát cắt MRI (PNG, JPG, JPEG) từ thiết bị để thực hiện kiểm tra ma trận điểm ảnh, suy luận mô hình AI và lưu trữ an toàn trên Cloudflare R2 & D1."
       />
 
       {/* 3-Area Desktop Layout: Left (Upload + Settings) & Right (MRI Preview + Pipeline Info) */}
@@ -234,69 +212,6 @@ export const MRIAnalysisPage: React.FC = () => {
                 1. Khu vực tải ảnh MRI (Upload Zone)
               </h2>
               <span className="text-xs font-mono text-slate-500">PNG • JPG • JPEG (≤ 15MB)</span>
-            </div>
-
-            {/* Quick Sample Real Scans Picker */}
-            <div className="p-4 rounded-xl border border-teal-500/30 bg-teal-50/50 dark:bg-teal-950/20 space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-teal-900 dark:text-teal-200">
-                <span className="flex items-center gap-1.5">
-                  <FileCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  Thư viện 4 Lát cắt MRI Sọ não Thực tế (Dataset Sample Scans):
-                </span>
-                <span className="text-[11px] text-teal-700/80 dark:text-teal-400 hidden sm:inline">
-                  Chọn 1-click để kiểm thử mô hình
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                {[
-                  {
-                    path: '/sample_scans/sample_glioma_axial.jpg',
-                    fileName: 'mri_scan_glioma_t1ce.jpg',
-                    title: 'Mẫu 1 — Glioma (U thần kinh đệm)',
-                    sub: 'Axial T1+C • Vùng đỉnh - chẩm phải',
-                  },
-                  {
-                    path: '/sample_scans/sample_meningioma_axial.jpg',
-                    fileName: 'mri_scan_meningioma_t1ce.jpg',
-                    title: 'Mẫu 2 — Meningioma (U màng não)',
-                    sub: 'Axial T1+C • Ngoài trục nền sọ',
-                  },
-                  {
-                    path: '/sample_scans/sample_pituitary_coronal.jpg',
-                    fileName: 'mri_scan_pituitary_coronal.jpg',
-                    title: 'Mẫu 3 — Pituitary (U tuyến yên)',
-                    sub: 'Coronal T1+C • Vùng hố yên',
-                  },
-                  {
-                    path: '/sample_scans/sample_notumor_axial.jpg',
-                    fileName: 'mri_scan_notumor_normal.jpg',
-                    title: 'Mẫu 4 — No Tumor (Bình thường)',
-                    sub: 'Axial T2/FLAIR • Nhu mô đối xứng',
-                  },
-                ].map((sample) => (
-                  <button
-                    key={sample.fileName}
-                    type="button"
-                    disabled={isAnalyzing}
-                    onClick={() => loadSampleScan(sample.path, sample.fileName)}
-                    className="flex items-center gap-3 p-2 rounded-xl border border-teal-500/35 bg-white dark:bg-slate-900 hover:bg-teal-50/80 dark:hover:bg-slate-800 hover:border-teal-500 text-left transition-all cursor-pointer group"
-                  >
-                    <img
-                      src={sample.path}
-                      alt={sample.title}
-                      className="w-11 h-11 rounded-lg object-cover bg-slate-950 border border-slate-700 shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-300 truncate">
-                        {sample.title}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {sample.sub}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
             </div>
 
             <MRIUploader
@@ -442,8 +357,8 @@ export const MRIAnalysisPage: React.FC = () => {
                 <div className="text-center space-y-2 text-slate-500 p-6">
                   <ScanLine className="w-10 h-10 mx-auto opacity-40" />
                   <p className="text-xs">
-                    Chưa có ảnh được chọn. Hãy tải ảnh lên hoặc nhấn một trong 4 nút “Ảnh mẫu” ở cột
-                    bên trái.
+                    Chưa có ảnh được chọn. Hãy kéo thả hoặc chọn file ảnh lát cắt MRI từ thiết bị ở
+                    cột bên trái.
                   </p>
                 </div>
               )}

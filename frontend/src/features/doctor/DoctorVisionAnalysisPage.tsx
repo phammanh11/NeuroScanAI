@@ -33,7 +33,6 @@ import {
   AI_ASSESSMENT_VERDICT_META,
 } from '@/constants/medicalLabels';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
-import { SYNTHETIC_MRI_SLICES } from '@/assets/mriIllustrations';
 import { formatPercent } from '@/utils/formatters';
 import type {
   AIAssessmentVerdict,
@@ -135,12 +134,11 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
   const [enableClahe, setEnableClahe] = useState(true);
   const [selectedBackbone, setSelectedBackbone] = useState<'ensemble' | 'resnet' | 'vit'>('ensemble');
 
-  // Uploaded Image & Presets
+  // Uploaded Image State
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileDimensions, setFileDimensions] = useState<{ width: number; height: number } | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [uploaderError, setUploaderError] = useState<string | null>(null);
-  const [selectedPresetLabel, setSelectedPresetLabel] = useState<TumorLabel>('Glioma');
 
   // Pipeline Execution State
   const [currentStep, setCurrentStep] = useState<PipelineStep>('IDLE');
@@ -179,34 +177,13 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
     return patients.find((p) => p.id === selectedPatientId) || null;
   }, [patients, selectedPatientId]);
 
-  // Handle Preset Selection with Real Dataset Scans
-  const handleSelectPreset = async (label: TumorLabel) => {
-    setSelectedPresetLabel(label);
-    const scanPath = SYNTHETIC_MRI_SLICES[label];
-    try {
-      const res = await fetch(scanPath);
-      const blob = await res.blob();
-      const fileName = `sample_${label.toLowerCase().replace(/\s+/g, '_')}_axial.jpg`;
-      const file = new File([blob], fileName, { type: 'image/jpeg' });
-      const previewUrl = URL.createObjectURL(blob);
-      setUploadedFile(file);
-      setFileDimensions({ width: 512, height: 512 });
-      setPreviewDataUrl(previewUrl);
-      setUploaderError(null);
-      setAnalyzedRecord(null);
-      setCurrentStep('IDLE');
-    } catch {
-      setPreviewDataUrl(scanPath);
-    }
-  };
-
   // Run Computer Vision Pipeline
   const runVisionPipeline = async () => {
     if (!uploadedFile) {
       showToast({
         variant: 'warning',
         title: 'Chưa chọn lát cắt MRI',
-        description: 'Vui lòng tải ảnh lát cắt hoặc chọn một preset lát cắt chuẩn bên dưới.',
+        description: 'Vui lòng tải ảnh lát cắt MRI từ thiết bị để thực thi phân tích.',
       });
       return;
     }
@@ -249,7 +226,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
           targetPatientId: selectedPatientId,
         },
         user,
-        previewDataUrl || SYNTHETIC_MRI_SLICES[selectedPresetLabel]
+        previewDataUrl || ''
       );
 
       setAnalyzedRecord(record);
@@ -587,60 +564,21 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SECTION 2: UPLOAD OR SELECT CLINICAL PRESETS */}
+      {/* SECTION 2: UPLOAD MRI SLICE */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Upload or Preset Picker (6 cols) */}
+        {/* Left: Upload Dropzone (6 cols) */}
         <div className="lg:col-span-6 space-y-5">
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  3. Chọn Lát cắt MRI để Thực thi
+                  3. Tải lên Lát cắt MRI để Thực thi
                 </h3>
               </div>
               <span className="text-[11px] font-semibold text-teal-600 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-full border border-teal-500/30">
                 Hỗ trợ PNG / JPG
               </span>
-            </div>
-
-            {/* Quick Clinical Slices Presets */}
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                Chọn nhanh từ Thư viện Lát cắt Chuẩn lâm sàng (Preset):
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {(['Glioma', 'Meningioma', 'Pituitary', 'No Tumor'] as TumorLabel[]).map((label) => {
-                  const isSelected = selectedPresetLabel === label && !uploadedFile;
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => handleSelectPreset(label)}
-                      className={`p-2.5 rounded-xl border text-left transition-all space-y-1.5 ${
-                        isSelected
-                          ? 'border-teal-500 bg-teal-500/10 ring-2 ring-teal-500/30'
-                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-950'
-                      }`}
-                    >
-                      <img
-                        src={SYNTHETIC_MRI_SLICES[label]}
-                        alt={label}
-                        className="w-full h-16 rounded-lg object-cover bg-black"
-                      />
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                        {label}
-                      </div>
-                      <div className="text-[10px] text-slate-500">Chuỗi xung T1/T2</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="relative py-2 text-center text-xs text-slate-400">
-              <span className="bg-white dark:bg-slate-900 px-3 relative z-10">hoặc tải lát cắt tùy ý từ máy tính</span>
-              <div className="absolute inset-x-0 top-1/2 border-t border-slate-200 dark:border-slate-800" />
             </div>
 
             {/* File Upload Dropzone */}
@@ -688,7 +626,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
               ) : (
                 <>
                   <Sparkles className="w-5 h-5" />
-                  <span>Bắt đầu Phân tích Computer Vision ({selectedPresetLabel})</span>
+                  <span>Bắt đầu Phân tích Computer Vision MRI</span>
                 </>
               )}
             </button>
