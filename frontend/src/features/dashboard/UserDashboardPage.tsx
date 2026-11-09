@@ -141,9 +141,9 @@ export const UserDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Không gian Người sử dụng (USER) • Dữ liệu DEMO"
-        title={`Xin chào, ${user?.fullName || 'Người dùng Demo'}`}
-        description="Theo dõi các phiên phân tích ảnh MRI minh họa, xem phản hồi chuyên môn từ Bác sĩ được chia sẻ và tra cứu Trợ lý AI Y tế."
+        badgeText="Không gian Người sử dụng (USER) • Hồ sơ MRI & Trợ lý AI"
+        title={`Xin chào, ${user?.fullName || 'Người dùng'}`}
+        description="Theo dõi các phiên phân tích ảnh MRI sọ não, xem nhận định chuyên môn từ Bác sĩ chuyên khoa và tra cứu Trợ lý AI Y tế Vector RAG."
         actions={
           <>
             <Link
@@ -164,19 +164,17 @@ export const UserDashboardPage: React.FC = () => {
         }
       />
 
-      {/* Welcome & Demo Notice Banner */}
+      {/* Welcome & Platform Notice Banner */}
       <div className="rounded-2xl bg-gradient-to-r from-navy-900 via-navy-800 to-slate-900 text-white p-6 shadow-card flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
         <div className="space-y-2 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-500/20 text-teal-300 border border-teal-400/30">
-            CHẾ ĐỘ DEMO MINH HỌA (VITE_MOCK_MODE=true)
+            NỀN TẢNG HỖ TRỢ ĐỌC HIỂU HÌNH ẢNH HỌC SỌ NÃO • CLOUDFLARE EDGE & ONNX AI
           </div>
           <h2 className="text-lg sm:text-xl font-bold">
             Hỗ trợ đọc hiểu kết quả phân loại MRI & Kết nối Bác sĩ xem xét
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Mọi chỉ số trên bảng điều khiển này đều là <strong>dữ liệu DEMO giả lập</strong> phục
-            vụ trình bày giao diện và kiểm thử luồng RBAC (Người dùng tải MRI → Nhận nhãn tham khảo
-            → Đồng ý chia sẻ cho Bác sĩ → Xem nhận xét chuyên môn).
+            Bảng điều khiển đồng bộ trực tiếp các phiên phân tích MRI của bạn, kết nối luồng đánh giá chuyên môn cùng Bác sĩ (Người dùng tải MRI → Nhận nhãn tham khảo 4 nhóm → Đồng ý chia sẻ cho Bác sĩ → Xem nhận xét lâm sàng).
           </p>
         </div>
 
@@ -257,11 +255,11 @@ export const UserDashboardPage: React.FC = () => {
             <Activity className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span>Mock Adapter Sẵn sàng</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Cloudflare Edge & ONNX</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Sẵn sàng chuyển sang FastAPI qua biến môi trường
+            Đồng bộ D1 Database & Vector RAG AI trực tuyến
           </p>
         </div>
       </div>

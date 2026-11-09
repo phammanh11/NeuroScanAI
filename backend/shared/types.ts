@@ -8,7 +8,6 @@ export interface User {
   role: 'patient' | 'doctor' | 'admin';
   created_at: string;
   updated_at?: string;
-  // Join fields for doctor / patient convenience
   specialty?: string;
   license_no?: string;
   organization?: string;
@@ -20,6 +19,10 @@ export interface PatientProfile {
   user_id: number;
   date_of_birth?: string;
   phone?: string;
+  gender?: string;
+  address?: string;
+  medical_history?: string;
+  emergency_contact?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -64,7 +67,6 @@ export interface Prediction {
   model_version: string;
   inference_time_ms: number;
   created_at: string;
-  // Attached scan & review metadata
   scan?: MriScan;
   review?: DoctorReview | null;
 }
@@ -112,8 +114,22 @@ export interface FaqDocument {
 }
 
 export interface ChatHistoryItem {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'model';
   content: string;
+}
+
+export interface MatchedScanSummary {
+  id: number | string;
+  sessionCode: string;
+  patientCode: string;
+  patientName: string;
+  predictedLabel: TumorLabel;
+  confidence: number;
+  reviewStatus: string;
+  doctorName: string;
+  doctorNote: string;
+  imageUrl: string;
+  createdAt: string;
 }
 
 export interface RagTraceInfo {
@@ -123,24 +139,29 @@ export interface RagTraceInfo {
   vectorBackend: string;
   totalChunksIndexed: number;
   topChunks: Array<{
-    id: number;
+    id: string | number;
     title: string;
     category: string;
-    source: string;
+    source?: string;
     similarity?: number;
+    score?: number;
   }>;
 }
 
 export interface ChatResponseData {
   reply: string;
-  intent: 'medical_info' | 'emergency_alert' | 'general';
+  intent: string;
   isEmergency: boolean;
+  urgency?: 'emergency' | 'prompt_evaluation' | 'routine_or_prompt_evaluation' | 'informational';
   emergencyInstructions?: string;
   ragTrace?: RagTraceInfo;
+  matchedScans?: MatchedScanSummary[];
   sources?: Array<{
     title: string;
     source: string;
     category: string;
+    organization?: string;
+    url?: string;
   }>;
   suggestions?: string[];
 }

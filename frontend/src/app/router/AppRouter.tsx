@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/app/router/ProtectedRoute';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { DoctorLayout } from '@/components/layout/DoctorLayout';
 import { LoadingState } from '@/components/common/LoadingState';
+import { FloatingMedicalChatbot } from '@/components/medical/FloatingMedicalChatbot';
 import { MOCK_ERROR_SIMULATION_EVENT } from '@/constants/appEvents';
 
 const LandingPage = lazy(() =>
@@ -130,6 +131,7 @@ export const AppRouter: React.FC = () => {
             }
           >
             <Route path="/knowledge" element={<KnowledgeBasePage />} />
+            <Route path="/medical-knowledge" element={<KnowledgeBasePage />} />
             <Route path="/model-overview" element={<ModelOverviewPage />} />
           </Route>
 
@@ -172,6 +174,7 @@ export const AppRouter: React.FC = () => {
           {/* Fallback Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <FloatingMedicalChatbot />
       </Suspense>
     </BrowserRouter>
   );

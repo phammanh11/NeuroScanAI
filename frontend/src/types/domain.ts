@@ -182,6 +182,36 @@ export interface FAQKnowledgeRecord {
   reviewStatus: ContentReviewStatus;
 }
 
+export interface RagTraceInfo {
+  pipeline: string;
+  embeddingModel: string;
+  llmModel: string;
+  vectorBackend: string;
+  totalChunksIndexed: number;
+  topChunks: Array<{
+    id: string | number;
+    title: string;
+    category: string;
+    source?: string;
+    similarity?: number;
+    score?: number;
+  }>;
+}
+
+export interface MatchedScanSummary {
+  id: number | string;
+  sessionCode: string;
+  patientCode?: string;
+  patientName?: string;
+  predictedLabel: TumorLabel;
+  confidence: number;
+  reviewStatus: string;
+  doctorName?: string;
+  doctorNote?: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
 export interface ChatMessageRecord {
   id: string;
   sessionId: string;
@@ -192,6 +222,9 @@ export interface ChatMessageRecord {
   isOutOfScope?: boolean;
   isDemoIllustration?: boolean;
   sources?: KnowledgeSourceMetadata[];
+  ragTrace?: RagTraceInfo;
+  matchedScans?: MatchedScanSummary[];
+  suggestions?: string[];
   linkedAnalysisId?: string;
   linkedAnalysisLabel?: TumorLabel;
 }

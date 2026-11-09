@@ -1,12 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { Brain, Menu, X, ArrowRight } from 'lucide-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Brain, Menu, X, ArrowRight, LogOut } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { useToast } from '@/app/providers/ToastProvider';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 export const PublicHeader: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
+  const { showToast } = useToast();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -41,7 +46,20 @@ export const PublicHeader: React.FC = () => {
     };
   }, [mobileMenuOpen]);
 
-  const dashboardPath = user?.role === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard';
+  const isDoctor = user?.role === 'DOCTOR' || user?.role === 'doctor';
+  const dashboardPath = isDoctor ? '/doctor/dashboard' : '/dashboard';
+  const mriAnalysisPath = isDoctor ? '/doctor/vision-analysis' : '/mri-analysis';
+  const aiAssistantPath = isDoctor ? '/doctor/ai-assistant' : '/ai-assistant';
+
+  const handleConfirmLogout = () => {
+    setIsLogoutConfirmOpen(false);
+    logout();
+    showToast({
+      variant: 'info',
+      title: 'Đã đăng xuất khỏi phiên làm việc an toàn',
+    });
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
@@ -73,13 +91,13 @@ export const PublicHeader: React.FC = () => {
             Trang chủ
           </NavLink>
           <NavLink
-            to="/mri-analysis"
+            to={mriAnalysisPath}
             className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
           >
             Phân tích MRI
           </NavLink>
           <NavLink
-            to="/ai-assistant"
+            to={aiAssistantPath}
             className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
           >
             Trợ lý AI
@@ -102,16 +120,27 @@ export const PublicHeader: React.FC = () => {
           </NavLink>
         </nav>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <ThemeToggle />
           {isAuthenticated ? (
-            <Link
-              to={dashboardPath}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
-            >
-              <span>Vào Bảng điều khiển ({user?.role})</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            <>
+              <Link
+                to={dashboardPath}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
+              >
+                <span>Vào Bảng điều khiển ({isDoctor ? 'Bác sĩ' : 'Người dùng'})</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setIsLogoutConfirmOpen(true)}
+                title="Đăng xuất khỏi hệ thống"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 border border-rose-200/70 dark:border-rose-900/50 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Đăng xuất</span>
+              </button>
+            </>
           ) : (
             <Link
               to="/login"
@@ -153,14 +182,14 @@ export const PublicHeader: React.FC = () => {
             Trang chủ
           </Link>
           <Link
-            to="/mri-analysis"
+            to={mriAnalysisPath}
             onClick={() => setMobileMenuOpen(false)}
             className="block py-2 font-medium text-slate-800 dark:text-slate-100"
           >
             Phân tích MRI
           </Link>
           <Link
-            to="/ai-assistant"
+            to={aiAssistantPath}
             onClick={() => setMobileMenuOpen(false)}
             className="block py-2 font-medium text-slate-800 dark:text-slate-100"
           >
@@ -182,6 +211,17 @@ export const PublicHeader: React.FC = () => {
           </Link>
         </div>
       )}
+
+      <ConfirmDialog
+        open={isLogoutConfirmOpen}
+        title="Xác nhận đăng xuất khỏi hệ thống?"
+        description={`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản "${user?.fullName || 'hiện tại'}" (${isDoctor ? 'Bác sĩ Chuyên khoa' : 'Người sử dụng'}) không?`}
+        confirmLabel="Đăng xuất ngay"
+        cancelLabel="Ở lại trang"
+        variant="danger"
+        onCancel={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </header>
   );
 };

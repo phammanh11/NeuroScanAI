@@ -97,37 +97,37 @@ export const DoctorDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Doctor Workstation (RBAC: DOCTOR) • Dữ liệu Ca bệnh Giả lập"
+        badgeText="Doctor Workstation (RBAC: DOCTOR) • Cloudflare D1 & ONNX Runtime"
         title={`Bảng điều khiển Bác sĩ: ${user?.fullName}`}
-        description={`${user?.specialty || 'Chẩn đoán hình ảnh Thần kinh'} • Chỉ hiển thị các ca MRI đã được người sử dụng đồng ý chia sẻ hợp lệ.`}
+        description={`${user?.specialty || 'Chẩn đoán hình ảnh Thần kinh'} • Quản lý hàng đợi thẩm định chuyên môn các ca chụp MRI sọ não.`}
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/doctor/patients"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-colors whitespace-nowrap"
             >
-              <Users className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5" />
               <span>Danh sách Bệnh nhân</span>
             </Link>
             <Link
               to="/doctor/vision-analysis"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-teal-500/40 bg-teal-50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300 hover:bg-teal-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-teal-500/40 bg-teal-50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300 hover:bg-teal-100 transition-colors whitespace-nowrap"
             >
-              <ScanLine className="w-4 h-4" />
+              <ScanLine className="w-3.5 h-3.5" />
               <span>Computer Vision Lab</span>
             </Link>
             <Link
               to="/doctor/ai-assistant"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 hover:bg-slate-100"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 hover:bg-slate-100 whitespace-nowrap"
             >
-              <MessageSquareHeart className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              <MessageSquareHeart className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
               <span>Trợ lý AI Bác sĩ</span>
             </Link>
             <Link
               to="/doctor/cases"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white transition-colors whitespace-nowrap"
             >
-              <ClipboardList className="w-4 h-4" />
+              <ClipboardList className="w-3.5 h-3.5" />
               <span>Ca MRI ({cases.length})</span>
             </Link>
           </div>
@@ -206,66 +206,91 @@ export const DoctorDashboardPage: React.FC = () => {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                <th className="py-3 pr-3 font-semibold">Mã phiên & Mã hồ sơ</th>
-                <th className="py-3 px-3 font-semibold">Triệu chứng người bệnh gửi</th>
-                <th className="py-3 px-3 font-semibold">Gợi ý từ AI (Tham khảo)</th>
-                <th className="py-3 px-3 font-semibold">Trạng thái xử lý ca</th>
-                <th className="py-3 pl-3 text-right font-semibold">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
-              {cases.map((c) => {
-                const labelMeta = TUMOR_LABEL_METADATA[c.predictedLabel];
-                const statusMeta = DOCTOR_REVIEW_STATUS_META[c.reviewStatus];
-                return (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="py-3.5 pr-3">
-                      <div className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                        {c.sessionCode}
-                      </div>
-                      <div className="text-[11px] text-slate-500">{c.ownerDisplayCode}</div>
-                    </td>
-                    <td className="py-3.5 px-3 max-w-xs">
-                      <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
-                        {c.patientSymptomNote || 'Không có ghi chú triệu chứng kèm theo'}
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold border ${labelMeta.badgeColorClass}`}
-                      >
-                        {c.predictedLabel} ({formatPercent(c.confidenceScore)})
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusMeta.badgeClass}`}
-                      >
-                        {statusMeta.label}
-                      </span>
-                    </td>
-                    <td className="py-3.5 pl-3 text-right">
-                      <Link
-                        to={`/doctor/cases/${c.id}`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Mở Trạm Đọc & Review</span>
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {cases.length === 0 ? (
+          <EmptyState
+            title="Chưa có ca chụp MRI nào trong hàng đợi"
+            description="Bác sĩ có thể mở Computer Vision Lab để tải và phân tích lát cắt MRI mới hoặc kiểm tra danh sách bệnh nhân."
+            action={
+              <Link
+                to="/doctor/vision-analysis"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+              >
+                <ScanLine className="w-4 h-4" />
+                <span>Mở Computer Vision Lab</span>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                  <th className="py-3 pr-3 font-semibold">Ảnh & Mã phiên MRI</th>
+                  <th className="py-3 px-3 font-semibold">Triệu chứng & Ghi chú lâm sàng</th>
+                  <th className="py-3 px-3 font-semibold">Gợi ý từ AI (Tham khảo)</th>
+                  <th className="py-3 px-3 font-semibold">Trạng thái xử lý ca</th>
+                  <th className="py-3 pl-3 text-right font-semibold">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
+                {cases.map((c) => {
+                  const labelMeta = TUMOR_LABEL_METADATA[c.predictedLabel];
+                  const statusMeta = DOCTOR_REVIEW_STATUS_META[c.reviewStatus];
+                  return (
+                    <tr
+                      key={c.id}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="py-3.5 pr-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={c.imageUrl}
+                            alt={c.sessionCode}
+                            className="w-11 h-11 rounded-lg object-cover bg-slate-950 border border-slate-700 shrink-0"
+                          />
+                          <div>
+                            <div className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                              {c.sessionCode}
+                            </div>
+                            <div className="text-[11px] text-slate-500">{c.ownerDisplayCode}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 max-w-xs">
+                        <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
+                          {c.patientSymptomNote || 'Không có ghi chú triệu chứng kèm theo'}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold border ${labelMeta.badgeColorClass}`}
+                        >
+                          {c.predictedLabel} ({formatPercent(c.confidenceScore)})
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusMeta.badgeClass}`}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                      <td className="py-3.5 pl-3 text-right">
+                        <Link
+                          to={`/doctor/cases/${c.id}`}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors whitespace-nowrap"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Mở Trạm Đọc & Review</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <MedicalDisclaimer compact />

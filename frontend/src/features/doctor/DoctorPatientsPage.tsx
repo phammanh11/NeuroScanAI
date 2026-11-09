@@ -425,7 +425,7 @@ export const DoctorPatientsPage: React.FC = () => {
           <div className="text-2xl font-bold text-slate-900 dark:text-white">
             {patients.length} người
           </div>
-          <p className="text-xs text-slate-500">Danh sách quản lý phân công cho bác sĩ</p>
+          <p className="text-xs text-slate-500">Hồ sơ bệnh nhân do Bác sĩ phụ trách</p>
         </div>
 
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 space-y-1.5">

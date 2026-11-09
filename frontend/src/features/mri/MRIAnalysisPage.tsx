@@ -237,39 +237,65 @@ export const MRIAnalysisPage: React.FC = () => {
             </div>
 
             {/* Quick Sample Real Scans Picker */}
-            <div className="p-3.5 rounded-xl border border-teal-500/30 bg-teal-50/50 dark:bg-teal-950/20 space-y-2">
+            <div className="p-4 rounded-xl border border-teal-500/30 bg-teal-50/50 dark:bg-teal-950/20 space-y-3">
               <div className="flex items-center justify-between text-xs font-semibold text-teal-900 dark:text-teal-200">
                 <span className="flex items-center gap-1.5">
                   <FileCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  Ảnh mẫu thực tế từ tập dữ liệu (Dataset Sample Scans):
+                  Thư viện 4 Lát cắt MRI Sọ não Thực tế (Dataset Sample Scans):
                 </span>
-                <span className="text-[11px] text-teal-700/80 dark:text-teal-400 hidden sm:inline">Chọn nhanh 1-click để thử nghiệm</span>
+                <span className="text-[11px] text-teal-700/80 dark:text-teal-400 hidden sm:inline">
+                  Chọn 1-click để kiểm thử mô hình
+                </span>
               </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <button
-                  type="button"
-                  disabled={isAnalyzing}
-                  onClick={() => loadSampleScan('/sample_scans/sample_glioma_axial.jpg', 'mri_scan_glioma_t1ce.jpg')}
-                  className="px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-white dark:bg-slate-900 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-medium transition-colors"
-                >
-                  🧠 Mẫu Ca U Não (Glioma T1-Gd)
-                </button>
-                <button
-                  type="button"
-                  disabled={isAnalyzing}
-                  onClick={() => loadSampleScan('/sample_scans/sample_notumor_axial.jpg', 'mri_scan_notumor_normal.jpg')}
-                  className="px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-white dark:bg-slate-900 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-medium transition-colors"
-                >
-                  🟢 Mẫu Không U (No Tumor Axial)
-                </button>
-                <button
-                  type="button"
-                  disabled={isAnalyzing}
-                  onClick={() => loadSampleScan('/sample_scans/sample_notumor_slice2.jpg', 'mri_scan_normal_slice2.jpg')}
-                  className="px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-white dark:bg-slate-900 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-medium transition-colors"
-                >
-                  🟢 Mẫu Không U (Normal Slice 2)
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                {[
+                  {
+                    path: '/sample_scans/sample_glioma_axial.jpg',
+                    fileName: 'mri_scan_glioma_t1ce.jpg',
+                    title: 'Mẫu 1 — Glioma (U thần kinh đệm)',
+                    sub: 'Axial T1+C • Vùng đỉnh - chẩm phải',
+                  },
+                  {
+                    path: '/sample_scans/sample_meningioma_axial.jpg',
+                    fileName: 'mri_scan_meningioma_t1ce.jpg',
+                    title: 'Mẫu 2 — Meningioma (U màng não)',
+                    sub: 'Axial T1+C • Ngoài trục nền sọ',
+                  },
+                  {
+                    path: '/sample_scans/sample_pituitary_coronal.jpg',
+                    fileName: 'mri_scan_pituitary_coronal.jpg',
+                    title: 'Mẫu 3 — Pituitary (U tuyến yên)',
+                    sub: 'Coronal T1+C • Vùng hố yên',
+                  },
+                  {
+                    path: '/sample_scans/sample_notumor_axial.jpg',
+                    fileName: 'mri_scan_notumor_normal.jpg',
+                    title: 'Mẫu 4 — No Tumor (Bình thường)',
+                    sub: 'Axial T2/FLAIR • Nhu mô đối xứng',
+                  },
+                ].map((sample) => (
+                  <button
+                    key={sample.fileName}
+                    type="button"
+                    disabled={isAnalyzing}
+                    onClick={() => loadSampleScan(sample.path, sample.fileName)}
+                    className="flex items-center gap-3 p-2 rounded-xl border border-teal-500/35 bg-white dark:bg-slate-900 hover:bg-teal-50/80 dark:hover:bg-slate-800 hover:border-teal-500 text-left transition-all cursor-pointer group"
+                  >
+                    <img
+                      src={sample.path}
+                      alt={sample.title}
+                      className="w-11 h-11 rounded-lg object-cover bg-slate-950 border border-slate-700 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-300 truncate">
+                        {sample.title}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {sample.sub}
+                      </p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 

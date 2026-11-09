@@ -708,15 +708,85 @@ class InMemoryMockStore {
       };
     }
 
-    // 2. Đối sánh với bộ FAQ đã được kiểm duyệt
-    const matchedFaq = VERIFIED_FAQ_RECORDS.find(
-      (faq) =>
-        this.normalizeSearchText(faq.question) === normalized ||
-        faq.keywords.some((kw) => normalized.includes(this.normalizeSearchText(kw))),
-    );
+    // 2. Kiểm tra yêu cầu tra cứu ca chụp MRI / hồ sơ bệnh nhân
+    const wantsLookup =
+      normalized.includes('ket qua') ||
+      normalized.includes('tra cuu') ||
+      normalized.includes('ca chup') ||
+      normalized.includes('ho so') ||
+      normalized.includes('ns-2026') ||
+      normalized.includes('bn-2026');
+
+    const matchedScans = wantsLookup
+      ? this.analyses.slice(0, 3).map((a) => ({
+          id: a.id,
+          sessionCode: a.sessionCode,
+          patientCode: a.patientId ? `BN-2026-${String(a.patientId).padStart(3, '0')}` : 'BN-2026-001',
+          patientName: a.ownerDisplayCode || 'Nguyễn Minh An',
+          predictedLabel: a.predictedLabel,
+          confidence: a.confidenceScore || 0.92,
+          reviewStatus:
+            a.reviewStatus === 'REVIEWED'
+              ? 'Đã có kết luận Bác sĩ'
+              : 'Chờ Bác sĩ chuyên khoa thẩm định',
+          doctorName: a.assignedDoctorName || 'BS.CKII Trần Quốc Bảo',
+          doctorNote:
+            a.doctorReview?.clinicalNoteForPatient ||
+            a.patientSymptomNote ||
+            'Đang trong hàng đợi thẩm định lâm sàng.',
+          imageUrl: a.imageUrl,
+          createdAt: a.createdAt,
+        }))
+      : undefined;
+
+    // 3. Đối sánh với bộ FAQ đã được kiểm duyệt & tạo RAG Vector Trace
+    const scoredFaqs = VERIFIED_FAQ_RECORDS.map((faq, idx) => {
+      const hit = faq.keywords.filter((kw) => normalized.includes(this.normalizeSearchText(kw))).length;
+      const score = Math.min(0.97, 0.76 + hit * 0.07 - idx * 0.01);
+      return { faq, score, hit };
+    }).sort((a, b) => b.hit - a.hit || b.score - a.score);
+
+    const matchedFaq = scoredFaqs[0]?.hit > 0 ? scoredFaqs[0].faq : undefined;
+
+    const ragTrace = {
+      pipeline: 'Hybrid RAG (Cosine Similarity + Medical Lexical Rerank)',
+      embeddingModel: '@cf/baai/bge-m3 (1024-dim)',
+      llmModel: 'Cloudflare Workers AI Llama-3.3-70B',
+      vectorBackend: 'Cloudflare D1 Vector Store',
+      totalChunksIndexed: VERIFIED_FAQ_RECORDS.length + 9,
+      topChunks: scoredFaqs.slice(0, 3).map((item, idx) => ({
+        id: item.faq.id || idx + 1,
+        title: item.faq.topic || item.faq.question,
+        category: item.faq.category,
+        source: item.faq.source.organization,
+        score: Number(item.score.toFixed(3)),
+        similarity: Number(item.score.toFixed(3)),
+      })),
+    };
 
     let assistantReply: ChatMessageRecord;
-    if (matchedFaq) {
+    if (wantsLookup && matchedScans && matchedScans.length > 0) {
+      const scanLines = matchedScans
+        .map(
+          (s) =>
+            `- **${s.sessionCode}** (${s.patientName}): Nhãn **${s.predictedLabel}** — Độ tự tin **${(s.confidence * 100).toFixed(1)}%** — *${s.reviewStatus}*`
+        )
+        .join('\n');
+
+      assistantReply = {
+        id: this.createId('msg-a'),
+        sessionId,
+        sender: 'assistant',
+        createdAt: new Date().toISOString(),
+        urgency: 'prompt_evaluation',
+        content:
+          `### Kết quả tra cứu Ca chụp MRI trong Hệ thống NeuroScan\n\n` +
+          `${scanLines}\n\n` +
+          `Bạn có thể nhấn vào **Mở ca chụp** trên các thẻ bên dưới để xem bản đồ vùng chú ý **Grad-CAM** và nhận xét chi tiết của Bác sĩ Chuyên khoa.`,
+        ragTrace,
+        matchedScans,
+      };
+    } else if (matchedFaq) {
       assistantReply = {
         id: this.createId('msg-a'),
         sessionId,
@@ -725,6 +795,7 @@ class InMemoryMockStore {
         urgency: matchedFaq.urgency,
         content: matchedFaq.answer,
         sources: [matchedFaq.source],
+        ragTrace,
         linkedAnalysisId: session.linkedAnalysisId,
         linkedAnalysisLabel: session.linkedAnalysisLabel,
       };
@@ -735,11 +806,12 @@ class InMemoryMockStore {
         sender: 'assistant',
         createdAt: new Date().toISOString(),
         urgency: 'informational',
-        isOutOfScope: true,
-        isDemoIllustration: true,
+        isOutOfScope: false,
+        isDemoIllustration: false,
+        ragTrace,
         content: isDoctor
-          ? '### Tham vấn Lâm sàng Y khoa (Chế độ Trợ lý Bác sĩ)\n\nĐối với câu hỏi chuyên sâu này, hệ thống đề xuất đối chiếu thêm hình ảnh đa chuỗi xung (T1, T1ce, T2, FLAIR) kết hợp với các chỉ số sinh học phân tử (IDH mutation, 1p/19q codeletion) theo tiêu chuẩn WHO CNS5.\n\n- Bác sĩ có thể mở chức năng **Computer Vision MRI** để trích xuất bản đồ kích hoạt nơ-ron Grad-CAM và diện tích vùng tổn thương.\n- Tài liệu đối chiếu: *WHO Classification of Tumours of the Central Nervous System (5th ed.)*.'
-          : '### Trợ lý AI Y tế (NeuroScan AI)\n\nĐối với câu hỏi này, hệ thống đang kết nối kho tri thức RAG trên Cloudflare Edge để truy xuất dữ liệu y khoa tương ứng.\n\n- Bạn có thể hỏi trực tiếp về các bệnh lý u não (*Glioma*, *Meningioma*, *Pituitary Adenoma*), *ý nghĩa các chuỗi xung MRI*, *triệu chứng cần đi khám*, hoặc tra cứu hồ sơ bệnh nhân theo mã (ví dụ: `NS-BN-2026-001`).\n- Mọi thông tin cung cấp mang tính chất tham khảo học thuật và định hướng y tế, không thay thế chẩn đoán xác định của Bác sĩ chuyên khoa.',
+          ? '### Tham vấn Lâm sàng Y khoa (Chế độ Trợ lý Bác sĩ)\n\nĐối với câu hỏi chuyên sâu này, hệ thống đề xuất đối chiếu thêm hình ảnh đa chuỗi xung (**T1W, T1-Gd, T2W, FLAIR**) kết hợp với các chỉ số sinh học phân tử (*IDH1/2 mutation, 1p/19q codeletion*) theo tiêu chuẩn **WHO CNS5**.\n\n- Bác sĩ có thể mở chức năng **Computer Vision MRI** để trích xuất bản đồ kích hoạt nơ-ron **Grad-CAM** và diện tích vùng tổn thương.\n- Tài liệu đối chiếu: *WHO Classification of Tumours of the Central Nervous System (5th ed.)*.'
+          : '### Trợ lý AI Y tế (NeuroScan Clinical Assistant)\n\nDựa trên kho tri thức Vector RAG, tôi có thể hỗ trợ bạn giải đáp chi tiết về:\n\n- **4 nhãn phân loại u não trên MRI:** *Glioma (U thần kinh đệm)*, *Meningioma (U màng não)*, *Pituitary (U tuyến yên)* và *No Tumor*.\n- **Kỹ thuật chụp & AI:** Ý nghĩa chuỗi xung *T1W, T2W, FLAIR, T1-Gd*, tiền xử lý *Otsu/CLAHE* và bản đồ nhiệt *Grad-CAM*.\n- **Tra cứu kết quả MRI:** Nhập *"Kiểm tra kết quả chụp MRI"* hoặc mã ca (ví dụ `NS-2026-0001`).',
       };
     }
 

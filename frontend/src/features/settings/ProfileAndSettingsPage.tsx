@@ -20,6 +20,7 @@ import {
   Phone,
   Building2,
   CheckCircle2,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useTheme } from '@/app/providers/ThemeProvider';
@@ -420,28 +421,30 @@ export const ProfileAndSettingsPage: React.FC = () => {
             </div>
 
             {/* Account Metadata */}
-            <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Vai trò hệ thống (RBAC):</span>
+            <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 shrink-0 whitespace-nowrap">Vai trò hệ thống (RBAC):</span>
                 <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
                   {user.role}
                 </span>
               </div>
               {user.specialty && (
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-500">Chuyên khoa:</span>
-                  <span className="font-medium text-right">{user.specialty}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-slate-500 shrink-0 whitespace-nowrap">Chuyên khoa:</span>
+                  <span className="font-medium text-right text-slate-800 dark:text-slate-200 leading-snug">
+                    {user.specialty}
+                  </span>
                 </div>
               )}
               {user.licenseCodeDemo && (
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-500">Mã CCHN:</span>
-                  <span className="font-mono">{user.licenseCodeDemo}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-500 shrink-0 whitespace-nowrap">Mã CCHN:</span>
+                  <span className="font-mono text-slate-800 dark:text-slate-200">{user.licenseCodeDemo}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-slate-500">Ngày tham gia:</span>
-                <span>{formatDateVN(user.joinedAt)}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 shrink-0 whitespace-nowrap">Ngày tham gia:</span>
+                <span className="text-slate-800 dark:text-slate-200">{formatDateVN(user.joinedAt)}</span>
               </div>
             </div>
 
@@ -449,6 +452,15 @@ export const ProfileAndSettingsPage: React.FC = () => {
               <strong>Bảo vệ phân quyền (RBAC):</strong> Vai trò <code>{user.role}</code> được cấp phát
               và kiểm soát an toàn từ máy chủ. Người dùng không thể tự cấp quyền vượt cấp.
             </div>
+
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('neuroscan:request-logout'))}
+              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 border border-rose-200/80 dark:border-rose-900/50 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Đăng xuất khỏi tài khoản</span>
+            </button>
           </div>
 
           {/* Theme Switcher Card */}

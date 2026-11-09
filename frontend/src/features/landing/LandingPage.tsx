@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Brain,
   ScanLine,
@@ -16,6 +16,7 @@ import {
   Layers,
   Database,
 } from 'lucide-react';
+import { useAuth } from '@/app/providers/AuthProvider';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
 import { TUMOR_LABEL_METADATA } from '@/constants/medicalLabels';
@@ -25,25 +26,36 @@ import type { TumorLabel } from '@/types/domain';
 const LANDING_FAQS = [
   {
     q: 'Kết quả phân loại ảnh MRI của NeuroScan AI có thay thế bác sĩ chẩn đoán hình ảnh không?',
-    a: 'Tuyệt đối không. Hệ thống chỉ hỗ trợ phân loại sơ bộ 1 lát cắt MRI vào 4 nhóm nhãn tham chiếu (Glioma, Meningioma, Pituitary, No Tumor) phục vụ mục đích học tập, nghiên cứu và tra cứu thông tin. Chẩn đoán xác định bắt buộc phải do bác sĩ chuyên khoa thực hiện trên toàn bộ chuỗi xung DICOM và thăm khám lâm sàng.',
+    a: 'Tuyệt đối không. Hệ thống chỉ hỗ trợ phân loại sơ bộ 1 lát cắt MRI vào 4 nhóm nhãn tham chiếu (Glioma, Meningioma, Pituitary, No Tumor) phục vụ mục đích học tập, nghiên cứu và sàng lọc tham khảo. Chẩn đoán xác định bắt buộc phải do bác sĩ chuyên khoa thực hiện trên toàn bộ chuỗi xung DICOM và thăm khám lâm sàng.',
   },
   {
     q: 'Tại sao hệ thống chỉ nhận ảnh PNG, JPG, JPEG trong phiên bản hiện tại?',
-    a: 'Trong giai đoạn đầu, ứng dụng tập trung vào phân loại lát cắt 2D tiêu chuẩn (PNG/JPG/JPEG). Định dạng y tế chuyên dụng DICOM (.dcm) đa lát cắt yêu cầu bộ phân tích DICOM Parser và kết nối máy chủ PACS ở tầng Backend FastAPI.',
+    a: 'Ứng dụng tập trung vào phân loại lát cắt 2D tiêu chuẩn (PNG/JPG/JPEG) thông qua pipeline tiền xử lý Otsu ROI, cân bằng sáng CLAHE và mạng nơ-ron ONNX Runtime kết hợp lưu trữ đối tượng Cloudflare R2.',
   },
   {
     q: 'Trợ lý AI Y tế lấy dữ liệu từ đâu để trả lời người dùng?',
-    a: 'Trợ lý AI được thiết kế theo kiến trúc kết hợp bộ câu hỏi thường gặp (FAQ JSON đã kiểm duyệt) và truy xuất tài liệu y khoa có nguồn xác minh (RAG từ WHO, NCI, NHS). Trong chế độ Demo, chatbot chỉ phản hồi từ các bản ghi FAQ đã chuẩn bị sẵn và không tự suy diễn ngoài phạm vi.',
+    a: 'Trợ lý AI vận hành trên kiến trúc Hybrid RAG (Retrieval-Augmented Generation) kết hợp Vector Embeddings (@cf/baai/bge-m3 1024 chiều), kho tài liệu y khoa chuẩn hóa (WHO CNS5, ACR, NCI, NHS) và tra cứu trực tiếp hồ sơ ca chụp trên Cloudflare D1.',
   },
   {
     q: 'Quy trình gửi yêu cầu Bác sĩ xem xét (Doctor Review) hoạt động như thế nào?',
-    a: 'Sau khi nhận kết quả tham khảo từ AI, người dùng có thể chủ động tích chọn đồng ý chia sẻ dữ liệu phiên phân tích cho Bác sĩ trên hệ thống. Bác sĩ (vai trò DOCTOR) sẽ xem lát cắt MRI, đối chiếu kết quả AI và để lại ghi chú chuyên môn độc lập.',
+    a: 'Sau khi nhận kết quả tham khảo từ AI, người dùng có thể chủ động tích chọn đồng ý chia sẻ dữ liệu phiên phân tích cho Bác sĩ trên hệ thống. Bác sĩ (vai trò DOCTOR) sẽ xem lát cắt MRI, đối chiếu bản đồ nhiệt Grad-CAM và để lại nhận định chuyên môn độc lập.',
   },
 ];
 
 export const LandingPage: React.FC = () => {
+  const { user, loginAsDemoRole } = useAuth();
+  const navigate = useNavigate();
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
   const [previewClass, setPreviewClass] = useState<TumorLabel>('Glioma');
+
+  const isDoctor = user?.role === 'DOCTOR' || user?.role === 'doctor';
+  const mriEntryPath = isDoctor ? '/doctor/vision-analysis' : '/mri-analysis';
+  const aiEntryPath = isDoctor ? '/doctor/ai-assistant' : '/ai-assistant';
+
+  const handleQuickRoleSwitch = async (targetRole: 'USER' | 'DOCTOR') => {
+    await loginAsDemoRole(targetRole);
+    navigate(targetRole === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard');
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
@@ -76,7 +88,7 @@ export const LandingPage: React.FC = () => {
               {/* Two Primary CTAs */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-1">
                 <Link
-                  to="/mri-analysis"
+                  to={mriEntryPath}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm sm:text-base font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white shadow-soft transition-all"
                 >
                   <ScanLine className="w-5 h-5" />
@@ -85,7 +97,7 @@ export const LandingPage: React.FC = () => {
                 </Link>
 
                 <Link
-                  to="/ai-assistant"
+                  to={aiEntryPath}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm sm:text-base font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 transition-colors"
                 >
                   <MessageSquareHeart className="w-5 h-5 text-teal-600 dark:text-teal-400" />
@@ -98,20 +110,22 @@ export const LandingPage: React.FC = () => {
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
                   Trải nghiệm phân quyền RBAC:
                 </span>
-                <Link
-                  to="/dashboard"
-                  className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline font-medium"
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSwitch('USER')}
+                  className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline font-semibold cursor-pointer"
                 >
                   Giao diện Người dùng (USER)
-                </Link>
+                </button>
                 <span>•</span>
-                <Link
-                  to="/doctor/dashboard"
-                  className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline font-medium"
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSwitch('DOCTOR')}
+                  className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline font-semibold cursor-pointer"
                 >
                   <Stethoscope className="w-3.5 h-3.5" />
                   Giao diện Bác sĩ (DOCTOR)
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -120,13 +134,13 @@ export const LandingPage: React.FC = () => {
               <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-950 p-5 text-slate-100 shadow-xl space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-teal-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
                     <span className="text-xs font-mono uppercase tracking-wider text-slate-300">
-                      MINH HỌA TRỰC QUAN 4 NHÃN THAM CHIẾU
+                      THƯ VIỆN LÁT CẮT MRI 4 NHÃN THAM CHIẾU
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    SYNTHETIC ILLUSTRATION
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                    CLINICAL MRI REFERENCE
                   </span>
                 </div>
 
@@ -138,7 +152,7 @@ export const LandingPage: React.FC = () => {
                         key={lbl}
                         type="button"
                         onClick={() => setPreviewClass(lbl)}
-                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors ${
+                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                           previewClass === lbl
                             ? 'bg-teal-600 text-white'
                             : 'text-slate-400 hover:text-slate-200'
@@ -150,12 +164,15 @@ export const LandingPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="relative flex items-center justify-center bg-[#060911] rounded-2xl p-3 border border-slate-800/80">
+                <div className="relative flex items-center justify-center bg-[#05080f] rounded-2xl p-3 border border-slate-800/80 overflow-hidden">
                   <img
                     src={SYNTHETIC_MRI_SLICES[previewClass]}
-                    alt={`Minh họa lát cắt ${previewClass}`}
-                    className="h-60 w-60 object-contain rounded-xl"
+                    alt={`Lát cắt MRI tham chiếu ${previewClass}`}
+                    className="h-64 w-64 object-cover rounded-xl ring-1 ring-slate-800 shadow-2xl"
                   />
+                  <span className="absolute bottom-4 right-4 px-2 py-0.5 rounded bg-slate-950/85 border border-slate-700 text-[10px] font-mono text-teal-300">
+                    {previewClass === 'Pituitary' ? 'Coronal T1+C' : previewClass === 'No Tumor' ? 'Axial T2/FLAIR' : 'Axial T1+C'}
+                  </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1">
@@ -163,7 +180,7 @@ export const LandingPage: React.FC = () => {
                     <span className="text-xs font-bold text-teal-300">
                       {TUMOR_LABEL_METADATA[previewClass].vietnameseTitle}
                     </span>
-                    <span className="text-[11px] text-slate-400">Minh họa học thuật</span>
+                    <span className="text-[11px] text-slate-400">Chuẩn phân loại WHO CNS5</span>
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {TUMOR_LABEL_METADATA[previewClass].anatomicalLocation}
@@ -365,13 +382,12 @@ export const LandingPage: React.FC = () => {
               Kiến trúc Kỹ thuật & Định hướng Nghiên cứu
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              Công nghệ xử lý ảnh MRI & Kiến trúc hệ thống mở rộng
+              Công nghệ xử lý ảnh MRI & Kiến trúc Điện toán Biên (Edge AI)
             </h2>
             <p className="text-sm text-slate-300 leading-relaxed">
               Thiết kế tách biệt tầng giao diện <strong>React + TypeScript</strong>, tầng điều phối{' '}
-              <strong>FastAPI</strong>, cơ sở dữ liệu <strong>PostgreSQL / pgvector</strong> và dịch
-              vụ <strong>PyTorch AI / RAG</strong>. Không đưa các con số độ chính xác chưa được kiểm
-              chứng lâm sàng lên trang giới thiệu.
+              <strong>Cloudflare Workers (Hono)</strong>, cơ sở dữ liệu <strong>Cloudflare D1 & R2 Storage</strong> và dịch
+              vụ <strong>ONNX Runtime / Vectorize RAG (Llama 3.3 70B & BGE-M3)</strong>.
             </p>
           </div>
 

@@ -6,6 +6,7 @@ import { createFallbackD1, createFallbackR2, createFallbackKV, createFallbackVec
 import { ok, fail } from './utils/response';
 import { generateRandomHex, sha256Hex, verifyPassword, hashPassword } from './utils/crypto';
 import { handleMedicalChat } from './utils/chatbot';
+import { indexKnowledgeBaseToVectorDB } from './utils/rag';
 import {
   SESSION_COOKIE_NAME,
   requireAuth,
@@ -550,7 +551,13 @@ const handleListPredictions = async (c: any) => {
       patient_name: row.patient_name,
       r2_key: row.r2_key,
       file_name: row.file_name,
-      file_url: `/api/files/${row.r2_key}`,
+      file_url:
+        String(row.r2_key || '').startsWith('sample_scans/') ||
+        String(row.r2_key || '').startsWith('/sample_scans/')
+          ? String(row.r2_key).startsWith('/')
+            ? row.r2_key
+            : `/${row.r2_key}`
+          : `/api/files/${row.r2_key}`,
       file_size: row.file_size,
       slice_type: row.slice_type,
       sequence_type: row.sequence_type,
@@ -617,7 +624,13 @@ const handleGetPredictionDetail = async (c: any) => {
       patient_name: row.patient_name,
       r2_key: row.r2_key,
       file_name: row.file_name,
-      file_url: `/api/files/${row.r2_key}`,
+      file_url:
+        String(row.r2_key || '').startsWith('sample_scans/') ||
+        String(row.r2_key || '').startsWith('/sample_scans/')
+          ? String(row.r2_key).startsWith('/')
+            ? row.r2_key
+            : `/${row.r2_key}`
+          : `/api/files/${row.r2_key}`,
       file_size: row.file_size,
       slice_type: row.slice_type,
       sequence_type: row.sequence_type,
@@ -755,18 +768,72 @@ const handleChatHistory = async (c: any) => {
 app.get('/api/chat/history', handleChatHistory);
 app.get('/api/v1/chat/history', handleChatHistory);
 
-// Quản lý phiên hội thoại (chat_sessions)
+// Quản lý phiên hội thoại (chat_sessions) kèm danh sách tin nhắn
+const DEFAULT_CHAT_WELCOME =
+  'Xin chào! Tôi là **Trợ lý AI Y tế Thần kinh — NeuroScan Clinical Assistant** (vận hành trên kiến trúc **RAG Vector DB + Cloudflare Workers AI**).\n\n' +
+  'Tôi có thể hỗ trợ bạn:\n' +
+  '- **Giải thích 4 nhãn phân loại MRI:** *Glioma (U thần kinh đệm)*, *Meningioma (U màng não)*, *Pituitary (U tuyến yên)* và *No Tumor* theo tiêu chuẩn WHO CNS5.\n' +
+  '- **Giải thích kỹ thuật MRI & AI:** Ý nghĩa chuỗi xung *T1W, T2W, FLAIR, T1-Gd*, tiền xử lý *Otsu/CLAHE* và bản đồ nhiệt *Grad-CAM*.\n' +
+  '- **Tra cứu nhanh ca chụp MRI & Hồ sơ bệnh nhân:** Nhập mã ca (\`NS-2026-0001\`) hoặc mã bệnh nhân (\`BN-2026-002\`) ngay tại đây.\n' +
+  '- **Nhận diện dấu hiệu Cờ đỏ Cấp cứu Thần kinh** cần gọi 115 ngay.';
+
 app.get('/api/chat/sessions', async (c) => {
   const user = await getAuthenticatedUser(c);
   const userId = user ? user.id : 2;
 
-  const { results }: any = await c.env.DB.prepare(
+  let { results: sessionRows }: any = await c.env.DB.prepare(
     'SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC'
   )
     .bind(userId)
     .all();
 
-  return ok(c, { sessions: results || [] });
+  if (!sessionRows || sessionRows.length === 0) {
+    await c.env.DB.prepare(
+      'INSERT INTO chat_sessions (user_id, title, linked_prediction_id) VALUES (?, ?, ?)'
+    )
+      .bind(userId, 'Tư vấn Y khoa & Giải thích MRI Sọ não', 1)
+      .run()
+      .catch(() => {});
+
+    const refreshed: any = await c.env.DB.prepare(
+      'SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(userId)
+      .all();
+    sessionRows = refreshed?.results || [];
+  }
+
+  const enrichedSessions = [];
+  for (const sess of sessionRows || []) {
+    let { results: msgRows }: any = await c.env.DB.prepare(
+      'SELECT id, session_id, sender, content, is_emergency, sources_json, created_at FROM chat_messages WHERE session_id = ? ORDER BY id ASC'
+    )
+      .bind(sess.id)
+      .all();
+
+    if (!msgRows || msgRows.length === 0) {
+      await c.env.DB.prepare(
+        'INSERT INTO chat_messages (session_id, sender, content, is_emergency) VALUES (?, ?, ?, 0)'
+      )
+        .bind(sess.id, 'bot', DEFAULT_CHAT_WELCOME)
+        .run()
+        .catch(() => {});
+
+      const reloaded: any = await c.env.DB.prepare(
+        'SELECT id, session_id, sender, content, is_emergency, sources_json, created_at FROM chat_messages WHERE session_id = ? ORDER BY id ASC'
+      )
+        .bind(sess.id)
+        .all();
+      msgRows = reloaded?.results || [];
+    }
+
+    enrichedSessions.push({
+      ...sess,
+      messages: msgRows || [],
+    });
+  }
+
+  return ok(c, { sessions: enrichedSessions });
 });
 
 app.post('/api/chat/sessions', async (c) => {
@@ -788,7 +855,54 @@ app.post('/api/chat/sessions', async (c) => {
     .bind(userId)
     .first();
 
-  return ok(c, { session: created }, 'Khởi tạo phiên hội thoại mới thành công', 201);
+  if (created?.id) {
+    await c.env.DB.prepare(
+      'INSERT INTO chat_messages (session_id, sender, content, is_emergency) VALUES (?, ?, ?, 0)'
+    )
+      .bind(created.id, 'bot', DEFAULT_CHAT_WELCOME)
+      .run()
+      .catch(() => {});
+  }
+
+  const { results: msgRows }: any = created?.id
+    ? await c.env.DB.prepare(
+        'SELECT id, session_id, sender, content, is_emergency, sources_json, created_at FROM chat_messages WHERE session_id = ? ORDER BY id ASC'
+      )
+        .bind(created.id)
+        .all()
+    : { results: [] };
+
+  return ok(
+    c,
+    {
+      session: {
+        ...created,
+        messages: msgRows || [],
+      },
+    },
+    'Khởi tạo phiên hội thoại mới thành công',
+    201
+  );
+});
+
+app.delete('/api/chat/sessions/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!isNaN(id)) {
+    await c.env.DB.prepare('DELETE FROM chat_messages WHERE session_id = ?').bind(id).run().catch(() => {});
+    await c.env.DB.prepare('DELETE FROM chat_sessions WHERE id = ?').bind(id).run().catch(() => {});
+  }
+  return ok(c, { deleted: true, id }, 'Đã xóa cuộc hội thoại');
+});
+
+// Quản lý & Kiểm tra trạng thái Vector DB RAG
+app.post('/api/rag/index', async (c) => {
+  const info = await indexKnowledgeBaseToVectorDB(c.env, true);
+  return ok(c, info, 'Đã đồng bộ Vector Embeddings cho kho tri thức y khoa NeuroScan');
+});
+
+app.get('/api/rag/status', async (c) => {
+  const info = await indexKnowledgeBaseToVectorDB(c.env, false);
+  return ok(c, info);
 });
 
 // ============================================================================
@@ -1024,6 +1138,12 @@ const handleServeFiles = async (c: any) => {
   }
 
   try {
+    if (path.startsWith('sample_scans/') && c.env?.ASSETS) {
+      const assetUrl = new URL(`/${path}`, c.req.url);
+      const assetRes = await c.env.ASSETS.fetch(new Request(assetUrl.toString()));
+      if (assetRes.ok) return assetRes;
+    }
+
     const object = await c.env.BUCKET.get(path);
     if (!object) {
       // Fallback SVG lát cắt tượng trưng nếu tệp chưa upload

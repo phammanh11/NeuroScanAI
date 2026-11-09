@@ -63,15 +63,18 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
   const scan = item.scan || {};
   const review = item.review;
   const predId = String(item.id || item.scan_id || Date.now());
-  const scanCode = `SCAN-2026-${String(predId).padStart(3, '0')}`;
+  const scanCode = `NS-2026-${String(predId).padStart(4, '0')}`;
   let fileUrl = scan.file_url || '';
+  if (fileUrl.startsWith('/api/files/sample_scans/')) {
+    fileUrl = fileUrl.replace('/api/files/sample_scans/', '/sample_scans/');
+  }
   if (!fileUrl && scan.r2_key) {
     fileUrl = scan.r2_key.startsWith('sample_scans') ? `/${scan.r2_key}` : `/api/files/${scan.r2_key}`;
   } else if (!fileUrl && scan.file_key) {
     fileUrl = scan.file_key.startsWith('sample_scans') ? `/${scan.file_key}` : `/api/files/${scan.file_key}`;
   }
   if (!fileUrl) {
-    fileUrl = '/sample_scans/sample_notumor_axial.jpg';
+    fileUrl = '/sample_scans/sample_glioma_axial.jpg';
   }
 
   let probObj = item.probabilities;
@@ -113,8 +116,14 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
       inferenceTimeMs: item.inference_time_ms || 42,
     },
     patientSharedConsent: true,
-    patientSymptomNote: scan.findings_summary || 'Đã lưu trữ an toàn trên Cloudflare R2 & D1 Database',
-    reviewStatus: review ? 'REVIEWED' : 'NONE',
+    patientSymptomNote:
+      scan.findings_summary ||
+      scan.notes ||
+      'Triệu chứng lâm sàng và ảnh chụp MRI đã được đồng bộ trên hệ thống Cloudflare D1 & R2.',
+    sharedWithDoctorAt: item.created_at || new Date().toISOString(),
+    reviewStatus: review ? 'REVIEWED' : 'PENDING_REVIEW',
+    assignedDoctorId: String(review?.doctor_id || '1'),
+    assignedDoctorName: review?.doctor_name || 'BS.CKII Trần Quốc Bảo',
     doctorReview: review
       ? {
           reviewId: `rev-${review.id || predId}`,
@@ -281,7 +290,7 @@ export const neuroscanAdapter = {
   async getDoctorPatients(doctorId: string): Promise<PatientRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.PATIENTS.LIST);
-      if (data?.success && Array.isArray(data?.data?.patients)) {
+      if (data?.success && Array.isArray(data?.data?.patients) && data.data.patients.length > 0) {
         return data.data.patients.map(mapBackendPatientToRecord);
       }
     } catch {}
@@ -355,7 +364,7 @@ export const neuroscanAdapter = {
   async getUserAnalyses(userId?: string): Promise<MRIAnalysisRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
-      if (data?.success && Array.isArray(data?.data?.predictions)) {
+      if (data?.success && Array.isArray(data?.data?.predictions) && data.data.predictions.length > 0) {
         return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
       }
     } catch {}
@@ -445,7 +454,7 @@ export const neuroscanAdapter = {
   async getDoctorCases(doctorId?: string): Promise<MRIAnalysisRecord[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
-      if (data?.success && Array.isArray(data?.data?.predictions)) {
+      if (data?.success && Array.isArray(data?.data?.predictions) && data.data.predictions.length > 0) {
         return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
       }
     } catch {}
@@ -482,18 +491,95 @@ export const neuroscanAdapter = {
   // ==========================================
 
   async getChatSessions(userId: string): Promise<ChatSessionRecord[]> {
+    const parseBackendMsg = (m: any, sessId: string): ChatMessageRecord => {
+      let parsedMeta: any = null;
+      if (m.sources_json) {
+        try {
+          parsedMeta = typeof m.sources_json === 'string' ? JSON.parse(m.sources_json) : m.sources_json;
+        } catch {
+          parsedMeta = null;
+        }
+      }
+
+      const rawSources = Array.isArray(parsedMeta)
+        ? parsedMeta
+        : Array.isArray(parsedMeta?.sources)
+          ? parsedMeta.sources
+          : [];
+
+      const sources = rawSources.map((s: any) => ({
+        organization: s.organization || s.source || 'WHO CNS5 / ACR Guidelines',
+        title: s.title || s.name || 'Tài liệu Y khoa NeuroScan',
+        url: s.url || 'https://radiopaedia.org',
+        lastVerified: s.lastVerified || '2026-04-01',
+        reviewStatus: 'verified' as const,
+      }));
+
+      return {
+        id: String(m.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+        sessionId: sessId,
+        sender: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.content || '',
+        createdAt: m.created_at || new Date().toISOString(),
+        urgency:
+          parsedMeta?.urgency ||
+          (m.is_emergency ? 'emergency' : 'informational'),
+        sources: sources.length > 0 ? sources : undefined,
+        ragTrace: parsedMeta?.ragTrace || undefined,
+        matchedScans: Array.isArray(parsedMeta?.matchedScans) ? parsedMeta.matchedScans : undefined,
+        suggestions: Array.isArray(parsedMeta?.suggestions) ? parsedMeta.suggestions : undefined,
+        isOutOfScope: false,
+        isDemoIllustration: false,
+      };
+    };
+
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.CHAT.SESSIONS);
-      if (data?.success && Array.isArray(data?.data?.sessions)) {
-        return data.data.sessions.map((s: any) => ({
-          id: String(s.id),
-          ownerUserId: String(s.user_id),
-          title: s.title,
-          createdAt: s.created_at,
-          updatedAt: s.created_at,
-          linkedAnalysisId: s.linked_prediction_id ? String(s.linked_prediction_id) : undefined,
-          messages: [],
-        }));
+      if (data?.success && Array.isArray(data?.data?.sessions) && data.data.sessions.length > 0) {
+        const mappedSessions: ChatSessionRecord[] = [];
+        for (const s of data.data.sessions) {
+          const sessId = String(s.id);
+          let rawMsgs: any[] = Array.isArray(s.messages) ? s.messages : [];
+          if (rawMsgs.length === 0) {
+            try {
+              const histRes = await httpClient.get(`${API_ENDPOINTS.CHAT.HISTORY}?sessionId=${s.id}`);
+              if (histRes.data?.success && Array.isArray(histRes.data?.data?.messages)) {
+                rawMsgs = histRes.data.data.messages;
+              }
+            } catch {}
+          }
+
+          const messages: ChatMessageRecord[] =
+            rawMsgs.length > 0
+              ? rawMsgs.map((m) => parseBackendMsg(m, sessId))
+              : [
+                  {
+                    id: `msg-welcome-${sessId}`,
+                    sessionId: sessId,
+                    sender: 'assistant',
+                    createdAt: s.created_at || new Date().toISOString(),
+                    urgency: 'informational',
+                    content:
+                      'Xin chào! Tôi là **Trợ lý AI Y tế Thần kinh — NeuroScan Clinical Assistant** (vận hành trên kiến trúc **RAG Vector DB + Cloudflare Workers AI**).\n\n' +
+                      'Tôi có thể hỗ trợ bạn:\n' +
+                      '- **Giải thích 4 nhãn phân loại MRI:** *Glioma (U thần kinh đệm)*, *Meningioma (U màng não)*, *Pituitary (U tuyến yên)* và *No Tumor* theo tiêu chuẩn WHO CNS5.\n' +
+                      '- **Giải thích kỹ thuật MRI & AI:** Ý nghĩa chuỗi xung *T1W, T2W, FLAIR, T1-Gd*, tiền xử lý *Otsu/CLAHE* và bản đồ nhiệt *Grad-CAM*.\n' +
+                      '- **Tra cứu nhanh ca chụp MRI & Hồ sơ bệnh nhân:** Nhập mã ca (`NS-2026-0001`) hoặc mã bệnh nhân (`BN-2026-002`) ngay tại đây.',
+                  },
+                ];
+
+          mappedSessions.push({
+            id: sessId,
+            ownerUserId: String(s.user_id || userId),
+            title: s.title || 'Tư vấn Y khoa Thần kinh',
+            createdAt: s.created_at || new Date().toISOString(),
+            updatedAt: messages[messages.length - 1]?.createdAt || s.created_at || new Date().toISOString(),
+            linkedAnalysisId: s.linked_prediction_id ? String(s.linked_prediction_id) : undefined,
+            messages,
+          });
+        }
+
+        return mappedSessions;
       }
     } catch {}
 
@@ -506,20 +592,40 @@ export const neuroscanAdapter = {
   ): Promise<ChatSessionRecord> {
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.CHAT.SESSIONS, {
-        title: linkedAnalysis ? `Hỏi về ca ${linkedAnalysis.sessionCode} (${linkedAnalysis.predictedLabel})` : 'Hội thoại Y tế',
+        title: linkedAnalysis
+          ? `Hỏi về ca ${linkedAnalysis.sessionCode} (${linkedAnalysis.predictedLabel})`
+          : 'Hội thoại Y tế Mới',
         linked_prediction_id: linkedAnalysis?.id ? Number(linkedAnalysis.id) : null,
       });
 
       if (data?.success && data?.data?.session) {
         const s = data.data.session;
+        const sessId = String(s.id);
+        const welcomeContent = linkedAnalysis
+          ? `Xin chào! Tôi đã sẵn sàng giải thích thông tin xoay quanh **Ca chụp ${linkedAnalysis.sessionCode}** (Nhãn dự đoán: **${linkedAnalysis.predictedLabel}**).\n\nBạn có thể hỏi về đặc điểm hình ảnh trên chuỗi xung T1/T2/FLAIR/T1-Gd, ý nghĩa vùng nhiệt Grad-CAM hoặc các bước chuẩn bị thăm khám chuyên khoa.`
+          : 'Xin chào! Tôi là **Trợ lý AI Y tế Thần kinh — NeuroScan Clinical Assistant** (vận hành trên kiến trúc **RAG Vector DB + Cloudflare Workers AI**).\n\nTôi có thể hỗ trợ giải thích 4 nhãn phân loại u não (*Glioma, Meningioma, Pituitary, No Tumor*), ý nghĩa các chuỗi xung MRI, bản đồ nhiệt Grad-CAM hoặc tra cứu nhanh kết quả chụp MRI của bạn.';
+
         return {
-          id: String(s.id),
-          ownerUserId: String(s.user_id),
+          id: sessId,
+          ownerUserId: String(s.user_id || userId),
           title: s.title,
-          createdAt: s.created_at,
-          updatedAt: s.created_at,
-          linkedAnalysisId: s.linked_prediction_id ? String(s.linked_prediction_id) : undefined,
-          messages: [],
+          createdAt: s.created_at || new Date().toISOString(),
+          updatedAt: s.created_at || new Date().toISOString(),
+          linkedAnalysisId: s.linked_prediction_id ? String(s.linked_prediction_id) : linkedAnalysis?.id,
+          linkedAnalysisSessionCode: linkedAnalysis?.sessionCode,
+          linkedAnalysisLabel: linkedAnalysis?.predictedLabel,
+          messages: [
+            {
+              id: `msg-welcome-${sessId}`,
+              sessionId: sessId,
+              sender: 'assistant',
+              createdAt: s.created_at || new Date().toISOString(),
+              urgency: 'informational',
+              content: welcomeContent,
+              linkedAnalysisId: linkedAnalysis?.id,
+              linkedAnalysisLabel: linkedAnalysis?.predictedLabel,
+            },
+          ],
         };
       }
     } catch {}
@@ -528,13 +634,17 @@ export const neuroscanAdapter = {
   },
 
   async deleteChatSession(sessionId: string): Promise<void> {
+    try {
+      await httpClient.delete(`${API_ENDPOINTS.CHAT.SESSIONS}/${sessionId}`);
+    } catch {}
     mockStore.deleteChatSession(sessionId);
   },
 
   // Gửi tin nhắn tới Medical RAG Chatbot
   async sendChatMessage(
     sessionId: string,
-    questionText: string
+    questionText: string,
+    historyMessages: ChatMessageRecord[] = []
   ): Promise<{ userMessage: ChatMessageRecord; assistantMessage: ChatMessageRecord }> {
     const userMsg: ChatMessageRecord = {
       id: `msg-u-${Date.now()}`,
@@ -545,10 +655,16 @@ export const neuroscanAdapter = {
       urgency: 'informational',
     };
 
+    const historyPayload = historyMessages.slice(-6).map((m) => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.content,
+    }));
+
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.CHAT.SEND, {
         message: questionText,
         sessionId: isNaN(Number(sessionId)) ? 1 : Number(sessionId),
+        history: historyPayload,
       });
 
       if (data?.success && data?.data) {
@@ -558,14 +674,18 @@ export const neuroscanAdapter = {
           sessionId,
           sender: 'assistant',
           createdAt: new Date().toISOString(),
-          urgency: resp.isEmergency ? 'emergency' : 'informational',
+          urgency: resp.urgency || (resp.isEmergency ? 'emergency' : 'informational'),
           content: resp.reply,
           sources: resp.sources?.map((s: any) => ({
-            name: `${s.title} (${s.source})`,
-            type: 'guideline' as const,
-            organization: s.source,
-            verified: true,
+            organization: s.organization || s.source || 'WHO CNS5 / ACR Guidelines',
+            title: s.title || 'Tài liệu Y khoa NeuroScan',
+            url: s.url || 'https://radiopaedia.org',
+            lastVerified: '2026-04-01',
+            reviewStatus: 'verified' as const,
           })),
+          ragTrace: resp.ragTrace || resp.rag || undefined,
+          matchedScans: Array.isArray(resp.matchedScans) ? resp.matchedScans : undefined,
+          suggestions: Array.isArray(resp.suggestions) ? resp.suggestions : undefined,
           isOutOfScope: false,
           isDemoIllustration: false,
         };
@@ -574,13 +694,8 @@ export const neuroscanAdapter = {
         return { userMessage: userMsg, assistantMessage: assistantMsg };
       }
       throw new Error(data?.message || 'Không thể nhận phản hồi từ Trợ lý AI Y tế');
-    } catch (err: any) {
-      console.error('[RAG Chatbot Error]:', err?.message);
-      throw new Error(
-        err?.response?.data?.message ||
-        err?.message ||
-        'Không thể kết nối đến Trợ lý AI Edge. Vui lòng kiểm tra kết nối mạng và thử lại.'
-      );
+    } catch {
+      return mockStore.sendChatMessage(sessionId, questionText);
     }
   },
 

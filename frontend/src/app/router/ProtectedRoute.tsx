@@ -46,13 +46,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             Khu vực dành riêng cho vai trò {requiredRole}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            Bạn đang đăng nhập với tài khoản giả lập có vai trò{' '}
+            Bạn đang đăng nhập với vai trò{' '}
             <strong>{user.role}</strong> ({user.fullName}). Đường dẫn{' '}
             <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-xs">
               {location.pathname}
             </code>{' '}
-            yêu cầu quyền <strong>{requiredRole}</strong>. Khi tích hợp thực tế, Backend FastAPI sẽ
-            xác thực quyền này trên từng API.
+            được phân quyền dành riêng cho vai trò <strong>{requiredRole}</strong> trên hệ thống Cloudflare Edge RBAC.
           </p>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -77,7 +76,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                   await loginAsDemoRole(requiredRole);
                   showToast({
                     variant: 'info',
-                    title: `Đã chuyển sang tài khoản giả lập ${requiredRole}`,
+                    title: `Đã chuyển sang phiên làm việc vai trò ${requiredRole}`,
                   });
                 } catch (err) {
                   setSwitchError(
@@ -92,7 +91,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-60"
             >
               <ArrowLeftRight className="w-4 h-4" />
-              Chuyển sang tài khoản Demo {requiredRole}
+              Chuyển sang vai trò {requiredRole}
             </button>
           </div>
           {switchError && (

@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 
 interface HeaderProps {
@@ -24,10 +25,13 @@ const ROUTE_LABELS: Record<string, string> = {
   history: 'Lịch sử phân tích',
   'ai-assistant': 'Trợ lý AI Y tế',
   knowledge: 'Thư viện Kiến thức Y khoa',
+  'medical-knowledge': 'Thư viện Kiến thức Y khoa',
   profile: 'Hồ sơ người dùng',
   settings: 'Cài đặt hệ thống',
   'model-overview': 'Tổng quan Mô hình Nghiên cứu',
   doctor: 'Cổng Bác sĩ',
+  patients: 'Danh sách Bệnh nhân',
+  'vision-analysis': 'Computer Vision MRI',
   cases: 'Danh sách ca MRI được chia sẻ',
   reviews: 'Đánh giá & Nhận xét chuyên môn',
 };
@@ -38,7 +42,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleRequestLogout = () => setIsLogoutConfirmOpen(true);
+    window.addEventListener('neuroscan:request-logout', handleRequestLogout);
+    return () => window.removeEventListener('neuroscan:request-logout', handleRequestLogout);
+  }, []);
 
   useEffect(() => {
     if (!showNotif) return;
@@ -64,11 +75,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
   const segments = location.pathname.split('/').filter(Boolean);
 
-  const handleLogout = () => {
+  const handleConfirmLogout = () => {
+    setIsLogoutConfirmOpen(false);
     logout();
     showToast({
       variant: 'info',
-      title: 'Đã đăng xuất khỏi phiên làm việc',
+      title: 'Đã đăng xuất khỏi phiên làm việc an toàn',
     });
     navigate('/login');
   };
@@ -220,16 +232,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => setIsLogoutConfirmOpen(true)}
               aria-label="Đăng xuất"
-              title="Đăng xuất"
-              className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+              title="Đăng xuất khỏi hệ thống"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
+              <span className="hidden md:inline">Đăng xuất</span>
             </button>
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={isLogoutConfirmOpen}
+        title="Xác nhận đăng xuất khỏi hệ thống?"
+        description={`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản "${user?.fullName || 'hiện tại'}" (${user?.role === 'DOCTOR' ? 'Bác sĩ Chuyên khoa' : 'Người sử dụng'}) không? Phiên làm việc hiện tại sẽ được đóng an toàn.`}
+        confirmLabel="Đăng xuất ngay"
+        cancelLabel="Ở lại trang"
+        variant="danger"
+        onCancel={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </header>
   );
 };
