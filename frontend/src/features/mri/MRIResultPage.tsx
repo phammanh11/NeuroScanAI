@@ -11,6 +11,7 @@ import {
   FileText,
   Send,
   ShieldCheck,
+  Printer,
 } from 'lucide-react';
 import { useToast } from '@/app/providers/ToastProvider';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -228,6 +229,14 @@ export const MRIResultPage: React.FC = () => {
             >
               <Download className="w-4 h-4" />
               <span>Tải báo cáo minh họa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+            >
+              <Printer className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>In phiếu kết quả</span>
             </button>
           </>
         }

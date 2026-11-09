@@ -73,12 +73,51 @@ export const ModelOverviewPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Active Deployed ONNX Student Model */}
+      <div className="rounded-2xl border-2 border-teal-500/40 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              1. Mô hình Phân loại Trực tiếp (Active Deployed Model): <code className="text-teal-700 dark:text-teal-300 font-mono">brain_mri_student.onnx</code>
+            </h2>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-800 dark:text-teal-300 border border-teal-500/40 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+            Đang hoạt động trên Edge WASM
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 space-y-1">
+            <div className="text-xs font-medium text-slate-500">Tensor Đầu Vào (Input)</div>
+            <div className="text-sm font-mono font-bold text-slate-900 dark:text-white">image: [1, 3, 256, 256]</div>
+            <p className="text-[11px] text-slate-500">Chuẩn hóa ImageNet (Float32)</p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 space-y-1">
+            <div className="text-xs font-medium text-slate-500">Tensor Đầu Ra (Output)</div>
+            <div className="text-sm font-mono font-bold text-slate-900 dark:text-white">logits: [1, 5] → 4 Classes</div>
+            <p className="text-[11px] text-slate-500">Glioma, Meningioma, Pituitary, Normal</p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 space-y-1">
+            <div className="text-xs font-medium text-slate-500">Độ Trễ Suy Luận (Latency)</div>
+            <div className="text-sm font-mono font-bold text-teal-600 dark:text-teal-400">~35 – 75 ms / lát cắt</div>
+            <p className="text-[11px] text-slate-500">WASM SIMD WebAssembly</p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 space-y-1">
+            <div className="text-xs font-medium text-slate-500">Kích Thước Mô Hình</div>
+            <div className="text-sm font-mono font-bold text-slate-900 dark:text-white">15.3 MB (Student Distilled)</div>
+            <p className="text-[11px] text-slate-500">Bộ nhớ đệm Cloudflare R2 / Cache API</p>
+          </div>
+        </div>
+      </div>
+
       {/* Evaluation Metrics Placeholders (Only shown when real report is provided) */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              1. Chỉ số Đánh giá Thực nghiệm (Accuracy, Precision, Recall, F1-Score)
+              2. Chỉ số Đánh giá Thực nghiệm (Accuracy, Precision, Recall, F1-Score)
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Chỉ hiển thị con số thực khi Backend cung cấp báo cáo đánh giá mô hình (Evaluation

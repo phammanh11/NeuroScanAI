@@ -149,6 +149,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
   const [analyzedRecord, setAnalyzedRecord] = useState<MRIAnalysisRecord | null>(null);
 
   // Doctor Review Form within Vision Lab
+  const [confirmedLabel, setConfirmedLabel] = useState<TumorLabel>('Glioma');
   const [clinicalNote, setClinicalNote] = useState('');
   const [recommendedStep, setRecommendedStep] = useState('Chụp MRI có tiêm đối quang từ và hội chẩn Ngoại thần kinh.');
   const [reviewStatus, setReviewStatus] = useState<Exclude<DoctorReviewStatus, 'NONE'>>('REVIEWED');
@@ -244,6 +245,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
       );
 
       setAnalyzedRecord(record);
+      setConfirmedLabel(record.predictedLabel);
       setCurrentStep('COMPLETED');
       setClinicalNote(
         `[Đánh giá lâm sàng Bác sĩ] Lát cắt sọ não qua tiền xử lý ROI Contour & CLAHE cho thấy cấu trúc tổn thương vùng nhu mô não. Kết quả phân loại tham khảo của AI gợi ý nhãn ${record.predictedLabel} (độ tin cậy ${formatPercent(record.confidenceScore)}). Đề nghị phối hợp thêm dữ liệu chuỗi xung T1ce để đánh giá mức độ bắt thuốc viền.`
@@ -279,6 +281,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
       const updated = await neuroscanAdapter.submitDoctorReview(
         {
           analysisId: analyzedRecord.id,
+          confirmedLabel,
           status: reviewStatus,
           aiAssessment: aiVerdict,
           clinicalNoteForPatient: clinicalNote.trim(),
@@ -817,6 +820,23 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
                     <option value="REVIEWED">Đã xem xét — Hoàn tất nhận xét cho bệnh nhân</option>
                     <option value="IN_REVIEW">Đang tiếp tục đối chiếu lâm sàng</option>
                     <option value="NEEDS_MORE_INFO">Cần bổ sung chuỗi xung / Bệnh án</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="cv-confirmed-label-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Nhãn chẩn đoán xác nhận của Bác sĩ (Confirmed Label) <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    id="cv-confirmed-label-select"
+                    value={confirmedLabel}
+                    onChange={(e) => setConfirmedLabel(e.target.value as TumorLabel)}
+                    className="w-full px-3 py-2 rounded-xl border border-teal-500/50 bg-teal-50/50 dark:bg-teal-950/30 text-xs sm:text-sm font-bold text-teal-950 dark:text-teal-200"
+                  >
+                    <option value="Glioma">Glioma (U tế bào thần kinh đệm)</option>
+                    <option value="Meningioma">Meningioma (U màng não)</option>
+                    <option value="Pituitary">Pituitary (U tuyến yên)</option>
+                    <option value="No Tumor">No Tumor (Bình thường / Không u)</option>
                   </select>
                 </div>
 

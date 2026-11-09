@@ -104,6 +104,28 @@ export const MRIAnalysisPage: React.FC = () => {
     setCurrentStep(0);
   };
 
+  const loadSampleScan = async (samplePath: string, fileName: string) => {
+    try {
+      const res = await fetch(samplePath);
+      const blob = await res.blob();
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+      const url = URL.createObjectURL(blob);
+      handleSelectFile(file, url);
+      setConsentChecked(true);
+      showToast({
+        variant: 'info',
+        title: 'Đã nạp ảnh MRI mẫu thực tế',
+        description: `Tệp ${fileName} từ tập dữ liệu huấn luyện đã sẵn sàng. Bấm "Phân tích ảnh MRI" để chạy mô hình AI.`,
+      });
+    } catch {
+      showToast({
+        variant: 'error',
+        title: 'Không thể nạp ảnh mẫu',
+        description: 'Vui lòng thử lại hoặc tải ảnh từ máy tính.',
+      });
+    }
+  };
+
   const runAnalysis = async () => {
     if (!selectedFile || !previewUrl) {
       setValidationError('Vui lòng chọn hoặc nạp một file ảnh MRI hợp lệ trước khi phân tích.');
@@ -212,6 +234,43 @@ export const MRIAnalysisPage: React.FC = () => {
                 1. Khu vực tải ảnh MRI (Upload Zone)
               </h2>
               <span className="text-xs font-mono text-slate-500">PNG • JPG • JPEG (≤ 15MB)</span>
+            </div>
+
+            {/* Quick Sample Real Scans Picker */}
+            <div className="p-3.5 rounded-xl border border-teal-500/30 bg-teal-50/50 dark:bg-teal-950/20 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-teal-900 dark:text-teal-200">
+                <span className="flex items-center gap-1.5">
+                  <FileCheck className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  Ảnh mẫu thực tế từ tập dữ liệu (Dataset Sample Scans):
+                </span>
+                <span className="text-[11px] text-teal-700/80 dark:text-teal-400 hidden sm:inline">Chọn nhanh 1-click để thử nghiệm</span>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button
+                  type="button"
+                  disabled={isAnalyzing}
+                  onClick={() => loadSampleScan('/sample_scans/sample_glioma_axial.jpg', 'mri_scan_glioma_t1ce.jpg')}
+                  className="px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-white dark:bg-slate-900 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-medium transition-colors"
+                >
+                  🧠 Mẫu Ca U Não (Glioma T1-Gd)
+                </button>
+                <button
+                  type="button"
+                  disabled={isAnalyzing}
+                  onClick={() => loadSampleScan('/sample_scans/sample_notumor_axial.jpg', 'mri_scan_notumor_normal.jpg')}
+                  className="px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-white dark:bg-slate-900 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-medium transition-colors"
+                >
+                  🟢 Mẫu Không U (No Tumor Axial)
+                </button>
+                <button
+                  type="button"
+                  disabled={isAnalyzing}
+                  onClick={() => loadSampleScan('/sample_scans/sample_notumor_slice2.jpg', 'mri_scan_normal_slice2.jpg')}
+                  className="px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-white dark:bg-slate-900 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-medium transition-colors"
+                >
+                  🟢 Mẫu Không U (Normal Slice 2)
+                </button>
+              </div>
             </div>
 
             <MRIUploader

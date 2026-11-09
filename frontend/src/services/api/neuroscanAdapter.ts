@@ -41,7 +41,7 @@ function mapBackendPatientToRecord(p: any): PatientRecord {
   const age = new Date().getFullYear() - birthYear;
   return {
     id: String(p.id || p.user_id),
-    recordCode: `BN-2026-${String(p.id || p.user_id).padStart(3, '0')}`,
+    patientCode: `BN-2026-${String(p.id || p.user_id).padStart(3, '0')}`,
     fullName: p.full_name || 'Bệnh nhân',
     gender: (p.gender as any) || 'Nam',
     dateOfBirth: p.date_of_birth || '1985-01-01',
