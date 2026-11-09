@@ -1,62 +1,49 @@
-# NeuroScan AI — Backend Specification & API Contract (Chờ triển khai)
+# NeuroScan AI — Cloudflare Edge Backend (`backend/`)
 
-Thư mục `backend/` được tổ chức sẵn nhằm trực quan hóa cấu trúc dự án theo kiến trúc tách biệt **Frontend (`frontend/`)** và **Backend (`backend/`)** như đề xuất trong 3 tài liệu đặc tả.
-
-> **Lưu ý:** Trong phạm vi giai đoạn hiện tại, toàn bộ ứng dụng hoạt động ở tầng **Frontend (`d:\MRI\frontend`)** với chế độ Mock (`VITE_MOCK_MODE=true`) và lớp Adapter API đã định nghĩa đầy đủ kiểu dữ liệu (`TypeScript interfaces`). Không triển khai code Backend FastAPI, Database hoặc mô hình PyTorch tại giai đoạn này.
+Thư mục `backend/` là **Backend Production chính thức** của hệ thống NeuroScan AI, vận hành trên nền tảng **Cloudflare Workers / Pages Functions** (`https://neuroscan.pages.dev`).
 
 ---
 
-## 1. Cấu trúc thư mục Backend dự kiến (FastAPI + PostgreSQL/pgvector + PyTorch)
+## 1. Cấu trúc Mã nguồn
 
 ```text
 backend/
-├── app/
-│   ├── api/
-│   │   └── v1/
-│   │       ├── auth.py          # Xác thực JWT, phân quyền RBAC (USER / DOCTOR)
-│   │       ├── mri.py           # Upload ảnh MRI, lấy kết quả phân tích, lịch sử, gửi yêu cầu bác sĩ
-│   │       ├── doctor.py        # Danh sách ca được phân công, ghi chú lâm sàng, cập nhật trạng thái review
-│   │       ├── chat.py          # Hội thoại trợ lý AI Y tế (FAQ JSON + RAG pgvector)
-│   │       └── knowledge.py     # Truy xuất bài viết y khoa đã kiểm duyệt
-│   ├── core/
-│   │   ├── config.py            # Biến môi trường, giới hạn upload, CORS
-│   │   └── security.py          # Kiểm tra quyền trên mỗi endpoint (không phụ thuộc UI ẩn nút)
-│   ├── models/                  # SQLAlchemy / SQLModel (PostgreSQL + pgvector)
-│   ├── schemas/                 # Pydantic v2 schemas khớp với `frontend/src/types/domain.ts`
-│   └── services/
-│       ├── mri_pipeline.py      # Tiền xử lý OpenCV (Brain ROI Cropping, CLAHE, Z-score) & PyTorch Inference
-│       └── rag_service.py       # Truy xuất FAQ JSON & Vector DB kèm metadata nguồn xác minh
-├── data/
-│   └── knowledge_seed.json      # Dữ liệu FAQ y khoa chuẩn hóa theo cấu trúc JSON đề xuất
-├── .env.example
-└── README.md
+├── migrations/
+│   └── 0001_schema.sql      # Schema chuẩn hóa CSDL Cloudflare D1 (SQLite)
+├── seeds/
+│   └── seed.sql             # Dữ liệu khởi tạo ban đầu
+├── shared/
+│   └── types.ts             # Định nghĩa kiểu dữ liệu dùng chung (User, MriScan, Prediction, RagTraceInfo...)
+├── src/
+│   ├── index.ts             # Điểm vào chính (Hono App) xử lý toàn bộ REST API (/api/*)
+│   ├── db/
+│   │   ├── init.ts          # Tự động kiểm tra, nâng cấp schema D1 và nạp dữ liệu chuẩn (Users, 4 Patients, 4 MRI Scans, FAQ)
+│   │   └── fallback.ts      # Bộ nhớ đệm D1/R2/KV/Vectorize dự phòng khi chạy độc lập không có binding
+│   ├── middleware/
+│   │   └── auth.ts          # Xác thực phiên làm việc (Session Token + Cookie) & phân quyền RBAC (Doctor/Patient/Admin)
+│   └── utils/
+│       ├── rag.ts           # Pipeline Vector RAG (@cf/baai/bge-m3 1024-dim + Cosine Similarity + Llama-3.3-70B)
+│       ├── chatbot.ts       # Bộ điều phối Trợ lý AI Y tế, tra cứu trực tiếp hồ sơ ca chụp MRI trên D1 & phát hiện Cờ đỏ
+│       ├── crypto.ts        # Băm mật khẩu an toàn PBKDF2-HMAC-SHA256 (100.000 vòng lặp) trên Web Crypto API
+│       └── response.ts      # Chuẩn hóa định dạng JSON phản hồi API
+└── package.json
 ```
 
 ---
 
-## 2. Danh mục REST API Endpoints dự kiến (Khớp với `frontend/src/constants/apiEndpoints.ts`)
+## 2. Danh mục REST API Endpoints
 
-| Nhóm | Method | Endpoint | Quyền truy cập | Mô tả |
-|---|---|---|---|---|
-| **Auth** | `POST` | `/api/v1/auth/login` | Công khai | Đăng nhập và trả về thông tin phiên kèm role (`USER` hoặc `DOCTOR`) |
-| **Auth** | `POST` | `/api/v1/auth/register` | Công khai | Đăng ký tài khoản `USER` (Không cho phép tự đăng ký role `DOCTOR`) |
-| **Auth** | `POST` | `/api/v1/auth/forgot-password` | Công khai | Yêu cầu khôi phục mật khẩu |
-| **MRI (User)** | `POST` | `/api/v1/mri/analyses` | `USER` | Upload ảnh MRI (`multipart/form-data`), kiểm tra định dạng/dung lượng và chạy pipeline |
-| **MRI (User)** | `GET` | `/api/v1/mri/analyses` | `USER` | Lấy danh sách lịch sử phân tích của người dùng hiện tại |
-| **MRI (User)** | `GET` | `/api/v1/mri/analyses/:id` | `USER`, `DOCTOR` (được chia sẻ) | Xem chi tiết phiên phân tích, xác suất 4 lớp, trạng thái phản hồi bác sĩ |
-| **MRI (User)** | `DELETE` | `/api/v1/mri/analyses/:id` | `USER` | Xóa bản ghi phân tích thuộc quyền sở hữu của người dùng |
-| **MRI (User)** | `POST` | `/api/v1/mri/analyses/:id/request-review` | `USER` | Người dùng đồng ý chia sẻ dữ liệu và gửi yêu cầu bác sĩ xem xét |
-| **Doctor** | `GET` | `/api/v1/doctor/cases` | `DOCTOR` | Lấy danh sách các ca MRI được phân công hoặc chia sẻ hợp lệ |
-| **Doctor** | `GET` | `/api/v1/doctor/cases/:id` | `DOCTOR` | Xem chi tiết ca MRI, xác suất AI, ảnh tiền xử lý/Grad-CAM (nếu có) |
-| **Doctor** | `POST` | `/api/v1/doctor/cases/:id/review` | `DOCTOR` | Lưu ghi chú chuyên môn, đánh giá kết quả AI và cập nhật trạng thái ca |
-| **Chatbot** | `GET` | `/api/v1/chat/sessions` | `USER`, `DOCTOR` | Lấy danh sách phiên hội thoại với Trợ lý AI Y tế |
-| **Chatbot** | `POST` | `/api/v1/chat/messages` | `USER`, `DOCTOR` | Gửi câu hỏi, kiểm tra quy tắc an toàn/cấp cứu, truy xuất FAQ/RAG có nguồn |
-| **Knowledge** | `GET` | `/api/v1/knowledge/articles` | Công khai / Đã đăng nhập | Tra cứu kho kiến thức y khoa theo 7 nhóm chủ đề |
-
----
-
-## 3. Nguyên tắc Bảo mật & An toàn Y tế khi triển khai Backend
-
-1. **Kiểm tra phân quyền (RBAC) tại tầng API:** Mọi endpoint `/api/v1/doctor/*` phải xác thực token và kiểm tra role `DOCTOR` cùng quyền truy cập trên từng ca bệnh (`case_id`).
-2. **Bảo vệ dữ liệu sức khỏe:** Ảnh MRI lưu trên Object Storage (Cloudflare R2 / S3), loại bỏ metadata định danh (EXIF/DICOM tags nhạy cảm) trước khi lưu trữ.
-3. **Không suy diễn quá phạm vi mô hình:** Chỉ trả về `preprocessedImageUrl` và `gradcamUrl` khi pipeline AI thực sự sinh ra các đầu ra này.
+| Nhóm | Method | Endpoint | Mô tả |
+| :--- | :--- | :--- | :--- |
+| **Health** | `GET` | `/api/health` | Kiểm tra trạng thái kết nối Cloudflare D1, R2, Vectorize và Workers AI |
+| **Auth** | `POST` | `/api/auth/login` | Đăng nhập tài khoản (`DOCTOR`, `USER`, `ADMIN`) và cấp phát Session Token |
+| **Auth** | `POST` | `/api/auth/register` | Đăng ký tài khoản mới và khởi tạo hồ sơ tương ứng trong `patients` / `doctors` |
+| **Auth** | `POST` | `/api/auth/logout` | Đăng xuất và hủy phiên làm việc trên KV/Cookie |
+| **Auth** | `GET` | `/api/auth/me` | Lấy thông tin người dùng hiện tại từ token |
+| **Patients** | `GET/POST/PUT/DELETE` | `/api/patients` | Quản lý danh sách hồ sơ bệnh nhân lâm sàng |
+| **MRI Scans** | `POST` | `/api/scans` | Tải ảnh chụp MRI lên Cloudflare R2 và lưu metadata vào bảng `mri_scans` |
+| **Predictions** | `GET/POST/DELETE` | `/api/predictions` | Lưu và truy xuất kết quả suy luận AI 4 lớp (`Glioma`, `Meningioma`, `Pituitary`, `No Tumor`) |
+| **Reviews** | `POST` | `/api/reviews` | Bác sĩ chuyên khoa lưu nhận định lâm sàng và xác nhận nhãn chẩn đoán |
+| **Chatbot** | `GET/POST/DELETE` | `/api/chat/sessions` | Quản lý các phiên hội thoại và lịch sử tin nhắn với Trợ lý AI Y tế |
+| **Chatbot** | `POST` | `/api/chat` | Gửi câu hỏi tới pipeline Vector RAG + Tra cứu trực tiếp ca chụp MRI trên D1 |
+| **Vector RAG** | `POST/GET` | `/api/rag/index`, `/api/rag/status` | Đánh chỉ mục kho tri thức y khoa vào Vectorize + `rag_chunks` |

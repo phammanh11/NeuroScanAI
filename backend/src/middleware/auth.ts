@@ -35,15 +35,24 @@ export async function getAuthenticatedUser(
       }
     }
 
-    // 2. Tra cứu đối chiếu từ Cloudflare D1
+    // 2. Tra cứu đối chiếu từ Cloudflare D1 (hỗ trợ cả token định danh user-<id>-<role>-<hex> và mock token)
     let targetUserId = 2; // Mặc định Patient
-    if (token.includes('doctor')) {
+    if (token.startsWith('user-')) {
+      const parts = token.split('-');
+      const parsedId = Number(parts[1]);
+      if (!isNaN(parsedId) && parsedId > 0) {
+        targetUserId = parsedId;
+      } else if (parts[2] === 'doctor') {
+        targetUserId = 1;
+      } else if (parts[2] === 'admin') {
+        targetUserId = 3;
+      }
+    } else if (token.includes('doctor')) {
       targetUserId = 1;
     } else if (token.includes('admin')) {
       targetUserId = 3;
-    } else if (token.startsWith('user-')) {
-      const parsedId = Number(token.split('-')[1]);
-      if (!isNaN(parsedId)) targetUserId = parsedId;
+    } else if (token.includes('user') || token.includes('patient')) {
+      targetUserId = 2;
     }
 
     const user: any = await c.env.DB.prepare(`
@@ -56,7 +65,14 @@ export async function getAuthenticatedUser(
       WHERE u.id = ?
     `)
       .bind(targetUserId)
-      .first();
+      .first()
+      .catch(async () => {
+        return await c.env.DB.prepare(
+          'SELECT id, email, full_name, role, created_at FROM users WHERE id = ?'
+        )
+          .bind(targetUserId)
+          .first();
+      });
 
     if (!user) return null;
 

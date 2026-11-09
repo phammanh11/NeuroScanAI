@@ -156,14 +156,20 @@ export const neuroscanAdapter = {
 
   // Đăng nhập nhanh tài khoản test (hỗ trợ kiểm thử 2 vai trò: DOCTOR & USER)
   async loginWithDemoRole(role: UserRole = 'DOCTOR'): Promise<AuthSession> {
-    const creds = role === 'USER' || role === 'patient' ? TEST_USER_CREDENTIALS : TEST_DOCTOR_CREDENTIALS;
-    return this.loginWithEmailPassword(creds.email, creds.password);
+    const isUser = role === 'USER' || role === 'patient';
+    const creds = isUser ? TEST_USER_CREDENTIALS : TEST_DOCTOR_CREDENTIALS;
+    return this.loginWithEmailPassword(creds.email, creds.password, isUser ? 'USER' : 'DOCTOR');
   },
 
-  async loginWithEmailPassword(email: string, password: string): Promise<AuthSession> {
+  async loginWithEmailPassword(
+    email: string,
+    password: string,
+    preferredRole?: UserRole
+  ): Promise<AuthSession> {
+    const cleanEmail = email.trim().toLowerCase();
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.AUTH.LOGIN, {
-        email,
+        email: cleanEmail,
         password,
       });
 
@@ -202,12 +208,31 @@ export const neuroscanAdapter = {
         return authSession;
       }
     } catch (err: any) {
-      console.warn('[API Login Error, falling back to local fallback]:', err?.message);
+      // Nếu người dùng nhập sai mật khẩu thực sự (không phải tài khoản mặc định), trả lỗi rõ ràng
+      const isDefaultAccount =
+        (cleanEmail === TEST_DOCTOR_CREDENTIALS.email && password === TEST_DOCTOR_CREDENTIALS.password) ||
+        (cleanEmail === TEST_USER_CREDENTIALS.email && password === TEST_USER_CREDENTIALS.password);
+      if (!isDefaultAccount && err?.response?.status === 401 && err?.response?.data?.error?.message) {
+        throw new Error(err.response.data.error.message);
+      }
+      console.warn('[API Login Warning, falling back to local session]:', err?.message);
     }
 
-    // Fallback nếu chạy local offline
-    await mockStore.delay(350);
-    const session = mockStore.loginWithRole('DOCTOR');
+    // Fallback an toàn theo đúng vai trò USER hoặc DOCTOR (không bao giờ gán nhầm USER sang DOCTOR)
+    await mockStore.delay(250);
+    const resolvedRole: UserRole =
+      preferredRole === 'USER' || preferredRole === 'patient'
+        ? 'USER'
+        : preferredRole === 'DOCTOR' || preferredRole === 'doctor'
+          ? 'DOCTOR'
+          : cleanEmail.includes('doctor') || cleanEmail.includes('bacsi')
+            ? 'DOCTOR'
+            : 'USER';
+
+    const session =
+      cleanEmail === TEST_DOCTOR_CREDENTIALS.email || cleanEmail === TEST_USER_CREDENTIALS.email
+        ? mockStore.loginWithRole(resolvedRole)
+        : mockStore.loginWithCredentials(cleanEmail);
     setHttpAuthToken(session.accessTokenDemo);
     return session;
   },

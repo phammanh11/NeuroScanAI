@@ -21,7 +21,7 @@ import { MedicalDisclaimer } from '../../components/medical/MedicalDisclaimer';
 import { TumorClassBadge } from '../../components/medical/TumorClassBadge';
 import { ChatMessage } from '../../components/medical/ChatMessage';
 import { neuroscanAdapter } from '../../services/api/neuroscanAdapter';
-import type { ChatSessionRecord, MRIAnalysisRecord } from '../../types/domain';
+import type { ChatMessageRecord, ChatSessionRecord, MRIAnalysisRecord } from '../../types/domain';
 
 const DEFAULT_SUGGESTED_QUESTIONS = [
   'Phân biệt Glioma, Meningioma và Pituitary trên ảnh MRI',
@@ -197,8 +197,44 @@ export const AIMedicalChatbotPage: React.FC = () => {
     const targetSessionId = targetSession.id;
     const currentHistory = targetSession.messages || [];
 
+    // Hiển thị NGAY LẬP TỨC câu hỏi của người dùng lên khung hội thoại (Optimistic UI)
+    const optimisticId = `temp-user-${Date.now()}`;
+    const optimisticUserMessage: ChatMessageRecord = {
+      id: optimisticId,
+      sessionId: targetSessionId,
+      sender: 'user',
+      content: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
     setInputValue('');
     setSending(true);
+
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== targetSessionId) return s;
+        const updatedTitle =
+          s.title === 'Hội thoại Y tế Mới' ||
+          s.title === 'Hội thoại Y tế' ||
+          s.title === 'Cuộc hội thoại y khoa mới' ||
+          s.title === 'Hội chẩn & Tham vấn lâm sàng AI' ||
+          s.title.startsWith('Phiên tư vấn')
+            ? trimmed.length > 42
+              ? `${trimmed.slice(0, 42)}...`
+              : trimmed
+            : s.title;
+        return {
+          ...s,
+          title: updatedTitle,
+          updatedAt: optimisticUserMessage.createdAt,
+          messages: [...s.messages, optimisticUserMessage],
+        };
+      })
+    );
+
+    window.requestAnimationFrame(() => {
+      scrollToBottom('smooth');
+    });
 
     try {
       const { userMessage, assistantMessage } = await neuroscanAdapter.sendChatMessage(
@@ -210,17 +246,11 @@ export const AIMedicalChatbotPage: React.FC = () => {
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== targetSessionId) return s;
-          const updatedTitle =
-            s.title === 'Hội thoại Y tế Mới' || s.title === 'Hội thoại Y tế' || s.title.startsWith('Phiên tư vấn')
-              ? trimmed.length > 42
-                ? `${trimmed.slice(0, 42)}...`
-                : trimmed
-              : s.title;
+          const withoutOptimistic = s.messages.filter((m) => m.id !== optimisticId);
           return {
             ...s,
-            title: updatedTitle,
             updatedAt: assistantMessage.createdAt,
-            messages: [...s.messages, userMessage, assistantMessage],
+            messages: [...withoutOptimistic, userMessage, assistantMessage],
           };
         })
       );
@@ -229,6 +259,15 @@ export const AIMedicalChatbotPage: React.FC = () => {
         setSuggestions(assistantMessage.suggestions);
       }
     } catch (err) {
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== targetSessionId) return s;
+          return {
+            ...s,
+            messages: s.messages.filter((m) => m.id !== optimisticId),
+          };
+        })
+      );
       showToast({
         title: 'Lỗi gửi tin nhắn',
         description: err instanceof Error ? err.message : 'Vui lòng thử lại.',
@@ -275,8 +314,8 @@ export const AIMedicalChatbotPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {/* Left Sidebar: Sessions + RAG Knowledge Quick Lookup + Red Flags */}
-        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4">
-          <div className="flex items-center justify-between">
+        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 lg:h-[750px] overflow-y-auto">
+          <div className="flex items-center justify-between shrink-0">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Danh sách hội thoại ({sessions.length})
             </h2>
@@ -284,14 +323,14 @@ export const AIMedicalChatbotPage: React.FC = () => {
               type="button"
               onClick={handleCreateNewSession}
               title="Khởi tạo cuộc trò chuyện mới"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Làm mới
             </button>
           </div>
 
-          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1 shrink-0">
             {sessions.map((item) => {
               const isSelected = item.id === activeSession?.id;
               return (
@@ -391,7 +430,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
         </div>
 
         {/* Right Main Chat Area */}
-        <div className="lg:col-span-8 xl:col-span-9 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden min-h-[640px] max-h-[780px]">
+        <div className="lg:col-span-8 xl:col-span-9 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden min-h-[640px] lg:h-[750px]">
           {/* Active Session Header Bar */}
           <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -440,9 +479,25 @@ export const AIMedicalChatbotPage: React.FC = () => {
             ))}
 
             {sending && (
-              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 p-3 rounded-xl bg-slate-100/70 dark:bg-slate-800/50 w-fit">
-                <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
-                Đang truy xuất Vector Embeddings (@cf/baai/bge-m3) & tổng hợp câu trả lời y khoa...
+              <div className="flex items-start gap-3 animate-in fade-in duration-200">
+                <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Bot className="w-4 h-4 animate-pulse" />
+                </div>
+                <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce" />
+                    </span>
+                    <span className="text-xs font-semibold text-teal-700 dark:text-teal-300">
+                      Trợ lý AI Y tế đang phân tích câu hỏi...
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    Đang truy xuất Vector Embeddings (@cf/baai/bge-m3) & đối chiếu hồ sơ D1...
+                  </p>
+                </div>
               </div>
             )}
           </div>

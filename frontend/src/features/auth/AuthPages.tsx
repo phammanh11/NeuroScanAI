@@ -50,6 +50,25 @@ export const LoginPage: React.FC = () => {
     },
   });
 
+  const resolveRouteForRole = (role: string, requestedFrom?: string): string => {
+    const isDoc = role === 'DOCTOR' || role === 'doctor' || role === 'ADMIN' || role === 'admin';
+    if (isDoc) {
+      if (requestedFrom && requestedFrom.startsWith('/doctor')) {
+        return requestedFrom;
+      }
+      return '/doctor/dashboard';
+    }
+    if (
+      requestedFrom &&
+      !requestedFrom.startsWith('/doctor') &&
+      requestedFrom !== '/login' &&
+      requestedFrom !== '/register'
+    ) {
+      return requestedFrom;
+    }
+    return '/dashboard';
+  };
+
   const onSubmit = async (values: LoginFormValues) => {
     setFormError(null);
     try {
@@ -60,7 +79,7 @@ export const LoginPage: React.FC = () => {
         description: `Xin chào ${profile.fullName}`,
       });
       const from = (location.state as { from?: string } | null)?.from;
-      navigate(from || '/doctor/dashboard', {
+      navigate(resolveRouteForRole(profile.role, from), {
         replace: true,
       });
     } catch (err) {
@@ -71,6 +90,7 @@ export const LoginPage: React.FC = () => {
   const handleQuickDemoLogin = async (role: 'DOCTOR' | 'USER') => {
     setFormError(null);
     try {
+      const from = (location.state as { from?: string } | null)?.from;
       if (role === 'DOCTOR') {
         setValue('email', 'demo.doctor@neuroscan.vn');
         setValue('password', 'Doctor@123');
@@ -80,8 +100,7 @@ export const LoginPage: React.FC = () => {
           title: `Đã đăng nhập vai trò Bác sĩ (DOCTOR)`,
           description: profile.fullName,
         });
-        const from = (location.state as { from?: string } | null)?.from;
-        navigate(from || '/doctor/dashboard', {
+        navigate(resolveRouteForRole(profile.role, from), {
           replace: true,
         });
       } else {
@@ -93,8 +112,7 @@ export const LoginPage: React.FC = () => {
           title: `Đã đăng nhập vai trò Người dùng (USER)`,
           description: profile.fullName,
         });
-        const from = (location.state as { from?: string } | null)?.from;
-        navigate(from || '/dashboard', {
+        navigate(resolveRouteForRole(profile.role, from), {
           replace: true,
         });
       }

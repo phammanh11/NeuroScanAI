@@ -189,19 +189,42 @@ def init_db():
         VALUES (3, 'admin@neuroscan.vn', ?, ?, 'admin', 'Quản trị viên Hệ thống')
         """, (admin_hash, salt))
 
-        # Sample Scans & Predictions
+        # 4. Bổ sung đầy đủ 4 Bệnh nhân lâm sàng đồng bộ với Cloudflare D1
+        extra_patients = [
+            (4, 'tranthimai75@gmail.com', 'Trần Thị Mai', '1975-11-20', '0987 654 321', 'Nữ', 'Quận Hải Châu, Đà Nẵng', 'Tăng huyết áp 5 năm. Chóng mặt khi thay đổi tư thế, đau đầu vùng chẩm - nền sọ.'),
+            (5, 'hoangvanduc92@gmail.com', 'Hoàng Văn Đức', '1992-03-08', '0933 445 566', 'Nam', 'Quận Cầu Giấy, Hà Nội', 'Giảm thị lực hai bên thái dương tiến triển 2 tháng, rối loạn giấc ngủ, mệt mỏi.'),
+            (6, 'lethuhang99@gmail.com', 'Lê Thu Hằng', '1999-08-19', '0977 889 900', 'Nữ', 'Quận Ninh Kiều, Cần Thơ', 'Khám sức khỏe tổng quát định kỳ, đôi khi căng thẳng đau đầu nhẹ do làm việc máy tính.')
+        ]
+        for uid, em, name, dob, ph, gen, addr, hist in extra_patients:
+            cursor.execute("""
+            INSERT OR IGNORE INTO users (id, email, password_hash, password_salt, role, full_name)
+            VALUES (?, ?, ?, ?, 'patient', ?)
+            """, (uid, em, pat_hash, salt, name))
+            cursor.execute("""
+            INSERT OR IGNORE INTO patients (user_id, date_of_birth, phone, gender, address, medical_history)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (uid, dob, ph, gen, addr, hist))
+
+        # 5. Bổ sung đủ 4 Ca chụp MRI thực tế & Kết quả AI (Glioma, Meningioma, Pituitary, No Tumor)
+        scans_seed = [
+            (1, 2, 'sample_scans/sample_glioma_axial.jpg', 'sample_glioma_axial.jpg', 22122, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)', 'Glioma', 0.934, {"Glioma": 0.934, "Meningioma": 0.041, "Pituitary": 0.015, "No Tumor": 0.010}, 45),
+            (2, 4, 'sample_scans/sample_meningioma_axial.jpg', 'sample_meningioma_axial.jpg', 41726, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)', 'Meningioma', 0.918, {"Glioma": 0.032, "Meningioma": 0.918, "Pituitary": 0.035, "No Tumor": 0.015}, 42),
+            (3, 5, 'sample_scans/sample_pituitary_coronal.jpg', 'sample_pituitary_coronal.jpg', 38936, 'image/jpeg', 'Coronal (Đứng ngang)', 'T1-Gd (Contrast)', 'Pituitary', 0.905, {"Glioma": 0.024, "Meningioma": 0.048, "Pituitary": 0.905, "No Tumor": 0.023}, 39),
+            (4, 2, 'sample_scans/sample_notumor_axial.jpg', 'sample_notumor_axial.jpg', 8456, 'image/jpeg', 'Axial (Trục ngang)', 'T2-FLAIR', 'No Tumor', 0.968, {"Glioma": 0.008, "Meningioma": 0.012, "Pituitary": 0.012, "No Tumor": 0.968}, 38),
+        ]
+        for sid, pid, r2k, fname, fsize, mime, stype, seqtype, lbl, conf, prb, inf_ms in scans_seed:
+            cursor.execute("""
+            INSERT OR REPLACE INTO mri_scans (id, patient_id, r2_key, file_name, file_size, mime_type, slice_type, sequence_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (sid, pid, r2k, fname, fsize, mime, stype, seqtype))
+            cursor.execute("""
+            INSERT OR REPLACE INTO predictions (id, scan_id, label, confidence, probabilities, model_version, inference_time_ms)
+            VALUES (?, ?, ?, ?, ?, 'brain_mri_student_v1_onnx', ?)
+            """, (sid, sid, lbl, conf, json.dumps(prb), inf_ms))
+
         cursor.execute("""
-        INSERT INTO mri_scans (id, patient_id, r2_key, file_name, file_size, mime_type, slice_type, sequence_type)
-        VALUES (1, 2, 'sample_scans/sample_glioma_axial.jpg', 'sample_glioma_axial.jpg', 154200, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)')
-        """)
-        probs = json.dumps({"Glioma": 0.892, "Meningioma": 0.054, "Pituitary": 0.021, "No Tumor": 0.033})
-        cursor.execute("""
-        INSERT INTO predictions (id, scan_id, label, confidence, probabilities, model_version, inference_time_ms)
-        VALUES (1, 1, 'Glioma', 0.892, ?, 'brain_mri_student_v1_onnx', 45)
-        """, (probs,))
-        cursor.execute("""
-        INSERT INTO doctor_reviews (id, prediction_id, doctor_id, confirmed_label, note, ai_assessment, recommended_step)
-        VALUES (1, 1, 1, 'Glioma', 'Tổn thương ngấm thuốc dạng viền thùy trán phù hợp Glioma bậc cao.', 'CONCORDANT', 'Chụp MRI phổ (MRS) và hội chẩn ngoại thần kinh.')
+        INSERT OR REPLACE INTO doctor_reviews (id, prediction_id, doctor_id, confirmed_label, note, ai_assessment, recommended_step)
+        VALUES (1, 1, 1, 'Glioma', 'Vùng tổn thương nội trục ngấm thuốc dạng vòng vùng đỉnh - chẩm phải kèm hoại tử trung tâm và phù não vận mạch xung quanh, đồng thuận với dự đoán Glioma của AI.', 'CONCORDANT', 'Chụp bổ sung cộng hưởng từ phổ (MRS), tưới máu (Perfusion MRI) và hội chẩn Ngoại Thần kinh.')
         """)
 
         # Sample FAQ Documents

@@ -130,7 +130,42 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
   if (initialized || !env.DB) return;
 
   try {
-    // 0. Tạo các bảng nếu chưa tồn tại và bổ sung cột mở rộng cho bảng patients
+    // 0. Kiểm tra xem D1 có đang chứa các bảng từ schema thế hệ cũ (thiếu user_id / r2_key / sender / doc_id) không
+    let needsSchemaRebuild = false;
+    try {
+      await env.DB.prepare('SELECT id, email, password_hash, password_salt, role, full_name FROM users LIMIT 1').first();
+      await env.DB.prepare('SELECT user_id, date_of_birth, phone FROM patients LIMIT 1').first();
+      await env.DB.prepare('SELECT user_id, specialty, license_no FROM doctors LIMIT 1').first();
+      await env.DB.prepare('SELECT id, patient_id, r2_key, slice_type, sequence_type FROM mri_scans LIMIT 1').first();
+      await env.DB.prepare('SELECT id, scan_id, label, confidence, probabilities FROM predictions LIMIT 1').first();
+      await env.DB.prepare('SELECT id, prediction_id, doctor_id, confirmed_label FROM doctor_reviews LIMIT 1').first();
+      await env.DB.prepare('SELECT id, user_id, title, linked_prediction_id FROM chat_sessions LIMIT 1').first();
+      await env.DB.prepare('SELECT id, session_id, sender, content, sources_json FROM chat_messages LIMIT 1').first();
+      await env.DB.prepare('SELECT id, doc_id, category, embedding_json FROM rag_chunks LIMIT 1').first();
+    } catch {
+      needsSchemaRebuild = true;
+    }
+
+    if (needsSchemaRebuild) {
+      const legacyTables = [
+        'doctor_reviews',
+        'predictions',
+        'mri_scans',
+        'chat_messages',
+        'chat_sessions',
+        'patients',
+        'doctors',
+        'rag_chunks',
+        'faq_documents',
+        'sessions',
+        'users',
+      ];
+      for (const tbl of legacyTables) {
+        await env.DB.prepare(`DROP TABLE IF EXISTS ${tbl}`).run().catch(() => {});
+      }
+    }
+
+    // Tạo tất cả các bảng theo chuẩn mới
     for (const stmt of SCHEMA_STATEMENTS) {
       await env.DB.prepare(stmt).run().catch(() => {});
     }
@@ -144,56 +179,104 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
       await env.DB.prepare(colStmt).run().catch(() => {});
     }
 
-    // 1. Nạp tài khoản Doctor mẫu
-    const doctorExists = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+    // 1. Nạp / Đồng bộ tài khoản Doctor mẫu (demo.doctor@neuroscan.vn / Doctor@123)
+    const docUser: any = await env.DB.prepare(
+      'SELECT id, password_salt, role FROM users WHERE email = ?'
+    )
       .bind('demo.doctor@neuroscan.vn')
-      .first();
-    if (!doctorExists) {
+      .first()
+      .catch(() => null);
+
+    if (!docUser || docUser.password_salt === 'neuro_salt_2026' || docUser.role !== 'doctor') {
       const { hash, salt } = await hashPassword('Doctor@123');
       await env.DB.prepare(`
-        INSERT OR IGNORE INTO users (id, email, password_hash, password_salt, role, full_name)
+        INSERT INTO users (id, email, password_hash, password_salt, role, full_name)
         VALUES (1, 'demo.doctor@neuroscan.vn', ?, ?, 'doctor', 'BS.CKII Trần Quốc Bảo')
+        ON CONFLICT(email) DO UPDATE SET
+          password_hash = excluded.password_hash,
+          password_salt = excluded.password_salt,
+          role = 'doctor',
+          full_name = excluded.full_name
       `)
         .bind(hash, salt)
-        .run();
-
-      await env.DB.prepare(`
-        INSERT OR IGNORE INTO doctors (user_id, specialty, license_no, organization, phone)
-        VALUES (1, 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)', 'CCHN-2026-NEURO-8841', 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh', '0909 000 222')
-      `).run();
+        .run()
+        .catch(() => {});
     }
 
-    // 2. Nạp tài khoản Patient chính (Nguyễn Minh An)
-    const userExists = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+    const docRow: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind('demo.doctor@neuroscan.vn')
+      .first()
+      .catch(() => ({ id: 1 }));
+    const doctorId = docRow?.id || 1;
+
+    await env.DB.prepare(`
+      INSERT OR REPLACE INTO doctors (user_id, specialty, license_no, organization, phone)
+      VALUES (?, 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)', 'CCHN-2026-NEURO-8841', 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh', '0909 000 222')
+    `)
+      .bind(doctorId)
+      .run()
+      .catch(() => {});
+
+    // 2. Nạp / Đồng bộ tài khoản User mẫu (demo.user@neuroscan.vn / User@123)
+    const patUser: any = await env.DB.prepare(
+      'SELECT id, password_salt, role FROM users WHERE email = ?'
+    )
       .bind('demo.user@neuroscan.vn')
-      .first();
-    if (!userExists) {
+      .first()
+      .catch(() => null);
+
+    if (!patUser || patUser.password_salt === 'neuro_salt_2026' || patUser.role !== 'patient') {
       const { hash, salt } = await hashPassword('User@123');
       await env.DB.prepare(`
-        INSERT OR IGNORE INTO users (id, email, password_hash, password_salt, role, full_name)
+        INSERT INTO users (id, email, password_hash, password_salt, role, full_name)
         VALUES (2, 'demo.user@neuroscan.vn', ?, ?, 'patient', 'Nguyễn Minh An')
+        ON CONFLICT(email) DO UPDATE SET
+          password_hash = excluded.password_hash,
+          password_salt = excluded.password_salt,
+          role = 'patient',
+          full_name = excluded.full_name
       `)
         .bind(hash, salt)
-        .run();
-
-      await env.DB.prepare(`
-        INSERT OR IGNORE INTO patients (user_id, date_of_birth, phone, gender, address, medical_history, emergency_contact)
-        VALUES (2, '1981-05-12', '0912 345 678', 'Nam', 'Quận 3, TP. Hồ Chí Minh', 'Tăng huyết áp nhẹ kiểm soát tốt. Đau đầu âm ỉ vùng đỉnh - chẩm phải 3 tuần, nhìn mờ thoáng qua.', '0908 111 222')
-      `).run();
+        .run()
+        .catch(() => {});
     }
 
-    // 3. Nạp tài khoản Admin
-    const adminExists = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+    const patRow: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind('demo.user@neuroscan.vn')
+      .first()
+      .catch(() => ({ id: 2 }));
+    const mainPatientId = patRow?.id || 2;
+
+    await env.DB.prepare(`
+      INSERT OR REPLACE INTO patients (user_id, date_of_birth, phone, gender, address, medical_history, emergency_contact)
+      VALUES (?, '1981-05-12', '0912 345 678', 'Nam', 'Quận 3, TP. Hồ Chí Minh', 'Tăng huyết áp nhẹ kiểm soát tốt. Đau đầu âm ỉ vùng đỉnh - chẩm phải 3 tuần, nhìn mờ thoáng qua.', '0908 111 222')
+    `)
+      .bind(mainPatientId)
+      .run()
+      .catch(() => {});
+
+    // 3. Nạp / Đồng bộ tài khoản Admin (admin@neuroscan.vn / Admin@123)
+    const adminUser: any = await env.DB.prepare(
+      'SELECT id, password_salt, role FROM users WHERE email = ?'
+    )
       .bind('admin@neuroscan.vn')
-      .first();
-    if (!adminExists) {
+      .first()
+      .catch(() => null);
+
+    if (!adminUser || adminUser.password_salt === 'neuro_salt_2026' || adminUser.role !== 'admin') {
       const { hash, salt } = await hashPassword('Admin@123');
       await env.DB.prepare(`
-        INSERT OR IGNORE INTO users (id, email, password_hash, password_salt, role, full_name)
+        INSERT INTO users (id, email, password_hash, password_salt, role, full_name)
         VALUES (3, 'admin@neuroscan.vn', ?, ?, 'admin', 'Quản trị viên Hệ thống')
+        ON CONFLICT(email) DO UPDATE SET
+          password_hash = excluded.password_hash,
+          password_salt = excluded.password_salt,
+          role = 'admin',
+          full_name = excluded.full_name
       `)
         .bind(hash, salt)
-        .run();
+        .run()
+        .catch(() => {});
     }
 
     // 4. Đảm bảo có đủ 4 Hồ sơ Bệnh nhân lâm sàng trong hệ thống
@@ -248,11 +331,17 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
           .run()
           .catch(() => {});
 
+        const uRow: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+          .bind(pt.email)
+          .first()
+          .catch(() => ({ id: pt.id }));
+        const targetUid = uRow?.id || pt.id;
+
         await env.DB.prepare(`
-          INSERT OR IGNORE INTO patients (user_id, date_of_birth, phone, gender, address, medical_history, emergency_contact)
+          INSERT OR REPLACE INTO patients (user_id, date_of_birth, phone, gender, address, medical_history, emergency_contact)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `)
-          .bind(pt.id, pt.dob, pt.phone, pt.gender, pt.address, pt.history, pt.emergency)
+          .bind(targetUid, pt.dob, pt.phone, pt.gender, pt.address, pt.history, pt.emergency)
           .run()
           .catch(() => {});
       }
@@ -262,19 +351,27 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
     const predCountRes: any = await env.DB.prepare('SELECT count(*) as count FROM predictions')
       .first()
       .catch(() => ({ count: 0 }));
+    const oldScanKeyRes: any = await env.DB.prepare(
+      "SELECT count(*) as count FROM mri_scans WHERE r2_key LIKE 'scans/demo_%'"
+    )
+      .first()
+      .catch(() => ({ count: 0 }));
 
-    if ((predCountRes?.count || 0) === 0) {
+    if ((predCountRes?.count || 0) < 4 || (oldScanKeyRes?.count || 0) > 0) {
       await env.DB.prepare(`
-        INSERT OR IGNORE INTO mri_scans (id, patient_id, r2_key, file_name, file_size, mime_type, slice_type, sequence_type, uploaded_at)
+        INSERT OR REPLACE INTO mri_scans (id, patient_id, r2_key, file_name, file_size, mime_type, slice_type, sequence_type, uploaded_at)
         VALUES
-          (1, 2, 'sample_scans/sample_glioma_axial.jpg', 'sample_glioma_axial.jpg', 22122, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)', '2026-10-28 09:15:00'),
+          (1, ?, 'sample_scans/sample_glioma_axial.jpg', 'sample_glioma_axial.jpg', 22122, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)', '2026-10-28 09:15:00'),
           (2, 4, 'sample_scans/sample_meningioma_axial.jpg', 'sample_meningioma_axial.jpg', 41726, 'image/jpeg', 'Axial (Trục ngang)', 'T1-Gd (Contrast)', '2026-11-01 14:30:00'),
           (3, 5, 'sample_scans/sample_pituitary_coronal.jpg', 'sample_pituitary_coronal.jpg', 38936, 'image/jpeg', 'Coronal (Đứng ngang)', 'T1-Gd (Contrast)', '2026-11-04 11:20:00'),
-          (4, 2, 'sample_scans/sample_notumor_axial.jpg', 'sample_notumor_axial.jpg', 8456, 'image/jpeg', 'Axial (Trục ngang)', 'T2-FLAIR', '2026-11-05 10:00:00')
-      `).run().catch(() => {});
+          (4, ?, 'sample_scans/sample_notumor_axial.jpg', 'sample_notumor_axial.jpg', 8456, 'image/jpeg', 'Axial (Trục ngang)', 'T2-FLAIR', '2026-11-05 10:00:00')
+      `)
+        .bind(mainPatientId, mainPatientId)
+        .run()
+        .catch(() => {});
 
       await env.DB.prepare(`
-        INSERT OR IGNORE INTO predictions (id, scan_id, label, confidence, probabilities, model_version, inference_time_ms, created_at)
+        INSERT OR REPLACE INTO predictions (id, scan_id, label, confidence, probabilities, model_version, inference_time_ms, created_at)
         VALUES
           (1, 1, 'Glioma', 0.934, '{"Glioma":0.934,"Meningioma":0.041,"Pituitary":0.015,"No Tumor":0.010}', 'brain_mri_student_v1_onnx', 45, '2026-10-28 09:15:05'),
           (2, 2, 'Meningioma', 0.918, '{"Glioma":0.032,"Meningioma":0.918,"Pituitary":0.035,"No Tumor":0.015}', 'brain_mri_student_v1_onnx', 42, '2026-11-01 14:30:04'),
@@ -283,10 +380,13 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
       `).run().catch(() => {});
 
       await env.DB.prepare(`
-        INSERT OR IGNORE INTO doctor_reviews (id, prediction_id, doctor_id, confirmed_label, note, ai_assessment, recommended_step, created_at)
+        INSERT OR REPLACE INTO doctor_reviews (id, prediction_id, doctor_id, confirmed_label, note, ai_assessment, recommended_step, created_at)
         VALUES
-          (1, 1, 1, 'Glioma', 'Vùng tổn thương nội trục ngấm thuốc dạng vòng vùng đỉnh - chẩm phải kèm hoại tử trung tâm và phù não vận mạch xung quanh, đồng thuận với dự đoán Glioma của AI.', 'CONCORDANT', 'Chụp bổ sung cộng hưởng từ phổ (MRS), tưới máu (Perfusion MRI) và hội chẩn Ngoại Thần kinh.', '2026-10-28 11:20:00')
-      `).run().catch(() => {});
+          (1, 1, ?, 'Glioma', 'Vùng tổn thương nội trục ngấm thuốc dạng vòng vùng đỉnh - chẩm phải kèm hoại tử trung tâm và phù não vận mạch xung quanh, đồng thuận với dự đoán Glioma của AI.', 'CONCORDANT', 'Chụp bổ sung cộng hưởng từ phổ (MRS), tưới máu (Perfusion MRI) và hội chẩn Ngoại Thần kinh.', '2026-10-28 11:20:00')
+      `)
+        .bind(doctorId)
+        .run()
+        .catch(() => {});
     }
 
     // 6. Đảm bảo có đủ Tài liệu Y khoa FAQ chuẩn trong bảng faq_documents

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface ConfirmDialogProps {
@@ -70,19 +71,24 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
       aria-describedby="confirm-dialog-description"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isLoading) {
+          onCancel();
+        }
+      }}
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl"
+        className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -125,7 +131,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             type="button"
             disabled={isLoading}
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             {cancelLabel}
           </button>
@@ -134,7 +140,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             disabled={isLoading}
             onClick={onConfirm}
             ref={confirmButtonRef}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors cursor-pointer ${
               variant === 'danger'
                 ? 'bg-rose-600 hover:bg-rose-700'
                 : 'bg-teal-600 hover:bg-teal-700'
@@ -144,6 +150,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
