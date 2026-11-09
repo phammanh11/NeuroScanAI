@@ -15,9 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { useToast } from '../../app/providers/ToastProvider';
-import { PageHeader } from '../../components/common/PageHeader';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
-import { MedicalDisclaimer } from '../../components/medical/MedicalDisclaimer';
 import { TumorClassBadge } from '../../components/medical/TumorClassBadge';
 import { ChatMessage } from '../../components/medical/ChatMessage';
 import { neuroscanAdapter } from '../../services/api/neuroscanAdapter';
@@ -284,103 +282,120 @@ export const AIMedicalChatbotPage: React.FC = () => {
       : '/medical-knowledge';
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        badgeText="RAG VECTOR DB • CLOUDFLARE WORKERS AI (LLAMA 3.3 70B & BGE-M3)"
-        title="Trợ lý AI Y tế & Giải thích Hình ảnh MRI"
-        description="Hệ thống Hỏi - Đáp Y khoa Thần kinh tích hợp Vector Database (RAG) và tra cứu trực tiếp hồ sơ ca chụp MRI trên Cloudflare D1."
-        actions={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link
-              to={knowledgePath}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              <BookOpen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              Thư viện Tri thức Y khoa
-            </Link>
-            <button
-              type="button"
-              onClick={handleCreateNewSession}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white shadow-xs transition-colors"
-            >
-              <MessageSquarePlus className="w-4 h-4" />
-              Tạo hội thoại mới
-            </button>
+    <div className="flex flex-col flex-1 min-h-0 h-full gap-2.5">
+      {/* Compact Top Toolbar (Fits in 1 row, saves ~160px vertical space so entire chat fits viewport) */}
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2.5 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-teal-600/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/25">
+            <Bot className="w-4 h-4" />
           </div>
-        }
-      />
-
-      <MedicalDisclaimer compact />
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Left Sidebar: Sessions + RAG Knowledge Quick Lookup + Red Flags */}
-        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 lg:h-[750px] overflow-y-auto">
-          <div className="flex items-center justify-between shrink-0">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Danh sách hội thoại ({sessions.length})
-            </h2>
-            <button
-              type="button"
-              onClick={handleCreateNewSession}
-              title="Khởi tạo cuộc trò chuyện mới"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Làm mới
-            </button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                Trợ lý AI Y tế & Giải thích Hình ảnh MRI
+              </h1>
+              <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25">
+                RAG Vector • Llama 3.3 70B & BGE-M3
+              </span>
+            </div>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300/90 truncate">
+              Lưu ý an toàn: Thông tin AI chỉ phục vụ tham khảo học thuật & sàng lọc, không thay thế chẩn đoán hay phác đồ của Bác sĩ chuyên khoa.
+            </p>
           </div>
+        </div>
 
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1 shrink-0">
-            {sessions.map((item) => {
-              const isSelected = item.id === activeSession?.id;
-              return (
-                <div
-                  key={item.id}
-                  className={`group flex items-start justify-between gap-2 p-3 rounded-xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-teal-600 bg-teal-50/70 dark:bg-teal-950/30'
-                      : 'border-slate-200/70 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                  }`}
-                  onClick={() => setActiveSessionId(item.id)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`text-xs font-bold truncate ${
-                        isSelected
-                          ? 'text-teal-950 dark:text-teal-200'
-                          : 'text-slate-800 dark:text-slate-200'
-                      }`}
-                    >
-                      {item.title}
-                    </p>
-                    {item.linkedAnalysisLabel && (
-                      <div className="mt-1.5">
-                        <TumorClassBadge label={item.linkedAnalysisLabel} size="sm" />
-                      </div>
-                    )}
-                    <p className="text-[10px] text-slate-400 mt-1 font-mono">
-                      {item.messages.length} tin nhắn •{' '}
-                      {new Date(item.updatedAt).toLocaleDateString('vi-VN')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSessionToDelete(item);
-                    }}
-                    aria-label="Xóa hội thoại"
-                    className="opacity-70 group-hover:opacity-100 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to={knowledgePath}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span className="hidden sm:inline">Thư viện Tri thức Y khoa</span>
+          </Link>
+          <button
+            type="button"
+            onClick={handleCreateNewSession}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white shadow-2xs transition-colors cursor-pointer"
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5" />
+            <span>Tạo hội thoại mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main 2-Column Single-Viewport Grid */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+        {/* Left Sidebar: Sessions + RAG Knowledge Quick Lookup + Red Flags (No full-sidebar scrollbar) */}
+        <div className="lg:col-span-4 xl:col-span-3 flex flex-col justify-between gap-2.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 min-h-0 overflow-hidden">
+          {/* Top: Conversation List */}
+          <div className="flex flex-col min-h-0 space-y-2">
+            <div className="flex items-center justify-between shrink-0">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Danh sách hội thoại ({sessions.length})
+              </h2>
+              <button
+                type="button"
+                onClick={handleCreateNewSession}
+                title="Khởi tạo cuộc trò chuyện mới"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Làm mới
+              </button>
+            </div>
+
+            <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+              {sessions.map((item) => {
+                const isSelected = item.id === activeSession?.id;
+                return (
+                  <div
+                    key={item.id}
+                    className={`group flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-teal-600 bg-teal-50/70 dark:bg-teal-950/30'
+                        : 'border-slate-200/70 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                    onClick={() => setActiveSessionId(item.id)}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-xs font-bold truncate ${
+                          isSelected
+                            ? 'text-teal-950 dark:text-teal-200'
+                            : 'text-slate-800 dark:text-slate-200'
+                        }`}
+                      >
+                        {item.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {item.linkedAnalysisLabel && (
+                          <TumorClassBadge label={item.linkedAnalysisLabel} size="sm" />
+                        )}
+                        <span className="text-[10px] text-slate-400 font-mono truncate">
+                          {item.messages.length} tin nhắn •{' '}
+                          {new Date(item.updatedAt).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSessionToDelete(item);
+                      }}
+                      aria-label="Xóa hội thoại"
+                      className="opacity-70 group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* RAG Vector Quick Topics Panel */}
-          <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 space-y-2.5 flex-1">
+          {/* Middle: RAG Vector Quick Topics Panel */}
+          <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5 shrink-0">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <Database className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
@@ -390,22 +405,22 @@ export const AIMedicalChatbotPage: React.FC = () => {
                 1024-dim
               </span>
             </div>
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-1 gap-1.5">
               {QUICK_LOOKUP_SHORTCUTS.map((sc, idx) => (
                 <button
                   key={idx}
                   type="button"
                   disabled={sending}
                   onClick={() => handleSendMessage(sc.prompt)}
-                  className="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-teal-50/70 dark:bg-slate-800/60 dark:hover:bg-teal-950/30 border border-slate-200/70 dark:border-slate-800 hover:border-teal-500/40 transition-all group"
+                  className="w-full text-left px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-teal-50/70 dark:bg-slate-800/60 dark:hover:bg-teal-950/30 border border-slate-200/70 dark:border-slate-800 hover:border-teal-500/40 transition-all group cursor-pointer"
                 >
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-700 dark:text-teal-300">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-700 dark:text-teal-300 shrink-0">
                       {sc.badge}
                     </span>
-                    <FileSearch className="w-3 h-3 text-slate-400 group-hover:text-teal-600 transition-colors" />
+                    <FileSearch className="w-3 h-3 text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
                   </div>
-                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200 group-hover:text-teal-900 dark:group-hover:text-teal-200 leading-snug">
+                  <p className="text-[11px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-teal-900 dark:group-hover:text-teal-200 leading-snug truncate mt-0.5">
                     {sc.label}
                   </p>
                 </button>
@@ -413,33 +428,35 @@ export const AIMedicalChatbotPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Emergency Red Flags Box */}
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 space-y-1.5">
-            <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold text-xs">
-              <ShieldAlert className="w-4 h-4 shrink-0" />
-              Dấu hiệu Cờ đỏ Cấp cứu (115)
+          {/* Bottom: Compact Emergency Red Flags Box */}
+          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 space-y-1 shrink-0">
+            <div className="flex items-center justify-between gap-2 text-rose-700 dark:text-rose-300 font-bold text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                Dấu hiệu Cờ đỏ Cấp cứu
+              </span>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold">
+                <PhoneCall className="w-2.5 h-2.5" />
+                115
+              </span>
             </div>
-            <p className="text-[11px] text-rose-900/90 dark:text-rose-200/90 leading-relaxed">
-              Nếu xuất hiện <strong>co giật mới khởi phát, đau đầu dữ dội kèm nôn vọt, yếu liệt nửa người, méo miệng hoặc lú lẫn cấp tính</strong>, cần gọi ngay <strong>115</strong>.
+            <p className="text-[10.5px] text-rose-900/90 dark:text-rose-200/90 leading-snug">
+              Nếu xuất hiện <strong>co giật mới khởi phát, đau đầu dữ dội kèm nôn vọt, yếu liệt nửa người, méo miệng hoặc lú lẫn cấp</strong>, gọi ngay <strong>115</strong>.
             </p>
-            <div className="pt-1 flex items-center gap-1.5 text-[11px] font-bold text-rose-700 dark:text-rose-300">
-              <PhoneCall className="w-3.5 h-3.5" />
-              Đường dây Cấp cứu Y tế: 115
-            </div>
           </div>
         </div>
 
-        {/* Right Main Chat Area */}
-        <div className="lg:col-span-8 xl:col-span-9 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden min-h-[640px] lg:h-[750px]">
+        {/* Right Main Chat Area (Fits 100% inside viewport; only messages scroll internally) */}
+        <div className="lg:col-span-8 xl:col-span-9 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden min-h-[500px] lg:min-h-0 h-full">
           {/* Active Session Header Bar */}
-          <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                <Bot className="w-5 h-5" />
+          <div className="shrink-0 px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                <Bot className="w-4 h-4" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                     {activeSession?.title || 'Trợ lý AI Y tế NeuroScan'}
                   </h3>
                   <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
@@ -447,16 +464,16 @@ export const AIMedicalChatbotPage: React.FC = () => {
                     RAG Vector Ready
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                   Đối chiếu nguồn WHO CNS5, ACR Appropriateness Criteria & Cơ sở dữ liệu D1
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate">
+                  Đối chiếu nguồn WHO CNS5, ACR Appropriateness Criteria & Cơ sở dữ liệu D1
                 </p>
               </div>
             </div>
 
             {linkedAnalysis && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-500/30 text-xs">
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-500/30 text-xs">
                 <span className="text-slate-600 dark:text-slate-300 font-medium">
-                  Đang gắn với ca: <strong className="font-mono">{linkedAnalysis.sessionCode}</strong>
+                  Ca: <strong className="font-mono">{linkedAnalysis.sessionCode}</strong>
                 </span>
                 <TumorClassBadge label={linkedAnalysis.predictedLabel} size="sm" />
                 <Link
@@ -472,7 +489,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
           {/* Messages Scroll Area */}
           <div
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-50/30 dark:bg-slate-950/20"
+            className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 space-y-3.5 bg-slate-50/30 dark:bg-slate-950/20"
           >
             {activeSession?.messages.map((msg) => (
               <ChatMessage key={msg.id} message={msg} />
@@ -483,7 +500,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                   <Bot className="w-4 h-4 animate-pulse" />
                 </div>
-                <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-1.5">
+                <div className="rounded-2xl rounded-tl-sm px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-bounce [animation-delay:-0.3s]" />
@@ -494,7 +511,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
                       Trợ lý AI Y tế đang phân tích câu hỏi...
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
                     Đang truy xuất Vector Embeddings (@cf/baai/bge-m3) & đối chiếu hồ sơ D1...
                   </p>
                 </div>
@@ -502,26 +519,24 @@ export const AIMedicalChatbotPage: React.FC = () => {
             )}
           </div>
 
-          {/* Suggested Prompts + Input Form */}
-          <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-teal-500" />
-                Câu hỏi gợi ý theo ngữ cảnh (nhấn để hỏi nhanh):
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {suggestions.slice(0, 4).map((q, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    disabled={sending}
-                    onClick={() => handleSendMessage(q)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-teal-50 hover:text-teal-700 dark:bg-slate-800 dark:hover:bg-teal-950/50 dark:hover:text-teal-300 text-slate-700 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700/80 transition-colors text-left"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
+          {/* Suggested Prompts + Input Form (Always pinned & visible at bottom of viewport) */}
+          <div className="shrink-0 px-4 py-2.5 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+              <span className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-500 shrink-0 inline-flex items-center gap-1 mr-1">
+                <Sparkles className="w-3 h-3 text-teal-500" />
+                Gợi ý:
+              </span>
+              {suggestions.slice(0, 4).map((q, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={sending}
+                  onClick={() => handleSendMessage(q)}
+                  className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 hover:bg-teal-50 hover:text-teal-700 dark:bg-slate-800 dark:hover:bg-teal-950/50 dark:hover:text-teal-300 text-slate-700 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700/80 transition-colors cursor-pointer"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
 
             <form
@@ -529,7 +544,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="flex items-center gap-2.5"
+              className="flex items-center gap-2"
             >
               <input
                 type="text"
@@ -537,14 +552,14 @@ export const AIMedicalChatbotPage: React.FC = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 disabled={sending}
                 placeholder="Nhập câu hỏi y khoa, chuỗi xung MRI, hoặc mã ca chụp (VD: NS-2026-0001, BN-2026-002)..."
-                className="flex-1 px-4 py-3 rounded-xl text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="flex-1 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               <button
                 type="submit"
                 disabled={sending || !inputValue.trim()}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white shadow-sm transition-all cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white shadow-sm transition-all cursor-pointer shrink-0"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5" />
                 Gửi
               </button>
             </form>
