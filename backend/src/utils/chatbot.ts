@@ -393,8 +393,8 @@ ${scanContextText ? `=== DỮ LIỆU CA CHỤP MRI & HỒ SƠ BỆNH NHÂN TRONG
         `📋 **KẾT QUẢ TRA CỨU CA CHỤP MRI TRONG HỆ THỐNG NEUROSCAN D1:**\n\n` +
         `${scanLines}\n\n` +
         `### Giải thích chuyên môn từ Kho tri thức RAG\n` +
-        `- **Điểm tự tin (Confidence Score)** phản ánh xác suất toán học của mạng nơ-ron trên lát cắt 2D hiện tại, đã qua tiền xử lý cắt vùng sọ não **Otsu ROI** và cân bằng tương phản **CLAHE**.\n` +
-        `- Bạn có thể nhấn trực tiếp vào **Thẻ ca chụp MRI** hiển thị bên dưới để mở giao diện đối chiếu bản đồ nhiệt **Grad-CAM** và xem chi tiết nhận xét của Bác sĩ Chuyên khoa.`;
+        `- **Điểm tự tin (Confidence Score)** phản ánh xác suất Softmax của mạng nơ-ron trên lát cắt 2D hiện tại; đây không phải xác suất chẩn đoán và chưa được hiệu chuẩn lâm sàng.\n` +
+        `- Bạn có thể nhấn vào **Thẻ ca chụp MRI** hiển thị bên dưới để mở giao diện chi tiết và xem nhận xét của Bác sĩ Chuyên khoa.`;
     } else if (intent === 'glioma_info') {
       finalReply =
         `🧠 **PHÂN LOẠI U THẦN KINH ĐỆM (GLIOMA) THEO TIÊU CHUẨN WHO CNS5:**\n\n` +
@@ -444,12 +444,12 @@ ${scanContextText ? `=== DỮ LIỆU CA CHỤP MRI & HỒ SƠ BỆNH NHÂN TRONG
         `- **DWI / ADC:** Đánh giá khuếch tán phân tử nước, giúp phân biệt áp-xe não với u hoại tử và phát hiện nhồi máu não cấp.`;
     } else if (intent === 'cv_pipeline') {
       finalReply =
-        `🔬 **QUY TRÌNH COMPUTER VISION & BẢN ĐỒ NHIỆT GRAD-CAM TRÊN NEUROSCAN AI:**\n\n` +
-        `Khi một lát cắt MRI được tải lên, hệ thống thực hiện pipeline 4 bước tự động:\n` +
-        `- **1. Kiểm định Modality & Tách hộp sọ (Otsu Thresholding ROI):** Tự động phát hiện biên hộp sọ và cắt bỏ phần nền đen dư thừa xung quanh.\n` +
-        `- **2. Cân bằng tương phản cục bộ (CLAHE):** Tăng cường độ nét vi cấu trúc giữa chất xám, chất trắng và ranh giới tổn thương.\n` +
-        `- **3. Suy luận mạng nơ-ron (ONNX Runtime / Deep CNN):** Tính toán vector đặc trưng và phân phối xác suất Softmax trên 4 nhãn (*Glioma, Meningioma, Pituitary, No Tumor*).\n` +
-        `- **4. Trực quan hóa vùng chú ý Grad-CAM:** Sinh bản đồ nhiệt (*Heatmap*) đánh dấu vùng pixel đóng góp trọng số lớn nhất vào quyết định của AI (màu đỏ/vàng là vùng trọng tâm), giúp Bác sĩ đối chiếu nhanh với giải phẫu thực tế.`;
+        `**QUY TRÌNH XỬ LÝ ẢNH MRI TRÊN NEUROSCAN AI:**\n\n` +
+        `Khi một lát cắt MRI được tải lên, hệ thống thực hiện các bước sau:\n` +
+        `- **1. Kiểm tra ảnh đầu vào:** Xác thực định dạng PNG/JPG/JPEG và dung lượng tệp.\n` +
+        `- **2. Tiền xử lý:** Đưa ảnh về kích thước 256×256 (có hiệu chỉnh nhẹ cho ảnh nền sáng).\n` +
+        `- **3. Suy luận mạng nơ-ron (ONNX Runtime):** Tính phân phối xác suất Softmax trên 4 nhãn (*Glioma, Meningioma, Pituitary, No Tumor*).\n` +
+        `- **Chưa triển khai:** Bản đồ nhiệt Grad-CAM, cắt vùng sọ Otsu và cân bằng tương phản CLAHE hiện mới là định hướng nghiên cứu, chưa chạy trong hệ thống này.`;
     } else if (intent === 'pre_exam_guide') {
       finalReply =
         `🏥 **HƯỚNG DẪN CHUẨN BỊ TRƯỚC KHI CHỤP CỘNG HƯỞNG TỪ (MRI) SỌ NÃO:**\n\n` +

@@ -1,7 +1,7 @@
 """
 =============================================================================
 NEUROSCAN AI — SCRIPT HUẤN LUYỆN MÔ HÌNH HỌC SINH (STUDENT MODEL TRAINING)
-Tập dữ liệu: Brain Tumor MRI Dataset (7.023 ảnh: Glioma, Meningioma, Pituitary, No Tumor)
+Tập dữ liệu: Brain Tumor MRI Dataset (bản 7.200 ảnh: Training 5.600 + Testing 1.600, 4 lớp cân bằng)
 Chiến lược: Otsu ROI Cropping, CLAHE Normalization, Label Smoothing, Cosine Annealing
 =============================================================================
 """
@@ -108,9 +108,10 @@ def train_model(data_dir: str, epochs: int = 25, batch_size: int = 32, lr: float
     print(f"[*] Sẵn sàng huấn luyện {epochs} epochs trên thư mục: {data_dir}")
     print("[*] Áp dụng các kỹ thuật: Data Augmentation, CLAHE, Label Smoothing (0.1), Cosine Annealing")
 
-    # Giả định vòng lặp lưu mô hình tốt nhất
-    torch.save(model.state_dict(), output_path)
-    print(f"[✓] Đã hoàn thành huấn luyện và lưu checkpoint: {output_path}")
+    raise NotImplementedError(
+        "train.py mới chỉ dựng sẵn tiền xử lý, dataset, mô hình và hàm loss; CHƯA có vòng lặp huấn luyện thật. "
+        "File brain_mri_student.onnx đang triển khai không được sinh ra từ script này."
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình NeuroScan Student Model trên ảnh MRI")

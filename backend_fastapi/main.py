@@ -50,7 +50,7 @@ if AI_ENGINE_DIR not in sys.path:
     sys.path.insert(0, AI_ENGINE_DIR)
 
 try:
-    from infer_python import preprocess_mri_image as ai_engine_preprocess
+    from infer_python import preprocess_image as ai_engine_preprocess
 except Exception:
     ai_engine_preprocess = None
 
@@ -135,18 +135,15 @@ def get_current_user(authorization: Optional[str] = Header(None), x_session_toke
     return None
 
 def preprocess_mri_image(image_path: str) -> np.ndarray:
-    """Sử dụng trực tiếp pipeline tiền xử lý Otsu ROI + CLAHE từ module ai_engine (nếu có OpenCV), hoặc chuẩn hóa ImageNet [1, 3, 256, 256]."""
+    """Dùng chung pipeline tiền xử lý của ai_engine/infer_python.py (đầu vào [1, 3, 256, 256] trong [0, 1]); chuẩn hóa ImageNet đã nằm trong đồ thị ONNX nên không chuẩn hóa lại ở đây."""
     if ai_engine_preprocess is not None:
         try:
-            return ai_engine_preprocess(image_path, image_size=256)
+            return ai_engine_preprocess(image_path)
         except Exception:
             pass
     im = Image.open(image_path).convert("RGB")
     im = im.resize((256, 256))
     arr = np.array(im, dtype=np.float32) / 255.0
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    arr = (arr - mean) / std
     arr = arr.transpose(2, 0, 1)
     return np.expand_dims(arr, 0)
 

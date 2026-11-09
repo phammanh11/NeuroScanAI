@@ -125,13 +125,12 @@ LƯU Ý AN TOÀN Y KHOA QUAN TRỌNG:
   {
     doc_id: 'doc-cv-pipeline',
     category: 'mri_ai_explanation',
-    title: 'Quy trình Computer Vision, Tiền xử lý Otsu ROI, CLAHE, ONNX và Bản đồ nhiệt Grad-CAM',
-    content: `Hệ thống NeuroScan AI ứng dụng quy trình Thị giác máy tính (Computer Vision) và Học sâu (Deep Learning) đa tầng để hỗ trợ sàng lọc ảnh MRI sọ não:
-1. Kiểm tra tính hợp lệ của ảnh (Modality Gatekeeper): Phân tích phổ màu HSV/RGB, độ tương phản và hình thái sọ não để loại trừ ảnh không phải MRI (như ảnh chụp phong cảnh, chân dung, tài liệu màu).
-2. Cắt vùng quan tâm tự động (Otsu Thresholding & Bounding Box Crop): Tách nền đen ngoài hộp sọ bằng ngưỡng Otsu, xác định đường viền lớn nhất của hộp sọ và cắt gọn vùng não bộ (ROI), loại bỏ nhiễu viền.
-3. Cân bằng sáng cục bộ thích nghi (CLAHE - Contrast Limited Adaptive Histogram Equalization): Tăng cường độ tương phản vi cấu trúc giữa chất xám, chất trắng và vùng ranh giới tổn thương mà không làm khuếch đại nhiễu nền.
-4. Suy luận mô hình Deep Learning (ONNX Runtime / ResNet-50 & EfficientNet): Chuẩn hóa kích thước ảnh đầu vào (224x224), tính toán vector đặc trưng và xuất phân phối xác suất Softmax trên 4 nhãn: Glioma, Meningioma, Pituitary, No Tumor.
-5. Giải thích mô hình bằng Grad-CAM (Gradient-weighted Class Activation Mapping): Trích xuất bản đồ nhiệt (Heatmap) từ tầng tích chập cuối cùng để trực quan hóa vùng pixel mà mô hình tập trung chú ý khi đưa ra dự đoán, hỗ trợ Bác sĩ đối chiếu lâm sàng.`,
+    title: 'Quy trình xử lý ảnh MRI, suy luận ONNX và giới hạn hiện tại của hệ thống',
+    content: `Hệ thống NeuroScan AI hỗ trợ sàng lọc ảnh MRI sọ não theo quy trình sau:
+1. Kiểm tra ảnh đầu vào: Xác thực định dạng PNG/JPG/JPEG và dung lượng tệp.
+2. Tiền xử lý: Đưa ảnh về kích thước 256x256, hiệu chỉnh nhẹ cho ảnh có nền sáng.
+3. Suy luận mô hình học sâu (ONNX Runtime): tính phân phối xác suất Softmax trên 4 nhãn: Glioma, Meningioma, Pituitary, No Tumor.
+4. Giới hạn hiện tại: hệ thống chưa tạo bản đồ nhiệt Grad-CAM và chưa áp dụng cắt vùng sọ Otsu hay cân bằng CLAHE khi suy luận; đây là các hướng nghiên cứu tương lai. Điểm tự tin chỉ là xác suất Softmax, chưa được hiệu chuẩn lâm sàng.`,
   },
   {
     doc_id: 'doc-emergency-redflags',
@@ -166,10 +165,10 @@ Khi xuất hiện bất kỳ dấu hiệu nào trên đây, người bệnh TUY�
     category: 'sources_safety',
     title: 'Quy trình Bác sĩ Chuyên khoa Xem xét (Doctor-in-the-Loop) & Hồ sơ Bệnh nhân trên NeuroScan',
     content: `NeuroScan AI vận hành theo mô hình "Doctor-in-the-Loop" (Bác sĩ giữ vai trò quyết định trung tâm) nhằm đảm bảo an toàn y khoa cao nhất:
-1. Tải ảnh & Sàng lọc AI ban đầu: Bệnh nhân hoặc Bác sĩ tải lát cắt MRI lên hệ thống. Mô hình Computer Vision thực hiện tiền xử lý ROI/CLAHE, tạo bản đồ vùng chú ý Grad-CAM và tính phân phối điểm tự tin trên 4 nhãn.
+1. Tải ảnh & Sàng lọc AI ban đầu: Bệnh nhân hoặc Bác sĩ tải lát cắt MRI lên hệ thống. Mô hình học sâu tính phân phối điểm tự tin trên 4 nhãn.
 2. Gửi yêu cầu Bác sĩ Chuyên khoa Xem xét: Bệnh nhân có thể đính kèm ghi chú triệu chứng lâm sàng và gửi ca chụp vào Hàng đợi Xem xét của Bác sĩ Chẩn đoán hình ảnh Thần kinh.
 3. Bác sĩ Thẩm định & Kết luận (Clinical Review):
-   - Bác sĩ kiểm tra chất lượng ảnh gốc, đối chiếu vùng nhiệt Grad-CAM và đánh giá mức độ đồng thuận với AI (Đồng thuận - Concordant, Đồng thuận một phần - Partial Concordance, Không đồng thuận - Discordant, hoặc Ảnh chưa đủ tiêu chuẩn).
+   - Bác sĩ kiểm tra chất lượng ảnh gốc, đối chiếu với nhãn AI và đánh giá mức độ đồng thuận với AI (Đồng thuận - Concordant, Đồng thuận một phần - Partial Concordance, Không đồng thuận - Discordant, hoặc ảnh chưa đủ tiêu chuẩn).
    - Bác sĩ xác nhận nhãn lâm sàng, ghi nhận xét chuyên môn dành cho bệnh nhân và khuyến nghị bước tiếp theo (ví dụ: chụp bổ sung chuỗi xung T1-Gd, hội chẩn Ngoại Thần kinh, hoặc theo dõi định kỳ).
 4. Tra cứu trực tiếp qua Trợ lý AI: Người dùng và Bác sĩ có thể nhập mã phiên chụp (ví dụ: SCAN-..., NS-...) hoặc mã bệnh nhân (ví dụ: BN-2026-001) ngay trong khung chat để tra cứu nhanh trạng thái thẩm định và kết quả MRI.`,
   },

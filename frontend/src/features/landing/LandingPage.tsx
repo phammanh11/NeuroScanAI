@@ -428,7 +428,7 @@ export const LandingPage: React.FC = () => {
                 Kiến trúc Chatbot FAQ JSON + RAG
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Kết hợp kho câu hỏi chuẩn hóa JSON và truy xuất ngữ nghĩa pgvector. Mọi câu trả lời
+                Kết hợp kho câu hỏi chuẩn hóa JSON và truy xuất ngữ nghĩa vector (Cloudflare Vectorize, embedding bge-m3). Mọi câu trả lời
                 y khoa đều bắt buộc đính kèm metadata tổ chức phát hành, ngày xác minh và quy tắc
                 chuyển hướng cấp cứu.
               </p>

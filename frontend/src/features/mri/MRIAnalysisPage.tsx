@@ -30,7 +30,7 @@ const PIPELINE_STEPS = [
   {
     id: 2,
     title: 'Tiền xử lý ảnh',
-    desc: 'Chuẩn hóa ma trận điểm ảnh [1, 3, 256, 256] và ImageNet mean/std.',
+    desc: 'Đưa ảnh về ma trận điểm ảnh [1, 3, 256, 256] với giá trị trong khoảng [0, 1].',
   },
   {
     id: 3,

@@ -12,7 +12,14 @@ Module này cung cấp toàn bộ mã nguồn huấn luyện mô hình học má
 | `train.py` | Script huấn luyện mô hình trên tập dữ liệu Brain Tumor MRI Dataset (Otsu Contour ROI, CLAHE, Label Smoothing). |
 | `export_onnx.py` | Script chuyển đổi checkpoint PyTorch (`.pth`) sang định dạng chuẩn quốc tế `brain_mri_student.onnx`. |
 | `infer_python.py` | Script chạy suy luận AI độc lập trên dòng lệnh bằng Python (dành cho kiểm thử hoặc backend Python). |
+| `evaluate.py` | Đo Accuracy/Precision/Recall/F1 và ma trận nhầm lẫn của ONNX trên thư mục `Testing`, xuất `eval_report.json`. |
 | `requirements.txt` | Danh sách thư viện Python cần thiết (`torch`, `torchvision`, `onnxruntime`, `opencv-python`, v.v.). |
+
+> **Hiện trạng thực tế (đã rà soát):**
+> - `train.py` mới dựng sẵn tiền xử lý, dataset, mô hình và loss, **chưa có vòng lặp huấn luyện** (chạy sẽ báo `NotImplementedError`).
+> - Tệp `brain_mri_student.onnx` đang triển khai **không được sinh ra từ các script này**: đồ thị có nhiều khối SiLU và Squeeze-Excitation (dấu hiệu họ EfficientNet), không khớp `model.py` (MobileNetV2). Chưa có mã hay log huấn luyện để tái lập.
+> - Kết quả đo trên `Testing` (1.600 ảnh): Accuracy 95.50%, Macro F1 95.45%. Chưa xác minh tập này tách biệt với dữ liệu huấn luyện của mô hình.
+> - Grad-CAM, cắt vùng sọ Otsu và CLAHE **không chạy khi suy luận** trong ứng dụng; chỉ có CLAHE/cắt vùng trong `train.py`.
 
 ---
 
@@ -20,7 +27,7 @@ Module này cung cấp toàn bộ mã nguồn huấn luyện mô hình học má
 
 ```mermaid
 flowchart LR
-    A["Tập dữ liệu MRI (7.023 ảnh)"] --> B["train.py (PyTorch + CLAHE + ROI)"]
+    A["Tập dữ liệu MRI (7.200 ảnh)"] --> B["train.py (PyTorch + CLAHE + ROI)"]
     B --> C["best_model.pth (Trọng số PyTorch)"]
     C --> D["export_onnx.py"]
     D --> E["brain_mri_student.onnx (15.3 MB)"]

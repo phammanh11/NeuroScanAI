@@ -161,13 +161,13 @@ export const ModelOverviewPage: React.FC = () => {
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 space-y-1">
             <div className="text-xs font-medium text-slate-500">Độ Trễ Suy Luận (Latency)</div>
-            <div className="text-sm font-mono font-bold text-teal-600 dark:text-teal-400">~35 – 75 ms / lát cắt</div>
-            <p className="text-[11px] text-slate-500">WASM SIMD Multithreaded Acceleration</p>
+            <div className="text-sm font-mono font-bold text-teal-600 dark:text-teal-400">~8 ms / lát cắt (CPU)</div>
+            <p className="text-[11px] text-slate-500">Đo bằng onnxruntime Python trên máy phát triển (trung vị 50 lần chạy). Trên trình duyệt (WASM) tùy thiết bị, chưa đo.</p>
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 space-y-1">
             <div className="text-xs font-medium text-slate-500">Kích Thước Mô Hình</div>
-            <div className="text-sm font-mono font-bold text-slate-900 dark:text-white">14.16 MB (Distilled Efficient)</div>
-            <p className="text-[11px] text-slate-500">Tự host cục bộ qua HTTP Cache API</p>
+            <div className="text-sm font-mono font-bold text-slate-900 dark:text-white">15.3 MiB (16.0 MB)</div>
+            <p className="text-[11px] text-slate-500">Tệp ONNX phục vụ tĩnh cùng ứng dụng</p>
           </div>
         </div>
       </div>
@@ -372,7 +372,7 @@ export const ModelOverviewPage: React.FC = () => {
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
             <Layers className="w-5 h-5 text-teal-600 dark:text-teal-400" />
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              4. Pipeline Tiền Xử Lý Ảnh & Chiến Lược Huấn Luyện
+              4. Tiền Xử Lý Ảnh & Huấn Luyện: Hiện Trạng Thực Tế
             </h2>
           </div>
 
@@ -380,25 +380,25 @@ export const ModelOverviewPage: React.FC = () => {
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Brain Contour ROI Cropping (OpenCV):</strong> Dùng thuật toán Otsu Binarization tìm đường viền hộp sọ lớn nhất, tự động cắt bỏ dải nền đen vô nghĩa và lọc sạch ký tự watermark viền ảnh.
+                <strong>Tiền xử lý khi suy luận (đang chạy):</strong> Đưa ảnh về 256×256 với giá trị [0, 1]; ảnh có nền sáng được hiệu chỉnh độ sáng và thêm viền đen trước khi resize (xem mriInferenceService.ts và infer_python.py). Theo ghi chú trong mã nguồn, bước chuẩn hóa ImageNet nằm bên trong đồ thị ONNX.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Chuẩn hóa Tương phản CLAHE (ClipLimit=2.0):</strong> Tăng cường độ tương phản cục bộ, giải quyết bài toán biến thiên cường độ tín hiệu giữa các dòng máy quét MRI 1.5 Tesla và 3.0 Tesla.
+                <strong>Tiền xử lý trong train.py (chưa dùng cho mô hình đang chạy):</strong> Cắt vùng sọ theo ngưỡng cố định 45 và CLAHE (clipLimit=2.0). Hai bước này không được áp dụng khi suy luận.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Data Augmentation chuyên biệt cho ảnh y tế:</strong> Bảo tồn thông tin sắc độ xám MRI (loại bỏ Color Jittering); áp dụng Random Horizontal Flip, xoay nhẹ góc ±15° và CoarseDropout ngẫu nhiên.
+                <strong>Huấn luyện:</strong> train.py chưa có vòng lặp huấn luyện thật, nên chưa có bằng chứng về Label Smoothing, Cosine Annealing hay Cross-Validation cho mô hình đang chạy.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Loss Function với Label Smoothing (0.1) & Cosine Annealing:</strong> Hạn chế hiện tượng Overconfidence (quá tự tin sai lệch) ở ranh giới giữa nhu mô não lành và vùng u thâm nhiễm.
+                <strong>Nguồn gốc mô hình:</strong> Tệp ONNX có nhiều khối Sigmoid×Mul (SiLU) và Squeeze-Excitation, dấu hiệu của họ EfficientNet, không khớp với model.py (MobileNetV2). Chưa có mã hoặc nhật ký huấn luyện để tái lập tệp này.
               </span>
             </li>
           </ul>
