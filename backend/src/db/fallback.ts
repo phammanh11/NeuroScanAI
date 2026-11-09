@@ -245,6 +245,18 @@ export function createFallbackD1(): D1Database {
         async all<T = any>(): Promise<D1Result<T>> {
           const sql = cleanSql.toLowerCase();
 
+          // 0. SELECT COUNT(*)
+          if (sql.includes('select count(*) as count') || sql.includes('count(*) as count')) {
+            let count = 0;
+            if (sql.includes('from mri_scans')) count = memoryStore.mri_scans.length;
+            else if (sql.includes('from predictions')) count = memoryStore.predictions.length;
+            else if (sql.includes('from doctor_reviews')) count = memoryStore.doctor_reviews.length;
+            else if (sql.includes('from patients')) count = memoryStore.patients.length;
+            else if (sql.includes('from faq_documents')) count = memoryStore.faq_documents.length;
+            else count = memoryStore.users.length;
+            return { results: [{ count }] as unknown as T[], success: true, meta: {} as any };
+          }
+
           // 1. SELECT users
           if (sql.includes('from users')) {
             let res = [...memoryStore.users];
@@ -336,6 +348,26 @@ export function createFallbackD1(): D1Database {
           // 7. SELECT faq_documents / rag_chunks
           if (sql.includes('from faq_documents') || sql.includes('from rag_chunks')) {
             return { results: memoryStore.faq_documents as unknown as T[], success: true, meta: {} as any };
+          }
+
+          // 8. SELECT patients
+          if (sql.includes('from patients')) {
+            let res = [...memoryStore.patients];
+            if (sql.includes('where p.user_id = ?') || sql.includes('where user_id = ?')) {
+              res = res.filter((p) => p.user_id === Number(boundParams[0]));
+            }
+            const enriched = res.map((p) => {
+              const u = memoryStore.users.find((user) => user.id === p.user_id);
+              const scans = memoryStore.mri_scans.filter((s) => s.patient_id === p.user_id);
+              return {
+                ...p,
+                id: p.user_id,
+                full_name: u?.full_name || 'Bệnh nhân',
+                email: u?.email || 'patient@neuroscan.vn',
+                scan_count: scans.length,
+              };
+            });
+            return { results: enriched as unknown as T[], success: true, meta: {} as any };
           }
 
           return { results: [] as unknown as T[], success: true, meta: {} as any };
@@ -472,6 +504,53 @@ export function createFallbackD1(): D1Database {
             };
             memoryStore.faq_documents.push(doc);
             return { success: true, meta: { last_row_id: doc.id } as any };
+          }
+
+          // DELETE FROM predictions
+          if (sql.includes('delete from predictions')) {
+            const targetId = Number(boundParams[0]);
+            const idx = memoryStore.predictions.findIndex((p) => p.id === targetId);
+            if (idx >= 0) memoryStore.predictions.splice(idx, 1);
+            return { success: true, meta: {} as any };
+          }
+
+          // DELETE FROM doctor_reviews
+          if (sql.includes('delete from doctor_reviews')) {
+            const predId = Number(boundParams[0]);
+            const idx = memoryStore.doctor_reviews.findIndex((r) => r.prediction_id === predId);
+            if (idx >= 0) memoryStore.doctor_reviews.splice(idx, 1);
+            return { success: true, meta: {} as any };
+          }
+
+          // DELETE FROM patients
+          if (sql.includes('delete from patients')) {
+            const userId = Number(boundParams[0]);
+            const idx = memoryStore.patients.findIndex((p) => p.user_id === userId);
+            if (idx >= 0) memoryStore.patients.splice(idx, 1);
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE patients
+          if (sql.includes('update patients')) {
+            const userId = Number(boundParams[boundParams.length - 1]);
+            const patient = memoryStore.patients.find((p) => p.user_id === userId);
+            if (patient) {
+              if (boundParams[0]) patient.phone = boundParams[0];
+              if (boundParams[1]) patient.date_of_birth = boundParams[1];
+              if (boundParams[2]) (patient as any).gender = boundParams[2];
+              if (boundParams[3]) (patient as any).address = boundParams[3];
+              if (boundParams[4]) (patient as any).medical_history = boundParams[4];
+              if (boundParams[5]) (patient as any).emergency_contact = boundParams[5];
+            }
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE users
+          if (sql.includes('update users')) {
+            const userId = Number(boundParams[1]);
+            const user = memoryStore.users.find((u) => u.id === userId);
+            if (user && boundParams[0]) user.full_name = boundParams[0];
+            return { success: true, meta: {} as any };
           }
 
           return { success: true, meta: {} as any };

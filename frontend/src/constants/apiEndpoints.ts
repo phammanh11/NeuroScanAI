@@ -32,4 +32,12 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string | number) => `/faq/${id}`,
     DELETE: (id: string | number) => `/faq/${id}`,
   },
+  PATIENTS: {
+    LIST: '/patients',
+    DETAIL: (id: string | number) => `/patients/${id}`,
+    CREATE: '/patients',
+    UPDATE: (id: string | number) => `/patients/${id}`,
+    DELETE: (id: string | number) => `/patients/${id}`,
+  },
+  STATS: '/stats',
 } as const;

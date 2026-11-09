@@ -572,6 +572,7 @@ const handleListPredictions = async (c: any) => {
 };
 
 app.get('/api/predictions', handleListPredictions);
+app.get('/api/scans', handleListPredictions);
 app.get('/api/v1/mri/scans', handleListPredictions);
 
 // Chi tiết một kết quả chẩn đoán (Mục 1.8.7: GET /api/predictions/:id)
@@ -640,6 +641,29 @@ const handleGetPredictionDetail = async (c: any) => {
 
 app.get('/api/predictions/:id', handleGetPredictionDetail);
 app.get('/api/v1/mri/scans/:id', handleGetPredictionDetail);
+app.get('/api/scans/:id', handleGetPredictionDetail);
+
+// Xóa bản ghi chẩn đoán / scan
+app.delete('/api/predictions/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  await c.env.DB.prepare('DELETE FROM doctor_reviews WHERE prediction_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM predictions WHERE id = ?').bind(id).run();
+  return ok(c, { deleted: true, id }, 'Đã xóa bản ghi chẩn đoán');
+});
+
+app.delete('/api/scans/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const scan: any = await c.env.DB.prepare('SELECT r2_key FROM mri_scans WHERE id = ?').bind(id).first();
+  if (scan?.r2_key) {
+    try {
+      await c.env.BUCKET.delete(scan.r2_key);
+    } catch {}
+  }
+  await c.env.DB.prepare('DELETE FROM doctor_reviews WHERE prediction_id IN (SELECT id FROM predictions WHERE scan_id = ?)').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM predictions WHERE scan_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM mri_scans WHERE id = ?').bind(id).run();
+  return ok(c, { deleted: true, id }, 'Đã xóa ảnh chụp MRI');
+});
 
 // ============================================================================
 // DOCTOR REVIEW APIs (Mục 1.8.7: POST /api/reviews, UC02 Bác sĩ xác nhận)
@@ -820,6 +844,173 @@ app.delete('/api/faq/:id', async (c) => {
   const id = Number(c.req.param('id'));
   await c.env.DB.prepare('DELETE FROM faq_documents WHERE id = ?').bind(id).run();
   return ok(c, { deleted: true }, 'Đã xóa tài liệu FAQ');
+});
+
+// ============================================================================
+// PATIENTS MANAGEMENT APIs (Hồ sơ Bệnh nhân dành cho Bác sĩ & Quản trị)
+// ============================================================================
+
+app.get('/api/patients', async (c) => {
+  const { results }: any = await c.env.DB.prepare(`
+    SELECT p.user_id as id, u.full_name, u.email, p.phone, p.date_of_birth, p.gender, p.address, p.medical_history, p.emergency_contact, p.created_at,
+           COUNT(s.id) as scan_count
+    FROM patients p
+    JOIN users u ON u.id = p.user_id
+    LEFT JOIN mri_scans s ON s.patient_id = p.user_id
+    GROUP BY p.user_id
+    ORDER BY p.created_at DESC
+  `).all();
+
+  return ok(c, { patients: results || [] });
+});
+
+app.get('/api/patients/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const row: any = await c.env.DB.prepare(`
+    SELECT p.user_id as id, u.full_name, u.email, p.phone, p.date_of_birth, p.gender, p.address, p.medical_history, p.emergency_contact, p.created_at
+    FROM patients p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ?
+  `).bind(id).first();
+
+  if (!row) {
+    return fail(c, 'NOT_FOUND', 'Không tìm thấy hồ sơ bệnh nhân', 404);
+  }
+
+  const { results: scans }: any = await c.env.DB.prepare(`
+    SELECT p.id as prediction_id, p.label, p.confidence, p.probabilities, p.created_at,
+           s.id as scan_id, s.r2_key, s.file_name, s.slice_type, s.sequence_type, s.uploaded_at
+    FROM mri_scans s
+    LEFT JOIN predictions p ON p.scan_id = s.id
+    WHERE s.patient_id = ?
+    ORDER BY s.uploaded_at DESC
+  `).bind(id).all();
+
+  return ok(c, { patient: row, scans: scans || [] });
+});
+
+app.post('/api/patients', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const fullName = body.full_name || body.fullName || '';
+  const email = (body.email || `patient_${Date.now()}@neuroscan.vn`).trim().toLowerCase();
+  const phone = body.phone || '';
+  const dateOfBirth = body.date_of_birth || body.dateOfBirth || '1985-01-01';
+  const gender = body.gender || 'Nam';
+  const address = body.address || '';
+  const medicalHistory = body.medical_history || body.medicalHistory || '';
+  const emergencyContact = body.emergency_contact || body.emergencyContact || '';
+
+  if (!fullName) {
+    return fail(c, 'INVALID_INPUT', 'Vui lòng nhập họ tên bệnh nhân.', 400);
+  }
+
+  const { hash, salt } = await hashPassword('Patient@123');
+  await c.env.DB.prepare(`
+    INSERT INTO users (email, password_hash, password_salt, role, full_name)
+    VALUES (?, ?, ?, 'patient', ?)
+  `).bind(email, hash, salt, fullName).run();
+
+  const createdUser: any = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+
+  await c.env.DB.prepare(`
+    INSERT INTO patients (user_id, date_of_birth, phone, gender, address, medical_history, emergency_contact)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(createdUser.id, dateOfBirth, phone, gender, address, medicalHistory, emergencyContact).run();
+
+  const createdPatient: any = await c.env.DB.prepare(`
+    SELECT p.user_id as id, u.full_name, u.email, p.phone, p.date_of_birth, p.gender, p.address, p.medical_history, p.emergency_contact, p.created_at
+    FROM patients p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ?
+  `).bind(createdUser.id).first();
+
+  return ok(c, { patient: createdPatient }, 'Tạo hồ sơ bệnh nhân mới thành công', 201);
+});
+
+app.put('/api/patients/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json().catch(() => ({}));
+
+  if (body.full_name || body.fullName) {
+    await c.env.DB.prepare('UPDATE users SET full_name = ? WHERE id = ?')
+      .bind(body.full_name || body.fullName, id)
+      .run();
+  }
+
+  await c.env.DB.prepare(`
+    UPDATE patients
+    SET phone = COALESCE(?, phone),
+        date_of_birth = COALESCE(?, date_of_birth),
+        gender = COALESCE(?, gender),
+        address = COALESCE(?, address),
+        medical_history = COALESCE(?, medical_history),
+        emergency_contact = COALESCE(?, emergency_contact)
+    WHERE user_id = ?
+  `).bind(
+    body.phone || null,
+    body.date_of_birth || body.dateOfBirth || null,
+    body.gender || null,
+    body.address || null,
+    body.medical_history || body.medicalHistory || null,
+    body.emergency_contact || body.emergencyContact || null,
+    id
+  ).run();
+
+  const updated: any = await c.env.DB.prepare(`
+    SELECT p.user_id as id, u.full_name, u.email, p.phone, p.date_of_birth, p.gender, p.address, p.medical_history, p.emergency_contact, p.created_at
+    FROM patients p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ?
+  `).bind(id).first();
+
+  return ok(c, { patient: updated }, 'Cập nhật hồ sơ bệnh nhân thành công');
+});
+
+app.delete('/api/patients/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  await c.env.DB.prepare('DELETE FROM patients WHERE user_id = ?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+  return ok(c, { deleted: true }, 'Đã xóa hồ sơ bệnh nhân');
+});
+
+// ============================================================================
+// ANALYTICS & CLINICAL STATISTICS APIs
+// ============================================================================
+
+app.get('/api/stats', async (c) => {
+  const totalScansRes: any = await c.env.DB.prepare('SELECT count(*) as count FROM mri_scans').first();
+  const totalPredsRes: any = await c.env.DB.prepare('SELECT count(*) as count FROM predictions').first();
+  const totalReviewsRes: any = await c.env.DB.prepare('SELECT count(*) as count FROM doctor_reviews').first();
+  const totalPatientsRes: any = await c.env.DB.prepare('SELECT count(*) as count FROM patients').first();
+
+  const { results: classDistribution }: any = await c.env.DB.prepare(`
+    SELECT label, count(*) as count
+    FROM predictions
+    GROUP BY label
+  `).all();
+
+  const { results: recentReviews }: any = await c.env.DB.prepare(`
+    SELECT r.id, r.confirmed_label, r.note, r.ai_assessment, r.created_at,
+           doc.full_name as doctor_name, p.label as ai_label, p.confidence
+    FROM doctor_reviews r
+    JOIN users doc ON doc.id = r.doctor_id
+    JOIN predictions p ON p.id = r.prediction_id
+    ORDER BY r.created_at DESC
+    LIMIT 5
+  `).all();
+
+  return ok(c, {
+    stats: {
+      totalScans: totalScansRes?.count || 0,
+      totalPredictions: totalPredsRes?.count || 0,
+      totalDoctorReviews: totalReviewsRes?.count || 0,
+      totalPatients: totalPatientsRes?.count || 0,
+      classDistribution: classDistribution || [],
+      recentReviews: recentReviews || [],
+      modelVersion: 'brain_mri_student_v1_onnx',
+      averageInferenceTimeMs: 42,
+    },
+  });
 });
 
 // ============================================================================

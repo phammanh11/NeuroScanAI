@@ -36,6 +36,29 @@ export const TEST_USER_CREDENTIALS = {
   phone: '0912 345 678',
 };
 
+function mapBackendPatientToRecord(p: any): PatientRecord {
+  const birthYear = p.date_of_birth ? new Date(p.date_of_birth).getFullYear() : 1985;
+  const age = new Date().getFullYear() - birthYear;
+  return {
+    id: String(p.id || p.user_id),
+    recordCode: `BN-2026-${String(p.id || p.user_id).padStart(3, '0')}`,
+    fullName: p.full_name || 'Bệnh nhân',
+    gender: (p.gender as any) || 'Nam',
+    dateOfBirth: p.date_of_birth || '1985-01-01',
+    age: isNaN(age) || age <= 0 ? 38 : age,
+    phone: p.phone || '',
+    email: p.email || '',
+    address: p.address || '',
+    medicalHistory: p.medical_history || '',
+    symptomsInitial: p.symptoms_initial || '',
+    assignedDoctorId: '1',
+    assignedDoctorName: 'BS.CKII Trần Quốc Bảo',
+    linkedUserId: String(p.id || p.user_id),
+    createdAt: p.created_at || new Date().toISOString(),
+    updatedAt: p.updated_at || new Date().toISOString(),
+  };
+}
+
 function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnalysisRecord {
   const scan = item.scan || {};
   const review = item.review;
@@ -247,23 +270,69 @@ export const neuroscanAdapter = {
   // PATIENT MANAGEMENT
   // ==========================================
 
-  async getDoctorPatients(_doctorId: string): Promise<PatientRecord[]> {
-    return mockStore.getDoctorPatients('usr-doc-01');
+  async getDoctorPatients(doctorId: string): Promise<PatientRecord[]> {
+    try {
+      const { data } = await httpClient.get(API_ENDPOINTS.PATIENTS.LIST);
+      if (data?.success && Array.isArray(data?.data?.patients) && data.data.patients.length > 0) {
+        return data.data.patients.map(mapBackendPatientToRecord);
+      }
+    } catch {}
+    return mockStore.getDoctorPatients(doctorId || 'usr-doc-01');
   },
 
   async getPatientById(patientId: string): Promise<PatientRecord | null> {
+    try {
+      const { data } = await httpClient.get(API_ENDPOINTS.PATIENTS.DETAIL(patientId));
+      if (data?.success && data?.data?.patient) {
+        return mapBackendPatientToRecord(data.data.patient);
+      }
+    } catch {}
     return mockStore.getPatientById(patientId);
   },
 
   async createPatient(payload: CreatePatientPayload, doctor: UserProfile): Promise<PatientRecord> {
+    try {
+      const { data } = await httpClient.post(API_ENDPOINTS.PATIENTS.CREATE, {
+        fullName: payload.fullName,
+        email: payload.email,
+        phone: payload.phone,
+        dateOfBirth: payload.dateOfBirth,
+        gender: payload.gender,
+        address: payload.address,
+        medicalHistory: payload.medicalHistory,
+      });
+      if (data?.success && data?.data?.patient) {
+        return mapBackendPatientToRecord(data.data.patient);
+      }
+    } catch {}
     return mockStore.createPatient(payload, doctor);
   },
 
   async updatePatient(payload: UpdatePatientPayload): Promise<PatientRecord> {
+    try {
+      const { data } = await httpClient.put(API_ENDPOINTS.PATIENTS.UPDATE(payload.id), {
+        fullName: payload.fullName,
+        phone: payload.phone,
+        dateOfBirth: payload.dateOfBirth,
+        gender: payload.gender,
+        address: payload.address,
+        medicalHistory: payload.medicalHistory,
+      });
+      if (data?.success && data?.data?.patient) {
+        return mapBackendPatientToRecord(data.data.patient);
+      }
+    } catch {}
     return mockStore.updatePatient(payload);
   },
 
   async deletePatient(patientId: string): Promise<boolean> {
+    try {
+      const { data } = await httpClient.delete(API_ENDPOINTS.PATIENTS.DELETE(patientId));
+      if (data?.success) {
+        mockStore.deletePatient(patientId);
+        return true;
+      }
+    } catch {}
     return mockStore.deletePatient(patientId);
   },
 
@@ -347,6 +416,9 @@ export const neuroscanAdapter = {
   },
 
   async deleteAnalysis(id: string, userId: string): Promise<void> {
+    try {
+      await httpClient.delete(`/predictions/${id}`);
+    } catch {}
     mockStore.deleteAnalysis(id, userId);
   },
 

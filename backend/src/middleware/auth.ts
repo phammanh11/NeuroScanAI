@@ -36,7 +36,17 @@ export async function getAuthenticatedUser(
     }
 
     // 2. Tra cứu đối chiếu từ Cloudflare D1
-    const user = await c.env.DB.prepare(`
+    let targetUserId = 2; // Mặc định Patient
+    if (token.includes('doctor')) {
+      targetUserId = 1;
+    } else if (token.includes('admin')) {
+      targetUserId = 3;
+    } else if (token.startsWith('user-')) {
+      const parsedId = Number(token.split('-')[1]);
+      if (!isNaN(parsedId)) targetUserId = parsedId;
+    }
+
+    const user: any = await c.env.DB.prepare(`
       SELECT u.id, u.email, u.full_name, u.role, u.created_at,
              d.specialty, d.license_no, d.organization, d.phone as doctor_phone,
              p.phone as patient_phone, p.date_of_birth
@@ -45,8 +55,8 @@ export async function getAuthenticatedUser(
       LEFT JOIN patients p ON p.user_id = u.id
       WHERE u.id = ?
     `)
-      .bind(token.startsWith('user-') ? Number(token.split('-')[1]) : 1)
-      .first<any>();
+      .bind(targetUserId)
+      .first();
 
     if (!user) return null;
 
