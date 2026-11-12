@@ -20,7 +20,7 @@ Module này cung cấp toàn bộ mã nguồn huấn luyện mô hình học sâ
 > - `train.py` đã hoàn thiện vòng lặp huấn luyện đầy đủ trên tập dữ liệu Brain Tumor MRI Dataset (5.600 ảnh Train, 1.600 ảnh Test, 4 lớp), lưu checkpoint tốt nhất và xuất file ONNX.
 > - `gradcam.py` đã hoàn thiện, hỗ trợ cả PyTorch Conv backprop lẫn bộ tạo bản đồ kích hoạt thích ứng cho suy luận thời gian thực.
 > - Kết quả đo trên tập `Testing` độc lập (1.600 ảnh, 400 ảnh/lớp): Accuracy **95.50%** (1.528/1.600 mẫu đúng), Macro Precision **95.60%**, Macro Recall **95.50%**, Macro F1 **95.45%**.
-> - Trên trình duyệt web và FastAPI, hệ thống đã kết nối hoàn chỉnh trường `gradcamUrl`, hiển thị bản đồ nhiệt màu JET trực tiếp trong giao diện MRI Viewer.
+> - Trên trình duyệt web (`frontend/`), hệ thống đã kết nối hoàn chỉnh trường `gradcamUrl`, hiển thị bản đồ nhiệt màu JET trực tiếp trong giao diện MRI Viewer.
 
 ---
 
@@ -34,7 +34,7 @@ flowchart LR
     C --> E["Xuất ONNX (opset 14)"]
     E --> F["brain_mri_student.onnx (15.3 MB)"]
     F --> G["Web Client (Edge WASM + Client Grad-CAM)"]
-    F --> H["FastAPI & Python CLI (--gradcam)"]
+    F --> H["Python CLI (infer_python.py --gradcam)"]
 ```
 
 ---

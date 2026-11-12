@@ -37,6 +37,5 @@ __pycache__/
 *.sqlite
 *.sqlite3
 *.db
-backend_fastapi/uploads/
 
 

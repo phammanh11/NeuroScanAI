@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS patients (
   user_id INTEGER PRIMARY KEY,
   date_of_birth TEXT DEFAULT '1980-01-01',
   phone TEXT DEFAULT '',
+  gender TEXT DEFAULT 'Nam',
+  address TEXT DEFAULT '',
+  medical_history TEXT DEFAULT '',
+  emergency_contact TEXT DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -130,3 +134,15 @@ CREATE TABLE IF NOT EXISTS faq_documents (
 );
 
 CREATE INDEX IF NOT EXISTS idx_faq_category ON faq_documents(category);
+
+-- 10. Bảng Vector Chunks Tri thức Y khoa (rag_chunks)
+CREATE TABLE IF NOT EXISTS rag_chunks (
+  id TEXT PRIMARY KEY,
+  doc_id TEXT NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'NeuroScan Knowledge Base',
+  embedding_json TEXT NOT NULL,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
