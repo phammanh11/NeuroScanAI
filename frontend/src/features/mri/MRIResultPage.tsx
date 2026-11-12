@@ -15,8 +15,6 @@ import {
   Trash2,
   LogIn,
   ShieldAlert,
-  Loader2,
-  RefreshCw,
 } from 'lucide-react';
 import { useToast } from '@/app/providers/ToastProvider';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -24,7 +22,6 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ErrorState } from '@/components/common/ErrorState';
 import { MRIViewer } from '@/components/medical/MRIViewer';
-import { getImageDimensions } from '@/components/medical/MRIUploader';
 import { PredictionCard } from '@/components/medical/PredictionCard';
 import { ProbabilityChart } from '@/components/charts/ProbabilityChart';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
@@ -38,52 +35,6 @@ import { GUEST_OWNER_ID, neuroscanAdapter } from '@/services/api/neuroscanAdapte
 import { formatBytes, formatDateTimeVN, formatPercent } from '@/utils/formatters';
 import type { MRIAnalysisRecord } from '@/types/domain';
 
-export interface ReplacePipelineStep {
-  id: number;
-  title: string;
-  detail: string;
-}
-
-const REPLACE_PIPELINE_STEPS: ReplacePipelineStep[] = [
-  {
-    id: 1,
-    title: 'Kiểm tra & đọc ảnh MRI mới',
-    detail: 'Xác thực định dạng PNG/JPG và trích xuất kích thước lát cắt gốc.',
-  },
-  {
-    id: 2,
-    title: 'Tiền xử lý Tensor [1, 3, 256, 256]',
-    detail: 'Chuẩn hóa ma trận điểm ảnh RGB theo phân phối ImageNet.',
-  },
-  {
-    id: 3,
-    title: 'Suy luận mô hình brain_mri_student.onnx',
-    detail: 'Tính toán logits và xác suất Softmax 4 lớp qua ONNX Runtime Web.',
-  },
-  {
-    id: 4,
-    title: 'Hoàn tất & cập nhật kết quả',
-    detail: 'Hiển thị ảnh mới, biểu đồ xác suất và ghi chú tham khảo.',
-  },
-];
-
-const waitStepMs = (ms: number, signal: AbortSignal): Promise<void> =>
-  new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException('Đã hủy phân tích ảnh mới.', 'AbortError'));
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      signal.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      window.clearTimeout(timer);
-      reject(new DOMException('Đã hủy phân tích ảnh mới.', 'AbortError'));
-    };
-    signal.addEventListener('abort', onAbort, { once: true });
-  });
-
 export const MRIResultPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -94,13 +45,6 @@ export const MRIResultPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isReplacing, setIsReplacing] = useState(false);
-  const [replaceStep, setReplaceStep] = useState<number>(0);
-  const [replacingPreview, setReplacingPreview] = useState<{
-    url: string;
-    fileName: string;
-    fileSize: number;
-  } | null>(null);
 
   // Doctor review request modal/form state
   const [shareConsent, setShareConsent] = useState(false);
@@ -108,13 +52,6 @@ export const MRIResultPage: React.FC = () => {
   const [isSubmittingShare, setIsSubmittingShare] = useState(false);
   const loadRequestRef = useRef(0);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
-  const replaceAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      replaceAbortRef.current?.abort();
-    };
-  }, []);
 
   const loadDetail = useCallback(async () => {
     if (!id) return;
@@ -205,7 +142,7 @@ export const MRIResultPage: React.FC = () => {
     }
   };
 
-  const handleQuickReplaceFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQuickReplaceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -228,100 +165,10 @@ export const MRIResultPage: React.FC = () => {
       return;
     }
 
-    replaceAbortRef.current?.abort();
-    const abortController = new AbortController();
-    replaceAbortRef.current = abortController;
-
-    const previewObjectUrl = URL.createObjectURL(file);
-    let recordOwned = false;
-    setReplacingPreview({
-      url: previewObjectUrl,
-      fileName: file.name,
-      fileSize: file.size,
+    navigate('/mri-analysis', {
+      state: { preselectedFile: file, autoRun: true },
     });
-    setIsReplacing(true);
-    setReplaceStep(1);
-
-    try {
-      const [imageDimensions] = await Promise.all([
-        getImageDimensions(previewObjectUrl),
-        waitStepMs(340, abortController.signal),
-      ]);
-
-      setReplaceStep(2);
-      await waitStepMs(360, abortController.signal);
-
-      setReplaceStep(3);
-      const effectiveUser = user ?? {
-        id: GUEST_OWNER_ID,
-        email: 'guest@local.neuroscan',
-        fullName: 'Khách truy cập (Chế độ Trải nghiệm)',
-        role: 'USER' as const,
-        organizationOrUnit: 'Cổng Trải nghiệm Công khai NeuroScan AI',
-        isDemoAccount: true,
-        joinedAt: new Date().toISOString(),
-        preferences: {
-          emailNotifications: false,
-          doctorReviewAlerts: false,
-          saveHistoryConsent: false,
-          anonymizeExports: true,
-        },
-      };
-
-      const createdRecord = await neuroscanAdapter.createAnalysis(
-        {
-          file,
-          consentAccepted: true,
-          symptomNote: '',
-          imageDimensions,
-        },
-        effectiveUser,
-        previewObjectUrl,
-        abortController.signal,
-      );
-      recordOwned = !user || neuroscanAdapter.isMockMode();
-
-      setReplaceStep(4);
-      await waitStepMs(300, abortController.signal);
-
-      if (!recordOwned) {
-        URL.revokeObjectURL(previewObjectUrl);
-      }
-
-      showToast({
-        variant: 'success',
-        title: `Phân tích ảnh mới hoàn tất: ${createdRecord.predictedLabel}`,
-        description: user
-          ? `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Đã lưu phiên mới ${createdRecord.sessionCode}.`
-          : `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận cục bộ trên trình duyệt (Chưa lưu máy chủ).`,
-      });
-      navigate(`/mri-results/${createdRecord.id}`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      if (!recordOwned) {
-        URL.revokeObjectURL(previewObjectUrl);
-      }
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        showToast({
-          variant: 'info',
-          title: 'Đã hủy phân tích ảnh mới',
-          description: 'Kết quả ảnh hiện tại vẫn được giữ nguyên.',
-        });
-      } else {
-        showToast({
-          variant: 'error',
-          title: 'Không thể phân tích ảnh mới',
-          description: err instanceof Error ? err.message : 'Vui lòng thử lại với ảnh hợp lệ.',
-        });
-      }
-    } finally {
-      if (replaceAbortRef.current === abortController) {
-        replaceAbortRef.current = null;
-      }
-      setIsReplacing(false);
-      setReplaceStep(0);
-      setReplacingPreview(null);
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDownloadDemoReport = () => {
@@ -414,100 +261,6 @@ export const MRIResultPage: React.FC = () => {
         className="sr-only"
         aria-label="Chọn ảnh MRI mới để thay thế và quét tiếp"
       />
-
-      {isReplacing && replacingPreview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="replace-mri-dialog-title"
-        >
-          <div className="w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center shrink-0">
-                  <RefreshCw className="w-4 h-4 text-teal-600 dark:text-teal-400 animate-spin" />
-                </div>
-                <div className="min-w-0">
-                  <h2
-                    id="replace-mri-dialog-title"
-                    className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate"
-                  >
-                    Đang tải và phân tích ảnh MRI mới
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    {replacingPreview.fileName} • {formatBytes(replacingPreview.fileSize)}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={replaceStep >= 4}
-                onClick={() => replaceAbortRef.current?.abort()}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 transition-colors cursor-pointer"
-              >
-                Hủy
-              </button>
-            </div>
-
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-[176px,1fr] gap-5 items-center">
-              <div className="rounded-xl bg-slate-950 border border-slate-800 p-2 flex flex-col items-center justify-center">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black flex items-center justify-center">
-                  <img
-                    src={replacingPreview.url}
-                    alt="Ảnh MRI mới đang chuẩn bị phân tích"
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-slate-950/80 text-[10px] font-medium text-teal-300 text-center">
-                    Ảnh mới đang nạp
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2.5">
-                {REPLACE_PIPELINE_STEPS.map((step) => {
-                  const isDone = replaceStep > step.id || replaceStep === 4;
-                  const isActive = replaceStep === step.id && replaceStep < 4;
-                  return (
-                    <div
-                      key={step.id}
-                      className={`p-2.5 rounded-xl border transition-all duration-200 ${
-                        isDone
-                          ? 'bg-emerald-50 dark:bg-emerald-950/25 border-emerald-500/40'
-                          : isActive
-                            ? 'bg-teal-50 dark:bg-teal-950/30 border-teal-500/45 shadow-sm'
-                            : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <div className="mt-0.5 shrink-0">
-                          {isDone ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          ) : isActive ? (
-                            <Loader2 className="w-4 h-4 text-teal-600 dark:text-teal-400 animate-spin" />
-                          ) : (
-                            <span className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-bold flex items-center justify-center text-slate-500">
-                              {step.id}
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                            {step.title}
-                          </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            {step.detail}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       <PageHeader
         badgeText={`Phiên phân tích ${record.sessionCode} • Đánh giá mô hình ONNX`}
         title={`Kết quả phân tích MRI tham khảo: ${record.sessionCode}`}
@@ -671,7 +424,6 @@ export const MRIResultPage: React.FC = () => {
             isDemoFixture={record.isDemoFixture}
             onReplaceImage={() => replaceInputRef.current?.click()}
             onDeleteImage={canDeleteCurrentRecord ? handleDeleteCurrentResult : undefined}
-            isReplacingImage={isReplacing}
             isDeletingImage={isDeleting}
           />
 

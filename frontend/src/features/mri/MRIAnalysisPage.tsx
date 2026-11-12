@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ScanLine,
   CheckCircle2,
@@ -53,10 +53,16 @@ function getPipelineSteps(isAuthenticated: boolean) {
   ];
 }
 
+interface MRIAnalysisLocationState {
+  preselectedFile?: File;
+  autoRun?: boolean;
+}
+
 export const MRIAnalysisPage: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -71,25 +77,31 @@ export const MRIAnalysisPage: React.FC = () => {
   const analysisRunRef = useRef(0);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const uploaderRef = useRef<MRIUploaderHandle | null>(null);
+  const handledLocationFileRef = useRef<File | null>(null);
+  const stepperSectionRef = useRef<HTMLDivElement | null>(null);
   const pipelineSteps = useMemo(() => getPipelineSteps(Boolean(user)), [user]);
 
-  // Cleanup blob preview URL to prevent memory leaks
+  // Revoke previous blob URL when replaced or when leaving the page
   useEffect(() => {
+    const currentUrl = previewUrl;
     return () => {
-      analysisRunRef.current += 1;
-      analysisAbortRef.current?.abort();
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
+      if (currentUrl && currentUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(currentUrl);
       }
     };
   }, [previewUrl]);
 
+  // Abort any in-flight inference/upload only when component actually unmounts
+  useEffect(() => {
+    return () => {
+      analysisRunRef.current += 1;
+      analysisAbortRef.current?.abort();
+    };
+  }, []);
+
   const handleSelectFile = (file: File, url: string) => {
     analysisRunRef.current += 1;
     analysisAbortRef.current?.abort();
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl);
-    }
     setSelectedFile(file);
     setPreviewUrl(url);
     setPreviewLoadError(false);
@@ -101,9 +113,6 @@ export const MRIAnalysisPage: React.FC = () => {
   const handleClearImageOnly = () => {
     analysisRunRef.current += 1;
     analysisAbortRef.current?.abort();
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl);
-    }
     setSelectedFile(null);
     setPreviewUrl(null);
     setValidationError(null);
@@ -119,29 +128,12 @@ export const MRIAnalysisPage: React.FC = () => {
     setSymptomNote('');
   };
 
-  const runAnalysis = async () => {
-    if (!selectedFile || !previewUrl) {
-      setValidationError('Vui lòng chọn hoặc nạp một file ảnh MRI hợp lệ trước khi phân tích.');
-      return;
-    }
-    if (isValidatingFile) {
-      setValidationError('Vui lòng chờ quá trình kiểm tra ảnh hoàn tất trước khi phân tích.');
-      return;
-    }
-    if (previewLoadError) {
-      setValidationError('Ảnh xem trước không thể hiển thị. Vui lòng chọn lại file ảnh hợp lệ.');
-      return;
-    }
-    if (validationError) {
-      return;
-    }
-    if (!consentChecked) {
-      setValidationError(
-        'Vui lòng tích vào ô xác nhận đồng ý xử lý dữ liệu và hiểu rõ giới hạn tham khảo của AI.',
-      );
-      return;
-    }
-
+  const executeAnalysis = async (
+    targetFile: File,
+    targetPreviewUrl: string,
+    targetConsent: boolean,
+    targetSymptomNote: string,
+  ) => {
     const effectiveUser = user ?? {
       id: GUEST_OWNER_ID,
       email: 'guest@local.neuroscan',
@@ -177,19 +169,19 @@ export const MRIAnalysisPage: React.FC = () => {
       if (runId !== analysisRunRef.current) return;
       setCurrentStep(3);
 
-      const imageDimensions = await getImageDimensions(previewUrl);
+      const imageDimensions = await getImageDimensions(targetPreviewUrl);
       if (runId !== analysisRunRef.current || abortController.signal.aborted) return;
 
       const durablePreviewUrl =
-        (!user || neuroscanAdapter.isMockMode()) && previewUrl.startsWith('blob:')
-          ? (ownedRecordUrl = URL.createObjectURL(selectedFile))
-          : previewUrl;
+        (!user || neuroscanAdapter.isMockMode()) && targetPreviewUrl.startsWith('blob:')
+          ? (ownedRecordUrl = URL.createObjectURL(targetFile))
+          : targetPreviewUrl;
 
       const createdRecord = await neuroscanAdapter.createAnalysis(
         {
-          file: selectedFile,
-          consentAccepted: consentChecked,
-          symptomNote,
+          file: targetFile,
+          consentAccepted: targetConsent,
+          symptomNote: targetSymptomNote,
           imageDimensions,
         },
         effectiveUser,
@@ -211,6 +203,7 @@ export const MRIAnalysisPage: React.FC = () => {
           : `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận ONNX cục bộ: ${createdRecord.modelMetadata.inferenceTimeMs}ms (Chưa lưu máy chủ).`,
       });
       navigate(`/mri-results/${createdRecord.id}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       if (abortController.signal.aborted) return;
       setApiError(
@@ -224,6 +217,80 @@ export const MRIAnalysisPage: React.FC = () => {
         URL.revokeObjectURL(ownedRecordUrl);
       }
     }
+  };
+
+  const executeAnalysisRef = useRef(executeAnalysis);
+  executeAnalysisRef.current = executeAnalysis;
+
+  // Support seamless "Thay ảnh mới & Quét tiếp" handoff from MRIResultPage
+  useEffect(() => {
+    const state = location.state as MRIAnalysisLocationState | null;
+    const preselectedFile = state?.preselectedFile;
+    if (!preselectedFile || handledLocationFileRef.current === preselectedFile) {
+      return;
+    }
+    handledLocationFileRef.current = preselectedFile;
+    navigate(location.pathname, { replace: true, state: null });
+
+    const ext = preselectedFile.name.split('.').pop()?.toLowerCase() || '';
+    if (
+      !['png', 'jpg', 'jpeg'].includes(ext) ||
+      preselectedFile.size === 0 ||
+      preselectedFile.size > 15 * 1024 * 1024
+    ) {
+      setValidationError(
+        'File ảnh được chọn không hợp lệ. Vui lòng chọn ảnh PNG, JPG hoặc JPEG (≤ 15 MB).',
+      );
+      return;
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(preselectedFile);
+    setSelectedFile(preselectedFile);
+    setPreviewUrl(nextPreviewUrl);
+    setPreviewLoadError(false);
+    setValidationError(null);
+    setApiError(null);
+    setSymptomNote('');
+    setConsentChecked(true);
+    setCurrentStep(0);
+
+    window.setTimeout(() => {
+      if (window.innerWidth < 1024 && stepperSectionRef.current) {
+        stepperSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 60);
+
+    if (state?.autoRun !== false) {
+      void executeAnalysisRef.current(preselectedFile, nextPreviewUrl, true, '');
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  const runAnalysis = async () => {
+    if (!selectedFile || !previewUrl) {
+      setValidationError('Vui lòng chọn hoặc nạp một file ảnh MRI hợp lệ trước khi phân tích.');
+      return;
+    }
+    if (isValidatingFile) {
+      setValidationError('Vui lòng chờ quá trình kiểm tra ảnh hoàn tất trước khi phân tích.');
+      return;
+    }
+    if (previewLoadError) {
+      setValidationError('Ảnh xem trước không thể hiển thị. Vui lòng chọn lại file ảnh hợp lệ.');
+      return;
+    }
+    if (validationError) {
+      return;
+    }
+    if (!consentChecked) {
+      setValidationError(
+        'Vui lòng tích vào ô xác nhận đồng ý xử lý dữ liệu và hiểu rõ giới hạn tham khảo của AI.',
+      );
+      return;
+    }
+
+    await executeAnalysis(selectedFile, previewUrl, consentChecked, symptomNote);
   };
 
   return (
@@ -464,7 +531,10 @@ export const MRIAnalysisPage: React.FC = () => {
           </div>
 
           {/* Stepper & Analysis Information */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
+          <div
+            ref={stepperSectionRef}
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4"
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 3. Trạng thái quy trình (UI Stepper)
