@@ -7,7 +7,6 @@ import { DoctorLayout } from '@/components/layout/DoctorLayout';
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { RouteErrorBoundary } from '@/components/common/RouteErrorBoundary';
 import { LoadingState } from '@/components/common/LoadingState';
-import { FloatingMedicalChatbot } from '@/components/medical/FloatingMedicalChatbot';
 import { MOCK_ERROR_SIMULATION_EVENT } from '@/constants/appEvents';
 
 const LandingPage = lazy(() =>
@@ -200,7 +199,6 @@ export const AppRouter: React.FC = () => {
           {/* Fallback Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <FloatingMedicalChatbot />
       </Suspense>
     </BrowserRouter>
   );
