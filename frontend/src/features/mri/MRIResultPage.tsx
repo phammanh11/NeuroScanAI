@@ -22,6 +22,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ErrorState } from '@/components/common/ErrorState';
 import { MRIViewer } from '@/components/medical/MRIViewer';
+import { getImageDimensions } from '@/components/medical/MRIUploader';
 import { PredictionCard } from '@/components/medical/PredictionCard';
 import { ProbabilityChart } from '@/components/charts/ProbabilityChart';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
@@ -45,12 +46,14 @@ export const MRIResultPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
 
   // Doctor review request modal/form state
   const [shareConsent, setShareConsent] = useState(false);
   const [symptomNoteInput, setSymptomNoteInput] = useState('');
   const [isSubmittingShare, setIsSubmittingShare] = useState(false);
   const loadRequestRef = useRef(0);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadDetail = useCallback(async () => {
     if (!id) return;
@@ -141,6 +144,87 @@ export const MRIResultPage: React.FC = () => {
     }
   };
 
+  const handleQuickReplaceFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!['png', 'jpg', 'jpeg'].includes(ext)) {
+      showToast({
+        variant: 'error',
+        title: 'Định dạng ảnh không hợp lệ',
+        description: 'Vui lòng chọn file ảnh lát cắt MRI định dạng PNG, JPG hoặc JPEG.',
+      });
+      return;
+    }
+    if (file.size === 0 || file.size > 15 * 1024 * 1024) {
+      showToast({
+        variant: 'error',
+        title: 'Dung lượng ảnh không hợp lệ',
+        description: 'File ảnh phải lớn hơn 0 byte và không vượt quá 15 MB.',
+      });
+      return;
+    }
+
+    const previewObjectUrl = URL.createObjectURL(file);
+    let recordOwned = false;
+    setIsReplacing(true);
+    try {
+      const imageDimensions = await getImageDimensions(previewObjectUrl);
+      const effectiveUser = user ?? {
+        id: GUEST_OWNER_ID,
+        email: 'guest@local.neuroscan',
+        fullName: 'Khách truy cập (Chế độ Trải nghiệm)',
+        role: 'USER' as const,
+        organizationOrUnit: 'Cổng Trải nghiệm Công khai NeuroScan AI',
+        isDemoAccount: true,
+        joinedAt: new Date().toISOString(),
+        preferences: {
+          emailNotifications: false,
+          doctorReviewAlerts: false,
+          saveHistoryConsent: false,
+          anonymizeExports: true,
+        },
+      };
+
+      const createdRecord = await neuroscanAdapter.createAnalysis(
+        {
+          file,
+          consentAccepted: true,
+          symptomNote: '',
+          imageDimensions,
+        },
+        effectiveUser,
+        previewObjectUrl,
+      );
+      recordOwned = !user || neuroscanAdapter.isMockMode();
+      if (!recordOwned) {
+        URL.revokeObjectURL(previewObjectUrl);
+      }
+
+      showToast({
+        variant: 'success',
+        title: `Phân tích ảnh mới hoàn tất: ${createdRecord.predictedLabel}`,
+        description: user
+          ? `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Đã lưu phiên mới ${createdRecord.sessionCode}.`
+          : `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận cục bộ trên trình duyệt (Chưa lưu máy chủ).`,
+      });
+      navigate(`/mri-results/${createdRecord.id}`);
+    } catch (err) {
+      if (!recordOwned) {
+        URL.revokeObjectURL(previewObjectUrl);
+      }
+      showToast({
+        variant: 'error',
+        title: 'Không thể phân tích ảnh mới',
+        description: err instanceof Error ? err.message : 'Vui lòng thử lại với ảnh hợp lệ.',
+      });
+    } finally {
+      setIsReplacing(false);
+    }
+  };
+
   const handleDownloadDemoReport = () => {
     if (!record) return;
     const labelMeta = TUMOR_LABEL_METADATA[record.predictedLabel];
@@ -223,6 +307,14 @@ export const MRIResultPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+        onChange={handleQuickReplaceFile}
+        className="sr-only"
+        aria-label="Chọn ảnh MRI mới để thay thế và quét tiếp"
+      />
       <PageHeader
         badgeText={`Phiên phân tích ${record.sessionCode} • Đánh giá mô hình ONNX`}
         title={`Kết quả phân tích MRI tham khảo: ${record.sessionCode}`}
@@ -357,7 +449,9 @@ export const MRIResultPage: React.FC = () => {
           <span className="font-semibold text-amber-700 dark:text-amber-300 mt-0.5 block">
             {record.modelMetadata.pipelineMode === 'MOCK_FIXTURE'
               ? 'Fixture Minh họa Cố định'
-              : 'PyTorch Backend'}
+              : record.modelMetadata.pipelineMode === 'CLIENT_ONNX_INFERENCE'
+                ? 'ONNX Runtime Web (Client)'
+                : 'ONNX Runtime + Cloudflare'}
           </span>
         </div>
         <div>
@@ -382,6 +476,10 @@ export const MRIResultPage: React.FC = () => {
             sanitizedFileName={record.sanitizedFileName}
             dimensions={record.imageDimensions}
             isDemoFixture={record.isDemoFixture}
+            onReplaceImage={() => replaceInputRef.current?.click()}
+            onDeleteImage={canDeleteCurrentRecord ? handleDeleteCurrentResult : undefined}
+            isReplacingImage={isReplacing}
+            isDeletingImage={isDeleting}
           />
 
           {/* Doctor Review Workflow Section (Separating Clinical Review from AI Output) */}

@@ -8,6 +8,9 @@ import {
   Sparkles,
   Image as ImageIcon,
   Info,
+  RefreshCw,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { SYNTHETIC_MRI_SLICES } from '@/assets/mriIllustrations';
 
@@ -19,6 +22,10 @@ interface MRIViewerProps {
   sanitizedFileName: string;
   dimensions?: { width: number; height: number };
   isDemoFixture?: boolean;
+  onReplaceImage?: () => void;
+  onDeleteImage?: () => void;
+  isReplacingImage?: boolean;
+  isDeletingImage?: boolean;
 }
 
 type ViewTab = 'original' | 'preprocessed' | 'gradcam';
@@ -32,6 +39,10 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
   sanitizedFileName,
   dimensions,
   isDemoFixture = false,
+  onReplaceImage,
+  onDeleteImage,
+  isReplacingImage = false,
+  isDeletingImage = false,
 }) => {
   const [activeTab, setActiveTab] = useState<ViewTab>('original');
   const [zoom, setZoom] = useState<number>(1);
@@ -47,6 +58,8 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
 
   useEffect(() => {
     setImageErrors({ original: false, preprocessed: false, gradcam: false });
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   }, [imageUrl, preprocessedImageUrl, gradcamUrl]);
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 3));
@@ -394,6 +407,57 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
         </div>
         <span>Tỷ lệ khung hình gốc được bảo toàn (1:1)</span>
       </div>
+
+      {/* Quick Replace / Delete Action Bar directly inside MRIViewer */}
+      {(onReplaceImage || onDeleteImage) && (
+        <div className="px-4 py-3 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-slate-400">
+            Muốn thử kiểm tra ảnh MRI khác hoặc xóa ảnh hiện tại?
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {onReplaceImage && (
+              <button
+                type="button"
+                disabled={isReplacingImage || isDeletingImage}
+                onClick={onReplaceImage}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 active:scale-[0.98] disabled:opacity-50 transition-all duration-200 cursor-pointer"
+              >
+                {isReplacingImage ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang quét ảnh mới...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Thay ảnh mới &amp; Quét tiếp</span>
+                  </>
+                )}
+              </button>
+            )}
+            {onDeleteImage && (
+              <button
+                type="button"
+                disabled={isReplacingImage || isDeletingImage}
+                onClick={onDeleteImage}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.98] disabled:opacity-50 transition-all duration-200 cursor-pointer"
+              >
+                {isDeletingImage ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa ảnh này</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
