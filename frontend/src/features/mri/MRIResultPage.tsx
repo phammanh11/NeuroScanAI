@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ScanLine,
   MessageSquareHeart,
@@ -12,6 +12,9 @@ import {
   Send,
   ShieldCheck,
   Printer,
+  Trash2,
+  LogIn,
+  ShieldAlert,
 } from 'lucide-react';
 import { useToast } from '@/app/providers/ToastProvider';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -28,18 +31,20 @@ import {
   PERMANENT_MEDICAL_DISCLAIMER,
   TUMOR_LABEL_METADATA,
 } from '@/constants/medicalLabels';
-import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
+import { GUEST_OWNER_ID, neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 import { formatBytes, formatDateTimeVN, formatPercent } from '@/utils/formatters';
 import type { MRIAnalysisRecord } from '@/types/domain';
 
 export const MRIResultPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
 
   const [record, setRecord] = useState<MRIAnalysisRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Doctor review request modal/form state
   const [shareConsent, setShareConsent] = useState(false);
@@ -111,6 +116,28 @@ export const MRIResultPage: React.FC = () => {
       });
     } finally {
       setIsSubmittingShare(false);
+    }
+  };
+
+  const handleDeleteCurrentResult = async () => {
+    if (!record) return;
+    setIsDeleting(true);
+    try {
+      await neuroscanAdapter.deleteAnalysis(record.id, user?.id ?? GUEST_OWNER_ID);
+      showToast({
+        variant: 'info',
+        title: 'Đã xóa ảnh & phiên phân tích',
+        description: `Phiên ${record.sessionCode} đã được xóa. Bạn có thể tải lên ảnh MRI mới.`,
+      });
+      navigate('/mri-analysis');
+    } catch (err) {
+      showToast({
+        variant: 'error',
+        title: 'Không thể xóa phiên phân tích',
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -190,6 +217,9 @@ export const MRIResultPage: React.FC = () => {
   }
 
   const reviewStatusMeta = DOCTOR_REVIEW_STATUS_META[record.reviewStatus];
+  const isGuestLocalRecord = record.ownerUserId === GUEST_OWNER_ID || !user;
+  const canDeleteCurrentRecord =
+    record.ownerUserId === GUEST_OWNER_ID || (user && record.ownerUserId === user.id);
 
   return (
     <div className="space-y-6">
@@ -204,8 +234,19 @@ export const MRIResultPage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
             >
               <ScanLine className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>Phân tích ảnh mới</span>
+              <span>Thay / Phân tích ảnh mới</span>
             </Link>
+            {canDeleteCurrentRecord && (
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteCurrentResult}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-rose-500/35 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeleting ? 'Đang xóa...' : 'Xóa kết quả này'}</span>
+              </button>
+            )}
             <Link
               to={`/ai-assistant?analysisId=${record.id}&prompt=${encodeURIComponent(
                 `Hãy giải thích ý nghĩa nhãn ${record.predictedLabel} trong kết quả tham khảo`,
@@ -241,6 +282,27 @@ export const MRIResultPage: React.FC = () => {
           </>
         }
       />
+
+      {/* Guest Local Preview Banner */}
+      {isGuestLocalRecord && (
+        <div className="rounded-2xl border border-amber-500/35 bg-amber-50/80 dark:bg-amber-950/25 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-amber-950 dark:text-amber-200">
+          <div className="flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              <strong>Phiên phân tích cục bộ (Chưa đăng nhập):</strong> Kết quả này chỉ hiển thị tạm thời
+              trên trình duyệt của bạn, <strong>không</strong> lưu lên máy chủ và{' '}
+              <strong>không</strong> tự động gửi sang cổng Bác sĩ.
+            </p>
+          </div>
+          <Link
+            to="/login"
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Đăng nhập để lưu hồ sơ</span>
+          </Link>
+        </div>
+      )}
 
       {/* Doctor Upload Indicator Banner */}
       {record.uploadedByRole === 'DOCTOR' && (
@@ -393,7 +455,22 @@ export const MRIResultPage: React.FC = () => {
               </div>
             )}
 
-            {record.reviewStatus === 'PENDING_REVIEW' ? (
+            {!user ? (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3 text-xs sm:text-sm">
+                <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
+                  Bạn đang ở chế độ <strong>Khách chưa đăng nhập</strong>. Để bảo mật dữ liệu y tế và
+                  tránh gửi nhầm hồ sơ, chỉ tài khoản đã đăng nhập mới có thể lưu lịch sử và gửi yêu
+                  cầu Bác sĩ chuyên khoa xem xét.
+                </p>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Đăng nhập để gửi Bác sĩ xem xét</span>
+                </Link>
+              </div>
+            ) : record.reviewStatus === 'PENDING_REVIEW' ? (
               <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-500/30 space-y-2 text-xs sm:text-sm">
                 <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-300">
                   <Clock className="w-4 h-4" />

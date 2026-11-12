@@ -22,7 +22,7 @@ import {
   DOCTOR_REVIEW_STATUS_META,
   TUMOR_LABEL_METADATA,
 } from '@/constants/medicalLabels';
-import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
+import { GUEST_OWNER_ID, neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 import { formatDateTimeVN, formatPercent, normalizeSearchText } from '@/utils/formatters';
 import type { MRIAnalysisRecord, TumorLabel } from '@/types/domain';
 
@@ -47,7 +47,7 @@ export const AnalysisHistoryPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const loadRequestRef = useRef(0);
 
-  const effectiveUserId = user?.id || '2';
+  const effectiveUserId = user?.id || GUEST_OWNER_ID;
 
   const loadHistory = useCallback(async () => {
     const requestId = ++loadRequestRef.current;

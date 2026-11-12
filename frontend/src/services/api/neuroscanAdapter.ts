@@ -1,6 +1,8 @@
 import { API_ENDPOINTS, ENV_CONFIG } from '@/constants/apiEndpoints';
-import { httpClient, setHttpAuthToken } from '@/services/api/httpClient';
+import { hasHttpAuthToken, httpClient, setHttpAuthToken } from '@/services/api/httpClient';
 import { mockStore } from '@/services/mock/mockStore';
+
+export const GUEST_OWNER_ID = 'guest-session';
 import { runMriOnnxInference } from '@/services/ai/mriInferenceService';
 import type {
   AuthSession,
@@ -395,9 +397,14 @@ export const neuroscanAdapter = {
   // ==========================================
 
   async getUserAnalyses(userId?: string): Promise<MRIAnalysisRecord[]> {
+    // Khách chưa đăng nhập chỉ xem được phiên tạm trong bộ nhớ trình duyệt, tuyệt đối không lấy dữ liệu tài khoản khác từ backend
+    if (!hasHttpAuthToken() || !userId || userId === GUEST_OWNER_ID) {
+      return mockStore.getUserAnalyses(GUEST_OWNER_ID);
+    }
+
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
-      if (data?.success && Array.isArray(data?.data?.predictions) && data.data.predictions.length > 0) {
+      if (data?.success && Array.isArray(data?.data?.predictions)) {
         return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
       }
     } catch {}
@@ -406,36 +413,47 @@ export const neuroscanAdapter = {
   },
 
   async getAnalysisById(id: string): Promise<MRIAnalysisRecord> {
-    try {
-      const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTION_DETAIL(id));
-      if (data?.success && data?.data?.prediction) {
-        return mapPredictionToAnalysisRecord(data.data.prediction);
-      }
-    } catch {}
+    if (hasHttpAuthToken()) {
+      try {
+        const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTION_DETAIL(id));
+        if (data?.success && data?.data?.prediction) {
+          return mapPredictionToAnalysisRecord(data.data.prediction);
+        }
+      } catch {}
+    }
 
     const found = mockStore.getAnalysisById(id);
-    if (found) return found;
+    if (found && (hasHttpAuthToken() || found.ownerUserId === GUEST_OWNER_ID || found.isDemoFixture)) {
+      return found;
+    }
     throw new Error(`Không tìm thấy phiên phân tích MRI mã ${id}`);
   },
 
-  // Tải file trực tiếp lên Cloudflare R2 và chạy suy luận mô hình ONNX
+  // Tải file trực tiếp lên Cloudflare R2 và chạy suy luận mô hình ONNX (chỉ đồng bộ server khi đã đăng nhập)
   async createAnalysis(
     payload: CreateAnalysisPayload,
     owner: UserProfile,
     previewObjectUrl: string,
     signal?: AbortSignal
   ): Promise<MRIAnalysisRecord> {
-    let aiResult: any = null;
-    try {
-      // 1. Chạy suy luận mô hình ONNX student thật (256x256, 4 lớp)
-      aiResult = await runMriOnnxInference(payload.file, payload.file.name);
+    // 1. Chạy suy luận mô hình ONNX student thật (256x256, 4 lớp) trực tiếp trên trình duyệt
+    const aiResult = await runMriOnnxInference(payload.file, payload.file.name);
 
+    const canSyncToCloud =
+      hasHttpAuthToken() && !owner.isDemoAccount && owner.id !== GUEST_OWNER_ID;
+
+    // Khách chưa đăng nhập: chỉ chạy ONNX cục bộ, KHÔNG tải lên R2/D1 và KHÔNG gửi sang hàng đợi Bác sĩ
+    if (!canSyncToCloud) {
+      return mockStore.createMockAnalysis(payload, owner, previewObjectUrl, aiResult);
+    }
+
+    try {
       // 2. Tải ảnh lên Cloudflare R2 Bucket qua endpoint POST /api/scans
       const formData = new FormData();
       formData.append('file', payload.file);
       formData.append('sliceType', 'Axial (Trục ngang)');
       formData.append('sequenceType', 'T1-Gd (Contrast)');
-      if (payload.targetPatientId) {
+      if (payload.targetPatientId && (owner.role === 'DOCTOR' || owner.role === 'ADMIN')) {
         formData.append('patientId', String(payload.targetPatientId));
       }
 
@@ -468,21 +486,25 @@ export const neuroscanAdapter = {
         return mapped;
       }
     } catch (err: any) {
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        throw new Error(
+          err?.response?.data?.error?.message ||
+            'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.',
+        );
+      }
       console.warn('[Real AI Pipeline Warning, continuing with client ONNX inference]:', err?.message);
     }
 
-    // Client ONNX execution fallback
-    if (!aiResult) {
-      aiResult = await runMriOnnxInference(payload.file, payload.file.name);
-    }
-    const record = mockStore.createMockAnalysis(payload, owner, previewObjectUrl, aiResult);
-    return record;
+    // Client ONNX execution fallback (khi chạy local không có Cloudflare Worker)
+    return mockStore.createMockAnalysis(payload, owner, previewObjectUrl, aiResult);
   },
 
   async deleteAnalysis(id: string, userId: string): Promise<void> {
-    try {
-      await httpClient.delete(`/predictions/${id}`);
-    } catch {}
+    if (hasHttpAuthToken() && userId !== GUEST_OWNER_ID) {
+      try {
+        await httpClient.delete(`/predictions/${id}`);
+      } catch {}
+    }
     mockStore.deleteAnalysis(id, userId);
   },
 
@@ -491,16 +513,21 @@ export const neuroscanAdapter = {
   },
 
   async requestDoctorReview(payload: RequestDoctorReviewPayload): Promise<MRIAnalysisRecord> {
+    if (!hasHttpAuthToken()) {
+      throw new Error('Vui lòng đăng nhập tài khoản để gửi yêu cầu Bác sĩ xem xét.');
+    }
     return mockStore.requestDoctorReview(payload);
   },
 
   async getDoctorCases(doctorId?: string): Promise<MRIAnalysisRecord[]> {
-    try {
-      const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
-      if (data?.success && Array.isArray(data?.data?.predictions) && data.data.predictions.length > 0) {
-        return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
-      }
-    } catch {}
+    if (hasHttpAuthToken()) {
+      try {
+        const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
+        if (data?.success && Array.isArray(data?.data?.predictions)) {
+          return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
+        }
+      } catch {}
+    }
 
     return mockStore.getDoctorAssignedCases(doctorId || '1');
   },

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ScanLine,
   CheckCircle2,
@@ -8,6 +8,10 @@ import {
   ArrowRight,
   Info,
   FileCheck,
+  RefreshCw,
+  Trash2,
+  ShieldAlert,
+  LogIn,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
@@ -15,34 +19,39 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { ErrorState } from '@/components/common/ErrorState';
 import {
   MRIUploader,
+  type MRIUploaderHandle,
   getImageDimensions,
 } from '@/components/medical/MRIUploader';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
-import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
+import { GUEST_OWNER_ID, neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 import { formatBytes, formatPercent, sanitizeMedicalFileName } from '@/utils/formatters';
 
-const PIPELINE_STEPS = [
-  {
-    id: 1,
-    title: 'Kiểm tra ảnh',
-    desc: 'Xác thực định dạng PNG/JPG/JPEG, kích thước và ẩn danh tên file.',
-  },
-  {
-    id: 2,
-    title: 'Tiền xử lý ảnh',
-    desc: 'Đưa ảnh về ma trận điểm ảnh [1, 3, 256, 256] với giá trị trong khoảng [0, 1].',
-  },
-  {
-    id: 3,
-    title: 'Suy luận ONNX',
-    desc: 'Chạy mô hình học sâu brain_mri_student.onnx phân loại 4 lớp.',
-  },
-  {
-    id: 4,
-    title: 'Hoàn thành & Lưu trữ',
-    desc: 'Lưu ảnh vào Cloudflare R2 và ghi kết quả vào D1 predictions.',
-  },
-];
+function getPipelineSteps(isAuthenticated: boolean) {
+  return [
+    {
+      id: 1,
+      title: 'Kiểm tra ảnh',
+      desc: 'Xác thực định dạng PNG/JPG/JPEG, kích thước và ẩn danh tên file.',
+    },
+    {
+      id: 2,
+      title: 'Tiền xử lý ảnh',
+      desc: 'Đưa ảnh về ma trận điểm ảnh [1, 3, 256, 256] với giá trị trong khoảng [0, 1].',
+    },
+    {
+      id: 3,
+      title: 'Suy luận ONNX',
+      desc: 'Chạy mô hình học sâu brain_mri_student.onnx phân loại 4 lớp.',
+    },
+    {
+      id: 4,
+      title: isAuthenticated ? 'Hoàn thành & Lưu trữ' : 'Hoàn thành (Cục bộ trên trình duyệt)',
+      desc: isAuthenticated
+        ? 'Lưu ảnh vào Cloudflare R2 và ghi kết quả vào D1 predictions.'
+        : 'Hiển thị kết quả trực tiếp trên trình duyệt — không gửi lên máy chủ hay Bác sĩ.',
+    },
+  ];
+}
 
 export const MRIAnalysisPage: React.FC = () => {
   const { user } = useAuth();
@@ -61,6 +70,8 @@ export const MRIAnalysisPage: React.FC = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const analysisRunRef = useRef(0);
   const analysisAbortRef = useRef<AbortController | null>(null);
+  const uploaderRef = useRef<MRIUploaderHandle | null>(null);
+  const pipelineSteps = useMemo(() => getPipelineSteps(Boolean(user)), [user]);
 
   // Cleanup blob preview URL to prevent memory leaks
   useEffect(() => {
@@ -87,7 +98,7 @@ export const MRIAnalysisPage: React.FC = () => {
     setCurrentStep(0);
   };
 
-  const handleClearFile = () => {
+  const handleClearImageOnly = () => {
     analysisRunRef.current += 1;
     analysisAbortRef.current?.abort();
     if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -98,10 +109,14 @@ export const MRIAnalysisPage: React.FC = () => {
     setValidationError(null);
     setPreviewLoadError(false);
     setIsValidatingFile(false);
-    setConsentChecked(false);
-    setSymptomNote('');
     setApiError(null);
     setCurrentStep(0);
+  };
+
+  const handleClearFile = () => {
+    handleClearImageOnly();
+    setConsentChecked(false);
+    setSymptomNote('');
   };
 
   const runAnalysis = async () => {
@@ -128,8 +143,8 @@ export const MRIAnalysisPage: React.FC = () => {
     }
 
     const effectiveUser = user ?? {
-      id: '2',
-      email: 'demo.user@neuroscan.vn',
+      id: GUEST_OWNER_ID,
+      email: 'guest@local.neuroscan',
       fullName: 'Khách truy cập (Chế độ Trải nghiệm)',
       role: 'USER' as const,
       organizationOrUnit: 'Cổng Trải nghiệm Công khai NeuroScan AI',
@@ -138,7 +153,7 @@ export const MRIAnalysisPage: React.FC = () => {
       preferences: {
         emailNotifications: false,
         doctorReviewAlerts: false,
-        saveHistoryConsent: true,
+        saveHistoryConsent: false,
         anonymizeExports: true,
       },
     };
@@ -166,7 +181,7 @@ export const MRIAnalysisPage: React.FC = () => {
       if (runId !== analysisRunRef.current || abortController.signal.aborted) return;
 
       const durablePreviewUrl =
-        neuroscanAdapter.isMockMode() && previewUrl.startsWith('blob:')
+        (!user || neuroscanAdapter.isMockMode()) && previewUrl.startsWith('blob:')
           ? (ownedRecordUrl = URL.createObjectURL(selectedFile))
           : previewUrl;
 
@@ -191,7 +206,9 @@ export const MRIAnalysisPage: React.FC = () => {
       showToast({
         variant: 'success',
         title: `Phân tích AI hoàn tất: ${createdRecord.predictedLabel}`,
-        description: `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận ONNX: ${createdRecord.modelMetadata.inferenceTimeMs}ms • Lưu trữ Cloudflare R2 & D1.`,
+        description: user
+          ? `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận ONNX: ${createdRecord.modelMetadata.inferenceTimeMs}ms • Lưu trữ Cloudflare R2 & D1.`
+          : `Độ tin cậy: ${formatPercent(createdRecord.confidenceScore)} • Suy luận ONNX cục bộ: ${createdRecord.modelMetadata.inferenceTimeMs}ms (Chưa lưu máy chủ).`,
       });
       navigate(`/mri-results/${createdRecord.id}`);
     } catch (err) {
@@ -214,8 +231,33 @@ export const MRIAnalysisPage: React.FC = () => {
       <PageHeader
         badgeText="Tính năng Trọng tâm • Tải lên & Phân tích MRI"
         title="Phân tích ảnh MRI sọ não (Hỗ trợ 4 lớp WHO CNS5)"
-        description="Tải lên ảnh lát cắt MRI (PNG, JPG, JPEG) từ thiết bị để thực hiện kiểm tra ma trận điểm ảnh, suy luận mô hình AI và lưu trữ an toàn trên Cloudflare R2 & D1."
+        description={
+          user
+            ? 'Tải lên ảnh lát cắt MRI (PNG, JPG, JPEG) từ thiết bị để thực hiện kiểm tra ma trận điểm ảnh, suy luận mô hình AI và lưu trữ an toàn trên Cloudflare R2 & D1.'
+            : 'Tải lên ảnh lát cắt MRI (PNG, JPG, JPEG) từ thiết bị để chạy thử suy luận mô hình AI ONNX trực tiếp trên trình duyệt (Chế độ Trải nghiệm Khách).'
+        }
       />
+
+      {!user && (
+        <div className="rounded-2xl border border-amber-500/35 bg-amber-50/80 dark:bg-amber-950/25 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-amber-950 dark:text-amber-200">
+          <div className="flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              <strong>Chế độ Trải nghiệm Khách (Chưa đăng nhập):</strong> Ảnh MRI của bạn được phân
+              tích <strong>100% cục bộ trên trình duyệt</strong>, <strong>không</strong> lưu lên
+              Cloudflare R2/D1 và <strong>không</strong> tự gửi tới Bác sĩ hay gán vào bất kỳ tài
+              khoản nào khác.
+            </p>
+          </div>
+          <Link
+            to="/login"
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Đăng nhập để lưu & gửi Bác sĩ</span>
+          </Link>
+        </div>
+      )}
 
       {/* 3-Area Desktop Layout: Left (Upload + Settings) & Right (MRI Preview + Pipeline Info) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -230,6 +272,7 @@ export const MRIAnalysisPage: React.FC = () => {
             </div>
 
             <MRIUploader
+              ref={uploaderRef}
               selectedFile={selectedFile}
               previewUrl={previewUrl}
               validationError={validationError}
@@ -237,7 +280,7 @@ export const MRIAnalysisPage: React.FC = () => {
               anonymizationScope={user?.id ?? 'anonymous'}
               onSelectFile={handleSelectFile}
               onValidationError={setValidationError}
-              onClearFile={handleClearFile}
+              onClearFile={handleClearImageOnly}
               onValidationStateChange={setIsValidatingFile}
             />
 
@@ -380,20 +423,43 @@ export const MRIAnalysisPage: React.FC = () => {
             </div>
 
             {selectedFile && (
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-900 p-3 rounded-xl border border-slate-800">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">TÊN FILE ĐÃ ẨN DANH</span>
-                  <span className="text-slate-200 truncate block">
-                    {sanitizeMedicalFileName(selectedFile.name, user?.id ?? 'anonymous')}
-                  </span>
+              <>
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-slate-900 p-3 rounded-xl border border-slate-800">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">TÊN FILE ĐÃ ẨN DANH</span>
+                    <span className="text-slate-200 truncate block">
+                      {sanitizeMedicalFileName(selectedFile.name, user?.id ?? 'anonymous')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">ĐỊNH DẠNG KIỂM TRA</span>
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <FileCheck className="w-3.5 h-3.5" /> Hợp lệ (Client)
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">ĐỊNH DẠNG KIỂM TRA</span>
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <FileCheck className="w-3.5 h-3.5" /> Hợp lệ (Client)
-                  </span>
+
+                <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    disabled={isAnalyzing || isValidatingFile}
+                    onClick={() => uploaderRef.current?.openFilePicker()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 active:scale-[0.98] disabled:opacity-50 transition-all duration-200 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-teal-400" />
+                    <span>Thay ảnh khác</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isAnalyzing || isValidatingFile}
+                    onClick={handleClearImageOnly}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.98] disabled:opacity-50 transition-all duration-200 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa ảnh</span>
+                  </button>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
@@ -416,7 +482,7 @@ export const MRIAnalysisPage: React.FC = () => {
             </div>
 
             <ol className="space-y-3 pt-1">
-              {PIPELINE_STEPS.map((step) => {
+              {pipelineSteps.map((step) => {
                 const isDone = currentStep > step.id;
                 const isActive = currentStep === step.id;
                 return (

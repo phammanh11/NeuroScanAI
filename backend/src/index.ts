@@ -397,16 +397,19 @@ app.post('/api/v1/auth/logout', handleLogout);
 // Tải ảnh MRI lên R2 và tạo bản ghi mri_scans (FR02, UC01 Bước 3)
 const handleUploadScan = async (c: any) => {
   try {
+    const user = await getAuthenticatedUser(c);
+    if (!user) {
+      return fail(c, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tải ảnh MRI lên hệ thống.', 401);
+    }
+
     const formData = await c.req.formData();
     const file = formData.get('file') as File | null;
-    const user = await getAuthenticatedUser(c);
+    const isDoctorOrAdmin = user.role === 'doctor' || user.role === 'admin';
     const requestedPatientId = Number(formData.get('patientId') || formData.get('patient_id'));
     const patientId =
-      !isNaN(requestedPatientId) && requestedPatientId > 0
+      isDoctorOrAdmin && !isNaN(requestedPatientId) && requestedPatientId > 0
         ? requestedPatientId
-        : user && user.role === 'patient'
-          ? user.id
-          : 2; // Mặc định patient id
+        : user.id;
     const sliceType = (formData.get('sliceType') as string) || 'Axial (Trục ngang)';
     const sequenceType = (formData.get('sequenceType') as string) || 'T1-Gd (Contrast)';
 
@@ -483,6 +486,11 @@ app.post('/api/v1/mri/upload', handleUploadScan);
 // Chạy và lưu kết quả phân loại AI (FR03, UC01 Bước 4, 5, 6)
 app.post('/api/predict', async (c) => {
   try {
+    const user = await getAuthenticatedUser(c);
+    if (!user) {
+      return fail(c, 'UNAUTHORIZED', 'Vui lòng đăng nhập để lưu kết quả phân tích MRI.', 401);
+    }
+
     const body = await c.req.json().catch(() => ({}));
     const scanId = Number(body.scan_id || body.scanId);
     let label: TumorLabel = body.label;
@@ -498,6 +506,10 @@ app.post('/api/predict', async (c) => {
     const scan = await c.env.DB.prepare('SELECT * FROM mri_scans WHERE id = ?').bind(scanId).first<MriScan>();
     if (!scan) {
       return fail(c, 'NOT_FOUND', 'Không tìm thấy bản ghi ảnh chụp MRI tương ứng', 404);
+    }
+
+    if (user.role === 'patient' && Number(scan.patient_id) !== Number(user.id)) {
+      return fail(c, 'FORBIDDEN', 'Bạn không có quyền phân tích ảnh MRI thuộc tài khoản khác.', 403);
     }
 
     // Nếu client chưa chạy ONNX Runtime Web, backend cung cấp phân loại suy luận chuẩn 4 lớp
@@ -577,11 +589,14 @@ app.post('/api/predict', async (c) => {
 // Lấy danh sách lịch sử chẩn đoán (FR04, Mục 1.8.7: GET /api/predictions)
 const handleListPredictions = async (c: any) => {
   const user = await getAuthenticatedUser(c);
+  if (!user) {
+    return fail(c, 'UNAUTHORIZED', 'Vui lòng đăng nhập để xem lịch sử phân tích MRI.', 401);
+  }
 
   let query = `
     SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.created_at,
            s.r2_key, s.file_name, s.file_size, s.slice_type, s.sequence_type, s.uploaded_at, s.patient_id,
-           COALESCE(u.full_name, 'Nguyễn Minh An') as patient_name,
+           COALESCE(u.full_name, 'Người dùng') as patient_name,
            r.id as review_id, r.confirmed_label, r.note as doctor_note, r.ai_assessment, r.created_at as reviewed_at,
            doc.full_name as doctor_name
     FROM predictions p
@@ -592,13 +607,15 @@ const handleListPredictions = async (c: any) => {
   `;
 
   // Nếu là patient thì chỉ xem dữ liệu của chính mình (Mục 1.8.9 Bảo mật)
-  if (user && user.role === 'patient') {
-    query += ` WHERE s.patient_id = ${user.id}`;
+  const isPatient = user.role === 'patient';
+  if (isPatient) {
+    query += ` WHERE s.patient_id = ?`;
   }
 
   query += ` ORDER BY p.created_at DESC`;
 
-  const { results }: any = await c.env.DB.prepare(query).all();
+  const stmt = c.env.DB.prepare(query);
+  const { results }: any = isPatient ? await stmt.bind(user.id).all() : await stmt.all();
 
   const formatted = (results || []).map((row: any) => ({
     id: row.id,
@@ -650,13 +667,18 @@ app.get('/api/v1/mri/scans', handleListPredictions);
 
 // Chi tiết một kết quả chẩn đoán (Mục 1.8.7: GET /api/predictions/:id)
 const handleGetPredictionDetail = async (c: any) => {
+  const user = await getAuthenticatedUser(c);
+  if (!user) {
+    return fail(c, 'UNAUTHORIZED', 'Vui lòng đăng nhập để xem chi tiết kết quả chẩn đoán MRI.', 401);
+  }
+
   const id = c.req.param('id');
   const predId = Number(id);
 
   const row: any = await c.env.DB.prepare(`
     SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.created_at,
            s.r2_key, s.file_name, s.file_size, s.slice_type, s.sequence_type, s.uploaded_at, s.patient_id,
-           COALESCE(u.full_name, 'Nguyễn Minh An') as patient_name,
+           COALESCE(u.full_name, 'Người dùng') as patient_name,
            r.id as review_id, r.confirmed_label, r.note as doctor_note, r.ai_assessment, r.recommended_step, r.created_at as reviewed_at,
            doc.full_name as doctor_name
     FROM predictions p
@@ -671,6 +693,10 @@ const handleGetPredictionDetail = async (c: any) => {
 
   if (!row) {
     return fail(c, 'NOT_FOUND', 'Không tìm thấy kết quả chẩn đoán MRI', 404);
+  }
+
+  if (user.role === 'patient' && Number(row.patient_id) !== Number(user.id)) {
+    return fail(c, 'FORBIDDEN', 'Bạn không có quyền truy cập kết quả phân tích của tài khoản khác.', 403);
   }
 
   const detail = {
@@ -724,15 +750,37 @@ app.get('/api/scans/:id', handleGetPredictionDetail);
 
 // Xóa bản ghi chẩn đoán / scan
 app.delete('/api/predictions/:id', async (c) => {
+  const user = await getAuthenticatedUser(c);
+  if (!user) {
+    return fail(c, 'UNAUTHORIZED', 'Vui lòng đăng nhập để xóa bản ghi chẩn đoán.', 401);
+  }
   const id = Number(c.req.param('id'));
+  const target: any = await c.env.DB.prepare(`
+    SELECT p.id, s.patient_id
+    FROM predictions p
+    JOIN mri_scans s ON s.id = p.scan_id
+    WHERE p.id = ?
+  `).bind(id).first();
+
+  if (target && user.role === 'patient' && Number(target.patient_id) !== Number(user.id)) {
+    return fail(c, 'FORBIDDEN', 'Bạn không có quyền xóa kết quả phân tích của tài khoản khác.', 403);
+  }
+
   await c.env.DB.prepare('DELETE FROM doctor_reviews WHERE prediction_id = ?').bind(id).run();
   await c.env.DB.prepare('DELETE FROM predictions WHERE id = ?').bind(id).run();
   return ok(c, { deleted: true, id }, 'Đã xóa bản ghi chẩn đoán');
 });
 
 app.delete('/api/scans/:id', async (c) => {
+  const user = await getAuthenticatedUser(c);
+  if (!user) {
+    return fail(c, 'UNAUTHORIZED', 'Vui lòng đăng nhập để xóa ảnh chụp MRI.', 401);
+  }
   const id = Number(c.req.param('id'));
-  const scan: any = await c.env.DB.prepare('SELECT r2_key FROM mri_scans WHERE id = ?').bind(id).first();
+  const scan: any = await c.env.DB.prepare('SELECT r2_key, patient_id FROM mri_scans WHERE id = ?').bind(id).first();
+  if (scan && user.role === 'patient' && Number(scan.patient_id) !== Number(user.id)) {
+    return fail(c, 'FORBIDDEN', 'Bạn không có quyền xóa ảnh chụp MRI của tài khoản khác.', 403);
+  }
   if (scan?.r2_key) {
     try {
       await c.env.BUCKET.delete(scan.r2_key);
@@ -749,9 +797,12 @@ app.delete('/api/scans/:id', async (c) => {
 // ============================================================================
 
 const handleSubmitReview = async (c: any) => {
-  const body = await c.req.json().catch(() => ({}));
   const user = await getAuthenticatedUser(c);
-  const doctorId = user ? user.id : 1;
+  if (!user || (user.role !== 'doctor' && user.role !== 'admin')) {
+    return fail(c, 'FORBIDDEN', 'Chỉ Bác sĩ chuyên khoa mới có quyền gửi nhận xét lâm sàng.', 403);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const doctorId = user.id;
   const predictionId = Number(body.prediction_id || body.predictionId || c.req.param('id'));
   const confirmedLabel: TumorLabel = body.confirmed_label || body.confirmedLabel || 'Glioma';
   const note = body.note || body.doctorNotes || body.clinicalNoteForPatient || '';
@@ -1038,6 +1089,14 @@ app.delete('/api/faq/:id', async (c) => {
 // ============================================================================
 // PATIENTS MANAGEMENT APIs (Hồ sơ Bệnh nhân dành cho Bác sĩ & Quản trị)
 // ============================================================================
+
+app.use('/api/patients*', async (c, next) => {
+  const user = await getAuthenticatedUser(c);
+  if (!user || (user.role !== 'doctor' && user.role !== 'admin')) {
+    return fail(c, 'FORBIDDEN', 'Chỉ Bác sĩ hoặc Quản trị viên mới có quyền truy cập hồ sơ bệnh nhân.', 403);
+  }
+  await next();
+});
 
 app.get('/api/patients', async (c) => {
   const { results }: any = await c.env.DB.prepare(`

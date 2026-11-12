@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   UploadCloud,
   FileImage,
-  X,
+  Trash2,
   AlertCircle,
   RefreshCw,
   ShieldCheck,
@@ -11,6 +11,10 @@ import {
 import { SYNTHETIC_MRI_SLICES } from '@/assets/mriIllustrations';
 import { formatBytes, sanitizeMedicalFileName } from '@/utils/formatters';
 import type { TumorLabel } from '@/types/domain';
+
+export interface MRIUploaderHandle {
+  openFilePicker: () => void;
+}
 
 interface MRIUploaderProps {
   selectedFile: File | null;
@@ -30,7 +34,7 @@ const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg'];
 const MAX_IMAGE_SIDE_PX = 8192;
 const MAX_IMAGE_PIXELS = 25_000_000;
 
-export const MRIUploader: React.FC<MRIUploaderProps> = ({
+export const MRIUploader = forwardRef<MRIUploaderHandle, MRIUploaderProps>(({
   selectedFile,
   previewUrl,
   validationError,
@@ -40,11 +44,18 @@ export const MRIUploader: React.FC<MRIUploaderProps> = ({
   onValidationError,
   onClearFile,
   onValidationStateChange,
-}) => {
+}, ref) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const validationRequestRef = useRef(0);
   const [isValidatingFile, setIsValidatingFile] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    openFilePicker: () => {
+      if (disabled || isValidatingFile) return;
+      inputRef.current?.click();
+    },
+  }), [disabled, isValidatingFile]);
 
   const setValidationState = (next: boolean) => {
     setIsValidatingFile(next);
@@ -219,53 +230,60 @@ export const MRIUploader: React.FC<MRIUploaderProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-slate-900 overflow-hidden shrink-0 border border-slate-700 flex items-center justify-center">
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="MRI thu nhỏ"
-                    onError={() => onValidationError('Không thể hiển thị ảnh xem trước. Vui lòng chọn lại file ảnh.')}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <FileImage className="w-6 h-6 text-teal-400" />
-                )}
+          <div className="space-y-3 text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0 w-full sm:flex-1">
+                <div className="w-12 h-12 rounded-xl bg-slate-900 overflow-hidden shrink-0 border border-slate-700 flex items-center justify-center">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="MRI thu nhỏ"
+                      onError={() => onValidationError('Không thể hiển thị ảnh xem trước. Vui lòng chọn lại file ảnh.')}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FileImage className="w-6 h-6 text-teal-400" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                    {sanitizeMedicalFileName(selectedFile.name, anonymizationScope)}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Dung lượng: {formatBytes(selectedFile.size)} • Tên hiển thị đã tự động ẩn danh
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  {sanitizeMedicalFileName(selectedFile.name, anonymizationScope)}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Dung lượng: {formatBytes(selectedFile.size)} • Tên hiển thị đã tự động ẩn danh
-                </p>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={isValidatingFile}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Thay ảnh
-              </button>
-              <button
-                type="button"
-                disabled={isValidatingFile}
-                onClick={() => {
-                  invalidatePendingValidation();
-                  onClearFile();
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
-              >
-                <X className="w-3.5 h-3.5" />
-                Xóa ảnh
-              </button>
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={isValidatingFile}
+                  aria-label="Thay ảnh MRI khác"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-teal-500/40 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 active:scale-[0.98] disabled:opacity-50 transition-all duration-200 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Thay ảnh</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isValidatingFile}
+                  aria-label="Xóa ảnh MRI đã chọn"
+                  onClick={() => {
+                    invalidatePendingValidation();
+                    onClearFile();
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.98] disabled:opacity-50 transition-all duration-200 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xóa ảnh</span>
+                </button>
+              </div>
             </div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              Mẹo: Bạn có thể kéo thả một ảnh mới trực tiếp vào khung này hoặc bấm <strong>Thay ảnh</strong> để đổi lát cắt.
+            </p>
           </div>
         )}
       </div>
@@ -289,7 +307,9 @@ export const MRIUploader: React.FC<MRIUploaderProps> = ({
       )}
     </div>
   );
-};
+});
+
+MRIUploader.displayName = 'MRIUploader';
 
 export function createSyntheticDemoFile(label: TumorLabel): {
   file: File;

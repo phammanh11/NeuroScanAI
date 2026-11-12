@@ -16,6 +16,10 @@ export function setHttpAuthToken(token: string | null) {
   inMemoryAccessToken = token;
 }
 
+export function hasHttpAuthToken(): boolean {
+  return Boolean(inMemoryAccessToken);
+}
+
 httpClient.interceptors.request.use((config) => {
   if (inMemoryAccessToken && config.headers) {
     config.headers.Authorization = `Bearer ${inMemoryAccessToken}`;

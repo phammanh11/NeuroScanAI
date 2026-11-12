@@ -332,10 +332,13 @@ class InMemoryMockStore {
   public getUserAnalyses(userId?: string): MRIAnalysisRecord[] {
     return this.analyses
       .filter((item) => {
-        if (!userId) return true;
+        if (userId === 'guest-session') {
+          return item.ownerUserId === 'guest-session';
+        }
+        if (!userId) return item.ownerUserId !== 'guest-session';
         if (item.ownerUserId === userId || item.patientId === 'pat-001') return true;
-        if (userId === '2' || userId === 'usr-demo-patient-01') return true;
-        return item.uploadedByRole !== 'DOCTOR';
+        if (userId === '2' || userId === 'usr-demo-patient-01') return item.ownerUserId !== 'guest-session';
+        return item.uploadedByRole !== 'DOCTOR' && item.ownerUserId !== 'guest-session';
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((item) => this.redactForUser(item));
@@ -383,10 +386,11 @@ class InMemoryMockStore {
     }, 1000);
     const newIndex = highestSessionNumber + 1;
 
-    // Phân biệt Bác sĩ upload qua Computer Vision hay Người dùng upload
-    const isDoctor = owner.role === 'DOCTOR';
+    // Phân biệt Khách chưa đăng nhập, Bác sĩ upload qua Computer Vision và Người dùng đăng nhập
+    const isGuest = owner.id === 'guest-session';
+    const isDoctor = !isGuest && owner.role === 'DOCTOR';
     let targetPatient: PatientRecord | undefined;
-    if (payload.targetPatientId) {
+    if (!isGuest && payload.targetPatientId) {
       targetPatient = this.patients.find((p) => p.id === payload.targetPatientId);
     } else if (isDoctor) {
       targetPatient = this.patients[0];
@@ -408,14 +412,20 @@ class InMemoryMockStore {
     const record: MRIAnalysisRecord = {
       id: this.createId('ana-real'),
       sessionCode: `NS-2026-${newIndex}`,
-      ownerUserId: targetPatient?.linkedUserId || (isDoctor ? 'usr-demo-patient-01' : owner.id),
-      ownerDisplayCode: targetPatient
-        ? `${targetPatient.patientCode} (${targetPatient.fullName})`
-        : `BN-${owner.id.slice(-8).toUpperCase()}`,
+      ownerUserId: isGuest
+        ? 'guest-session'
+        : targetPatient?.linkedUserId || (isDoctor ? 'usr-demo-patient-01' : owner.id),
+      ownerDisplayCode: isGuest
+        ? 'Khách truy cập (Trải nghiệm cục bộ)'
+        : targetPatient
+          ? `${targetPatient.patientCode} (${targetPatient.fullName})`
+          : `BN-${owner.id.slice(-8).toUpperCase()}`,
       uploadedByRole: isDoctor ? 'DOCTOR' : 'USER',
       uploadedDoctorId: isDoctor ? owner.id : undefined,
       uploadedDoctorName: isDoctor ? owner.fullName : undefined,
-      patientId: targetPatient?.id || (owner.id === 'usr-demo-patient-01' ? 'pat-001' : undefined),
+      patientId: isGuest
+        ? undefined
+        : targetPatient?.id || (owner.id === 'usr-demo-patient-01' ? 'pat-001' : undefined),
       originalFileName: payload.file.name.replace(/[\r\n\t]/g, ' ').trim(),
       sanitizedFileName: sanitizeMedicalFileName(payload.file.name, owner.id),
       fileFormat,
@@ -451,16 +461,19 @@ class InMemoryMockStore {
   }
 
   public deleteAnalysis(id: string, userId: string): boolean {
-    const session = this.currentSession;
-    if (!session) return false;
-    
     const idx = this.analyses.findIndex((item) => item.id === id);
     if (idx === -1) return false;
 
     const target = this.analyses[idx];
+    const isGuestDelete = target.ownerUserId === 'guest-session' && userId === 'guest-session';
+    const session = this.currentSession;
+    if (!isGuestDelete && !session) return false;
+
     const canDelete =
-      (session.user.role === 'USER' && target.ownerUserId === userId) ||
-      (session.user.role === 'DOCTOR' && target.uploadedDoctorId === userId);
+      isGuestDelete ||
+      (session &&
+        ((session.user.role === 'USER' && target.ownerUserId === userId) ||
+          (session.user.role === 'DOCTOR' && target.uploadedDoctorId === userId)));
 
     if (!canDelete) return false;
 
@@ -515,13 +528,16 @@ class InMemoryMockStore {
     return structuredClone(
       this.analyses
         .filter((item) => {
-          if (!doctorId) return true;
+          // Không bao giờ đưa phiên trải nghiệm của khách chưa đăng nhập vào hàng đợi Bác sĩ
+          if (item.ownerUserId === 'guest-session') return false;
+          if (!item.patientSharedConsent && item.uploadedDoctorId !== doctorId && item.assignedDoctorId !== doctorId) {
+            return false;
+          }
+          if (!doctorId) return item.patientSharedConsent;
           return (
             item.patientSharedConsent ||
             item.uploadedDoctorId === doctorId ||
-            item.assignedDoctorId === doctorId ||
-            doctorId === '1' ||
-            doctorId === 'usr-doctor-demo-01'
+            item.assignedDoctorId === doctorId
           );
         })
         .sort((a, b) => {
