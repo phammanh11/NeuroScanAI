@@ -57,10 +57,11 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
   });
 
   useEffect(() => {
+    setActiveTab('original');
     setImageErrors({ original: false, preprocessed: false, gradcam: false });
     setZoom(1);
     setPan({ x: 0, y: 0 });
-  }, [imageUrl, preprocessedImageUrl, gradcamUrl]);
+  }, [imageUrl, preprocessedImageUrl, gradcamUrl, sessionCode]);
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.25, 3));
   const handleZoomOut = () => {
