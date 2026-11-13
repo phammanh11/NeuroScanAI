@@ -43,6 +43,7 @@ function detectEmergencyRedFlags(normMsg: string): boolean {
 }
 
 function isNeuroScanScope(norm: string): boolean {
+  const words = new Set(norm.split(/\s+/));
   const scopeTerms = [
     // U não & 4 nhóm tổn thương
     'glioma', 'meningioma', 'pituitary', 'no tumor', 'u nao', 'khoi u', 'ung thu nao',
@@ -66,7 +67,9 @@ function isNeuroScanScope(norm: string): boolean {
     'ket qua', 'who cns5', 'acr', 'tro ly', 'khao sat'
   ];
 
-  return scopeTerms.some((term) => norm.includes(term));
+  return scopeTerms.some((term) =>
+    term.length <= 3 ? words.has(term) : norm.includes(term)
+  );
 }
 
 function classifyMedicalIntent(message: string): {
@@ -79,16 +82,18 @@ function classifyMedicalIntent(message: string): {
     return { intent: 'emergency_alert', urgency: 'emergency' };
   }
 
-  // Chặn và từ chối các câu hỏi về số điện thoại / danh bạ liên hệ cá nhân (không có trong DB)
-  if (
+  // Chặn và từ chối các câu hỏi tra cứu danh bạ / số điện thoại cá nhân (không có trong DB)
+  const isContactLookup =
     norm.includes('so dien thoai') ||
+    norm.includes('so dt') ||
     norm.includes('sdt') ||
-    norm.includes('dien thoai') ||
-    norm.includes('phone') ||
-    norm.includes('hotline') ||
+    norm.includes('phone number') ||
+    norm.includes('so hotline') ||
     norm.includes('lien he qua so') ||
-    /(?:^|\D)0\d{9,10}(?:\D|$)/.test(message)
-  ) {
+    norm.includes('goi dien qua so') ||
+    (/(?:tra cuu|tim|kiem tra|theo|sdt).*?0\d{9,10}/.test(norm) && !norm.includes('gia') && !norm.includes('mua'));
+
+  if (isContactLookup) {
     return { intent: 'unsupported_contact_query', urgency: 'informational' };
   }
 

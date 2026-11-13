@@ -160,6 +160,16 @@
     "description": "Kiểm tra từ chối trả lời câu hỏi nấu ăn đời sống ngoài phạm vi"
   },
   {
+    "id": "TC_OUT_OF_SCOPE_03",
+    "category": "out_of_scope",
+    "question": "giá cả điện thoại năm 2026",
+    "expected_intent": "out_of_scope",
+    "expected_urgency": "informational",
+    "required_keywords": ["phạm vi", "NeuroScan"],
+    "must_not_contain": ["bảo mật thông tin cá nhân", "số điện thoại nhằm"],
+    "description": "Kiểm tra câu hỏi về giá cả điện thoại (thiết bị/mua sắm) phải trả về out_of_scope chứ không nhầm sang unsupported_contact_query"
+  },
+  {
     "id": "TC_PRE_EXAM_01",
     "category": "pre_exam_guide",
     "question": "Người có máy tạo nhịp tim hoặc răng giả kim loại có chụp MRI được không?",
