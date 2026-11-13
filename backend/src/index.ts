@@ -66,12 +66,33 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// In-memory Rate Limiter fallback khi chạy dev / local
+const localRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function checkLocalRateLimit(key: string, maxRequests = 30, windowMs = 60000): boolean {
+  const now = Date.now();
+  const entry = localRateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    localRateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (entry.count >= maxRequests) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
 // 3. Rate Limiting Middleware cho các Endpoint tốn tài nguyên (Mục 1.8.5 & 1.8.9)
 app.use('/api/predict', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
   if (c.env.RATE_LIMITER && typeof c.env.RATE_LIMITER.limit === 'function') {
-    const ip = c.req.header('cf-connecting-ip') || '127.0.0.1';
     const { success } = await c.env.RATE_LIMITER.limit({ key: `predict:${ip}` });
     if (!success) {
+      return fail(c, 'RATE_LIMIT_EXCEEDED', 'Tần suất gửi yêu cầu chẩn đoán quá nhanh. Vui lòng đợi trong giây lát.', 429);
+    }
+  } else {
+    const allowed = checkLocalRateLimit(`predict:${ip}`, 20, 60000);
+    if (!allowed) {
       return fail(c, 'RATE_LIMIT_EXCEEDED', 'Tần suất gửi yêu cầu chẩn đoán quá nhanh. Vui lòng đợi trong giây lát.', 429);
     }
   }
@@ -79,10 +100,15 @@ app.use('/api/predict', async (c, next) => {
 });
 
 app.use('/api/chat', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
   if (c.env.RATE_LIMITER && typeof c.env.RATE_LIMITER.limit === 'function') {
-    const ip = c.req.header('cf-connecting-ip') || '127.0.0.1';
     const { success } = await c.env.RATE_LIMITER.limit({ key: `chat:${ip}` });
     if (!success) {
+      return fail(c, 'RATE_LIMIT_EXCEEDED', 'Tần suất gửi câu hỏi quá nhanh. Vui lòng đợi trong giây lát.', 429);
+    }
+  } else {
+    const allowed = checkLocalRateLimit(`chat:${ip}`, 30, 60000);
+    if (!allowed) {
       return fail(c, 'RATE_LIMIT_EXCEEDED', 'Tần suất gửi câu hỏi quá nhanh. Vui lòng đợi trong giây lát.', 429);
     }
   }
@@ -849,13 +875,14 @@ const handleChat = async (c: any) => {
   const sessionId = Number(body.sessionId || body.session_id || 1);
   const user = await getAuthenticatedUser(c);
   const userId = user ? user.id : 2;
+  const userRole = user ? user.role : 'patient';
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return fail(c, 'EMPTY_MESSAGE', 'Nội dung câu hỏi không được để trống.', 400);
   }
 
   // Chạy quy trình RAG (Vectorize/Embedding/Workers AI LLM) và ghi đồng bộ cặp tin nhắn user + bot vào D1
-  const responseData = await handleMedicalChat(c, message, history, sessionId, userId);
+  const responseData = await handleMedicalChat(c, message, history, sessionId, userId, userRole);
   return ok(c, responseData);
 };
 

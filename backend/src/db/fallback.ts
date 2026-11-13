@@ -389,12 +389,17 @@ export function createFallbackD1(): D1Database {
             }
 
             let res = [...memoryStore.predictions];
-            if (sql.includes('where p.id = ?') || sql.includes('where id = ?')) {
-              res = res.filter(
-                (p) => p.id === Number(boundParams[0]) || p.scan_id === Number(boundParams[1] ?? boundParams[0])
-              );
-            } else if (sql.includes('where p.scan_id = ?') || sql.includes('where scan_id = ?')) {
-              res = res.filter((p) => p.scan_id === Number(boundParams[0]));
+            if (sql.includes('s.patient_id = ?')) {
+              const pid = Number(boundParams[0]);
+              res = res.filter((p) => {
+                const scan = memoryStore.mri_scans.find((s) => s.id === p.scan_id);
+                return scan?.patient_id === pid || p.id === pid;
+              });
+            } else if (sql.includes('p.id = ?') || sql.includes('p.scan_id = ?') || sql.includes('where id = ?')) {
+              const ids = boundParams.map(Number).filter((n) => !isNaN(n));
+              if (ids.length > 0) {
+                res = res.filter((p) => ids.includes(p.id) || ids.includes(p.scan_id));
+              }
             }
 
             const joined = res.map((pred) => {

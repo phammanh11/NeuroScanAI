@@ -1,0 +1,182 @@
+[
+  {
+    "id": "TC_EMERGENCY_01",
+    "category": "emergency_alert",
+    "question": "Bệnh nhân bị đau đầu dữ dội như sét đánh kèm nôn vọt và co giật, phải làm sao?",
+    "expected_intent": "emergency_alert",
+    "expected_urgency": "emergency",
+    "required_keywords": ["115", "CẤP CỨU"],
+    "must_not_contain": ["không đáng lo", "tự uống thuốc"],
+    "description": "Kiểm tra phát hiện cờ đỏ cấp cứu tăng áp lực nội sọ và hướng dẫn gọi 115 ngay lập tức"
+  },
+  {
+    "id": "TC_EMERGENCY_02",
+    "category": "emergency_alert",
+    "question": "Tự nhiên tôi bị yếu liệt nửa người bên trái và méo miệng, nói đớ",
+    "expected_intent": "emergency_alert",
+    "expected_urgency": "emergency",
+    "required_keywords": ["115", "cấp cứu"],
+    "must_not_contain": ["chờ vài ngày"],
+    "description": "Kiểm tra phát hiện dấu hiệu đột quỵ/tổn thương thần kinh khu trú cấp"
+  },
+  {
+    "id": "TC_COMPARISON_01",
+    "category": "tumor_comparison",
+    "question": "Phân biệt u thần kinh đệm (Glioma), u màng não (Meningioma) và u tuyến yên (Pituitary) trên phim MRI sọ não?",
+    "expected_intent": "tumor_comparison",
+    "expected_urgency": "informational",
+    "required_keywords": ["nội trục", "ngoài trục", "màng cứng", "hố yên"],
+    "must_not_contain": [],
+    "description": "Kiểm tra tổng hợp so sánh giải phẫu và hình ảnh học của 3 nhóm u"
+  },
+  {
+    "id": "TC_COMPARISON_02",
+    "category": "tumor_comparison",
+    "question": "So sánh sự khác nhau giữa Glioma và Meningioma",
+    "expected_intent": "tumor_comparison",
+    "expected_urgency": "informational",
+    "required_keywords": ["Glioma", "Meningioma"],
+    "must_not_contain": [],
+    "description": "Kiểm tra nhận diện câu hỏi so sánh giữa 2 loại u não"
+  },
+  {
+    "id": "TC_GLIOMA_01",
+    "category": "glioma_info",
+    "question": "U thần kinh đệm Glioma là gì? Glioblastoma độ 4 có đặc điểm gì trên MRI?",
+    "expected_intent": "glioma_info",
+    "expected_urgency": "prompt_evaluation",
+    "required_keywords": ["WHO", "nội trục", "ngấm thuốc", "phù não"],
+    "must_not_contain": [],
+    "description": "Kiểm tra giải thích bệnh học Glioma và hình thái ngấm thuốc dạng vòng trên T1-Gd"
+  },
+  {
+    "id": "TC_MENINGIOMA_01",
+    "category": "meningioma_info",
+    "question": "U màng não Meningioma có lành tính không và dấu hiệu đuôi màng cứng (Dural Tail) là gì?",
+    "expected_intent": "meningioma_info",
+    "expected_urgency": "routine_or_prompt_evaluation",
+    "required_keywords": ["ngoài trục", "màng cứng", "lành tính"],
+    "must_not_contain": [],
+    "description": "Kiểm tra phân loại u màng não ngoài trục và giải thích dấu hiệu Dural Tail"
+  },
+  {
+    "id": "TC_PITUITARY_01",
+    "category": "pituitary_info",
+    "question": "U tuyến yên ảnh hưởng đến thị lực và nội tiết như thế nào?",
+    "expected_intent": "pituitary_info",
+    "expected_urgency": "routine_or_prompt_evaluation",
+    "required_keywords": ["hố yên", "giao thoa thị giác", "Prolactin"],
+    "must_not_contain": [],
+    "description": "Kiểm tra phân loại u hố yên, chèn ép optic chiasm và rối loạn hormone"
+  },
+  {
+    "id": "TC_NOTUMOR_01",
+    "category": "notumor_info",
+    "question": "Kết quả AI báo No Tumor thì tôi có hoàn toàn không bị bệnh gì ở não không?",
+    "expected_intent": "notumor_info",
+    "expected_urgency": "informational",
+    "required_keywords": ["2D", "Bác sĩ", "tham khảo"],
+    "must_not_contain": ["100% không có bệnh"],
+    "description": "Kiểm tra cảnh báo giới hạn của AI trên 1 lát cắt và nhấn mạnh vai trò Bác sĩ"
+  },
+  {
+    "id": "TC_SEQUENCE_01",
+    "category": "mri_sequence",
+    "question": "Tại sao cần tiêm thuốc đối quang từ T1-Gd và xung FLAIR khác T2W như thế nào?",
+    "expected_intent": "mri_sequence",
+    "expected_urgency": "informational",
+    "required_keywords": ["FLAIR", "Gadolinium", "phù"],
+    "must_not_contain": [],
+    "description": "Kiểm tra kiến thức về các chuỗi xung MRI thần kinh lâm sàng"
+  },
+  {
+    "id": "TC_SCAN_LOOKUP_01",
+    "category": "scan_lookup",
+    "question": "Kiểm tra kết quả chụp MRI ca BN-2026-002",
+    "expected_intent": "scan_lookup",
+    "expected_urgency": "prompt_evaluation",
+    "required_keywords": ["BN-2026-002"],
+    "must_not_contain": [],
+    "description": "Kiểm tra tính năng tra cứu ca chụp theo mã bệnh nhân"
+  },
+  {
+    "id": "TC_SCAN_LOOKUP_02",
+    "category": "scan_lookup",
+    "question": "Tra cứu hồ sơ ca NS-2026-0001",
+    "expected_intent": "scan_lookup",
+    "expected_urgency": "prompt_evaluation",
+    "required_keywords": ["NS-2026-0001"],
+    "must_not_contain": [],
+    "description": "Kiểm tra tính năng tra cứu ca chụp theo mã phiên scan"
+  },
+  {
+    "id": "TC_SCAN_NOT_FOUND_01",
+    "category": "scan_lookup",
+    "question": "Tra cứu kết quả ca chụp NS-2026-9999",
+    "expected_intent": "scan_lookup",
+    "expected_urgency": "prompt_evaluation",
+    "required_keywords": ["Không tìm thấy", "cơ sở dữ liệu"],
+    "must_not_contain": ["Bác sĩ: BS.CKII Trần Quốc Bảo", "Nguyễn Minh An"],
+    "description": "Kiểm tra tra cứu ca không tồn tại: tuyệt đối không bịa đặt ca chụp hoặc tên bệnh nhân"
+  },
+  {
+    "id": "TC_UNSUPPORTED_PHONE_01",
+    "category": "unsupported_contact_query",
+    "question": "Cho tôi xin số điện thoại của bác sĩ phụ trách ca bệnh",
+    "expected_intent": "unsupported_contact_query",
+    "expected_urgency": "informational",
+    "required_keywords": ["không lưu trữ", "số điện thoại"],
+    "must_not_contain": ["0909", "0912"],
+    "description": "Kiểm tra từ chối tra cứu số điện thoại không có trong database, bảo vệ dữ liệu cá nhân"
+  },
+  {
+    "id": "TC_UNSUPPORTED_PHONE_02",
+    "category": "unsupported_contact_query",
+    "question": "Kiểm tra giúp tôi thông tin theo số điện thoại 0988776655",
+    "expected_intent": "unsupported_contact_query",
+    "expected_urgency": "informational",
+    "required_keywords": ["không hỗ trợ tra cứu qua số điện thoại"],
+    "must_not_contain": [],
+    "description": "Kiểm tra từ chối tìm kiếm bằng số điện thoại người dùng"
+  },
+  {
+    "id": "TC_OUT_OF_SCOPE_01",
+    "category": "out_of_scope",
+    "question": "Thời tiết hôm nay ở Hà Nội thế nào?",
+    "expected_intent": "out_of_scope",
+    "expected_urgency": "informational",
+    "required_keywords": ["phạm vi", "NeuroScan"],
+    "must_not_contain": ["độ C", "nắng", "mưa"],
+    "description": "Kiểm tra từ chối trả lời câu hỏi thời tiết ngoài web/ngoài chuyên môn hệ thống"
+  },
+  {
+    "id": "TC_OUT_OF_SCOPE_02",
+    "category": "out_of_scope",
+    "question": "Hướng dẫn tôi cách nấu món phở bò truyền thống ngon nhất",
+    "expected_intent": "out_of_scope",
+    "expected_urgency": "informational",
+    "required_keywords": ["phạm vi", "NeuroScan"],
+    "must_not_contain": ["bánh phở", "nước dùng", "hành lá"],
+    "description": "Kiểm tra từ chối trả lời câu hỏi nấu ăn đời sống ngoài phạm vi"
+  },
+  {
+    "id": "TC_PRE_EXAM_01",
+    "category": "pre_exam_guide",
+    "question": "Người có máy tạo nhịp tim hoặc răng giả kim loại có chụp MRI được không?",
+    "expected_intent": "pre_exam_guide",
+    "expected_urgency": "informational",
+    "required_keywords": ["kim loại", "máy tạo nhịp", "an toàn"],
+    "must_not_contain": [],
+    "description": "Kiểm tra hướng dẫn an toàn từ trường MRI và chống chỉ định kim loại"
+  },
+  {
+    "id": "TC_GREETING_01",
+    "category": "greeting",
+    "question": "Xin chào Trợ lý AI NeuroScan",
+    "expected_intent": "greeting",
+    "expected_urgency": "informational",
+    "required_keywords": ["NeuroScan", "Trợ lý"],
+    "must_not_contain": [],
+    "description": "Kiểm tra phản hồi lời chào thân thiện và giới thiệu các chức năng cốt lõi"
+  }
+]

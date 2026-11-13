@@ -26,6 +26,8 @@ export interface RagChunkRecord {
   category: string;
   title: string;
   content: string;
+  source?: string;
+  url?: string;
   metadata?: Record<string, any>;
 }
 
@@ -59,11 +61,15 @@ export const STATIC_KNOWLEDGE_DOCUMENTS: Array<{
   category: string;
   title: string;
   content: string;
+  source: string;
+  url: string;
 }> = [
   {
     doc_id: 'doc-who-glioma',
     category: 'tumor_classification',
     title: 'Phân loại U thần kinh đệm (Glioma) theo tiêu chuẩn WHO CNS5',
+    source: 'WHO CNS5 (2021) Classification of Tumors of the Central Nervous System',
+    url: 'https://radiopaedia.org/articles/glioma',
     content: `U thần kinh đệm (Glioma) là nhóm u não nguyên phát nội trục (intra-axial) khởi phát từ các tế bào thần kinh đệm nâng đỡ nhu mô não (tế bào hình sao Astrocytes, tế bào ít nhánh Oligodendrocytes hoặc tế bào nội tủy Ependymal cells).
 Theo phân loại WHO CNS5 (2021), Glioma được chia thành u thần kinh đệm bậc thấp (WHO độ 1-2, tiến triển chậm) và bậc cao (WHO độ 3-4, ác tính như Glioblastoma IDH-wildtype).
 Đặc điểm trên ảnh chụp MRI sọ não:
@@ -76,6 +82,8 @@ Hướng xử trí tham khảo: Cần hội chẩn Bác sĩ Chẩn đoán hình 
     doc_id: 'doc-who-meningioma',
     category: 'tumor_classification',
     title: 'Phân loại U màng não (Meningioma) & Dấu hiệu Đuôi màng cứng (Dural Tail)',
+    source: 'National Cancer Institute (NCI) & Radiopaedia Guidelines',
+    url: 'https://radiopaedia.org/articles/meningioma',
     content: `U màng não (Meningioma) là khối u ngoài trục (extra-axial) phổ biến nhất của hệ thần kinh trung ương, xuất phát từ các tế bào màng nhện (arachnoid cap cells) của màng cứng bao quanh não và tủy sống.
 Khoảng 80-85% u màng não là lành tính (WHO độ 1), tiến triển rất chậm qua nhiều năm; khoảng 15% là không điển hình (WHO độ 2) và 1-3% là ác tính (WHO độ 3).
 Đặc điểm nhận diện điển hình trên ảnh MRI:
@@ -88,6 +96,8 @@ Hướng xử trí tham khảo: Với u màng não nhỏ không triệu chứng,
     doc_id: 'doc-who-pituitary',
     category: 'tumor_classification',
     title: 'U tuyến yên (Pituitary Adenoma) & Biểu hiện Nội tiết - Thị giác',
+    source: 'Endocrine Society & NHS Clinical Guidelines',
+    url: 'https://radiopaedia.org/articles/pituitary-adenoma',
     content: `U tuyến yên (Pituitary Adenoma / Pituitary Neuroendocrine Tumor - PitNET) là khối u phát sinh từ thùy trước tuyến yên nằm trong hố yên (sella turcica) ở nền sọ. Đa số u tuyến yên là lành tính.
 Phân loại theo kích thước trên MRI:
 - Microadenoma (U tuyến yên kích thước nhỏ): Đường kính < 10 mm, khu trú gọn trong lòng hố yên.
@@ -101,6 +111,8 @@ Hướng xử trí tham khảo: Cần chụp MRI vùng hố yên mỏng (Dynamic
     doc_id: 'doc-who-notumor',
     category: 'tumor_classification',
     title: 'Ý nghĩa nhãn No Tumor (Không phát hiện khối u điển hình) & Giới hạn của AI',
+    source: 'American College of Radiology (ACR) Appropriateness Criteria',
+    url: 'https://www.acr.org/Clinical-Resources/ACR-Appropriateness-Criteria',
     content: `Nhãn "No Tumor" (Không phát hiện khối u điển hình) trong hệ thống NeuroScan AI cho biết trên lát cắt 2D hiện tại, mô hình Computer Vision không ghi nhận vùng bất thường mang đặc trưng của 3 nhóm u não mục tiêu (Glioma, Meningioma, Pituitary).
 Trên hình ảnh MRI sọ não bình thường:
 - Nhu mô chất xám vỏ não và chất trắng dưới vỏ phân biệt rõ, tín hiệu đồng nhất.
@@ -115,6 +127,8 @@ LƯU Ý AN TOÀN Y KHOA QUAN TRỌNG:
     doc_id: 'doc-mri-sequences',
     category: 'mri_ai_explanation',
     title: 'Giải thích các chuỗi xung MRI sọ não: T1W, T2W, FLAIR, T1-Gd, DWI và MRS',
+    source: 'American College of Radiology (ACR) Brain MRI Protocol',
+    url: 'https://radiopaedia.org/articles/mri-sequences-overview',
     content: `Một bộ chụp Cộng hưởng từ (MRI) sọ não lâm sàng tiêu chuẩn bao gồm nhiều chuỗi xung và mặt phẳng cắt (Axial - ngang, Coronal - đứng ngang, Sagittal - đứng dọc):
 1. T1-weighted (T1W): Đánh giá giải phẫu cấu trúc não rất tốt. Dịch não tủy (CSF) có màu đen (giảm tín hiệu), chất trắng sáng hơn chất xám.
 2. T2-weighted (T2W): Dịch não tủy và các vùng phù não, dịch ngoại bào có màu trắng sáng (tăng tín hiệu). Giúp phát hiện nhanh vùng tổn thương nhu mô.
@@ -126,6 +140,8 @@ LƯU Ý AN TOÀN Y KHOA QUAN TRỌNG:
     doc_id: 'doc-cv-pipeline',
     category: 'mri_ai_explanation',
     title: 'Quy trình xử lý ảnh MRI, suy luận ONNX và giới hạn hiện tại của hệ thống',
+    source: 'NeuroScan AI Technical Architecture & Model Specifications',
+    url: 'https://github.com/phammanh11/NeuroScanAI',
     content: `Hệ thống NeuroScan AI hỗ trợ sàng lọc ảnh MRI sọ não theo quy trình sau:
 1. Kiểm tra ảnh đầu vào: Xác thực định dạng PNG/JPG/JPEG và dung lượng tệp.
 2. Tiền xử lý: Đưa ảnh về kích thước 256x256, hiệu chỉnh nhẹ cho ảnh có nền sáng.
@@ -136,6 +152,8 @@ LƯU Ý AN TOÀN Y KHOA QUAN TRỌNG:
     doc_id: 'doc-emergency-redflags',
     category: 'symptoms',
     title: 'Dấu hiệu Cờ đỏ Cấp cứu Thần kinh (Red Flags) & Hội chứng Tăng áp lực nội sọ',
+    source: 'Bộ Y tế Việt Nam & WHO — Phác đồ Cấp cứu Thần kinh',
+    url: 'https://kcb.vn',
     content: `Hội chứng tăng áp lực nội sọ (Increased Intracranial Pressure - ICP) và các biến chứng chèn ép thần kinh cấp tính là tình trạng CẤP CỨU Y KHOA cần được xử trí ngay lập tức tại bệnh viện.
 Các dấu hiệu Cờ đỏ (Red Flags) bắt buộc phải gọi Cấp cứu 115 hoặc đến Khoa Cấp cứu ngay:
 - Đau đầu dữ dội khởi phát đột ngột như sét đánh ("thunderclap headache") hoặc đau đầu tăng dần kèm nôn vọt (đặc biệt vào buổi sáng sớm).
@@ -150,6 +168,8 @@ Khi xuất hiện bất kỳ dấu hiệu nào trên đây, người bệnh TUY�
     doc_id: 'doc-mri-preparation',
     category: 'faq_visit_guide',
     title: 'Hướng dẫn chuẩn bị trước khi chụp Cộng hưởng từ (MRI) sọ não & An toàn từ trường',
+    source: 'ACR Guidance Document on MR Safe Practices',
+    url: 'https://www.acr.org/Clinical-Resources/Radiology-Safety/MR-Safety',
     content: `Máy chụp Cộng hưởng từ (MRI) sử dụng từ trường rất mạnh (1.5 Tesla hoặc 3.0 Tesla) và sóng vô tuyến, hoàn toàn không dùng tia X. Để đảm bảo an toàn tuyệt đối và chất lượng ảnh sắc nét, người bệnh cần lưu ý:
 1. Sàng lọc vật liệu kim loại & Thiết bị cấy ghép (Chống chỉ định quan trọng):
    - Phải thông báo ngay cho Bác sĩ và Kỹ thuật viên nếu trong cơ thể có: máy tạo nhịp tim (pacemaker), máy khử rung tim cấy ghép (ICD), ốc tai điện tử, kẹp phình mạch não bằng kim loại từ tính, mảnh đạn/mảnh kim loại trong hốc mắt, hoặc van tim nhân tạo thế hệ cũ.
@@ -164,6 +184,8 @@ Khi xuất hiện bất kỳ dấu hiệu nào trên đây, người bệnh TUY�
     doc_id: 'doc-doctor-review-workflow',
     category: 'sources_safety',
     title: 'Quy trình Bác sĩ Chuyên khoa Xem xét (Doctor-in-the-Loop) & Hồ sơ Bệnh nhân trên NeuroScan',
+    source: 'NeuroScan AI Clinical Protocol & Quality Assurance',
+    url: 'https://github.com/phammanh11/NeuroScanAI',
     content: `NeuroScan AI vận hành theo mô hình "Doctor-in-the-Loop" (Bác sĩ giữ vai trò quyết định trung tâm) nhằm đảm bảo an toàn y khoa cao nhất:
 1. Tải ảnh & Sàng lọc AI ban đầu: Bệnh nhân hoặc Bác sĩ tải lát cắt MRI lên hệ thống. Mô hình học sâu tính phân phối điểm tự tin trên 4 nhãn.
 2. Gửi yêu cầu Bác sĩ Chuyên khoa Xem xét: Bệnh nhân có thể đính kèm ghi chú triệu chứng lâm sàng và gửi ca chụp vào Hàng đợi Xem xét của Bác sĩ Chẩn đoán hình ảnh Thần kinh.
@@ -230,6 +252,8 @@ export async function buildKnowledgeChunks(env: any): Promise<RagChunkRecord[]> 
         category: doc.category,
         title: doc.title,
         content: `[${doc.title}]\n${piece}`,
+        source: doc.source,
+        url: doc.url,
       });
     });
   }
@@ -250,6 +274,8 @@ export async function buildKnowledgeChunks(env: any): Promise<RagChunkRecord[]> 
             category: row.category || 'tumor_classification',
             title,
             content: `[${title} (${row.source || 'WHO CNS5 / ACR'})]\n${content}`,
+            source: row.source || 'NeuroScan Medical Knowledge Base',
+            url: 'https://radiopaedia.org',
           });
         }
       }
@@ -361,7 +387,8 @@ export async function generateEmbeddings(
 ): Promise<{ vectors: number[][]; modelName: string }> {
   if (env?.AI && typeof env.AI.run === 'function') {
     try {
-      const response = await env.AI.run(EMBEDDING_MODEL, { text: texts });
+      const aiOptions = env.AI_GATEWAY_ID ? { gateway: { id: env.AI_GATEWAY_ID } } : undefined;
+      const response = await env.AI.run(EMBEDDING_MODEL, { text: texts }, aiOptions);
       if (response?.data && Array.isArray(response.data) && response.data.length === texts.length) {
         return {
           vectors: response.data,
@@ -463,10 +490,10 @@ export async function indexKnowledgeBaseToVectorDB(
         const c = chunks[i];
         const vecJson = JSON.stringify(vectors[i]);
         await env.DB.prepare(
-          `INSERT OR REPLACE INTO rag_chunks (id, doc_id, category, title, content, embedding_json, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+          `INSERT OR REPLACE INTO rag_chunks (id, doc_id, category, title, content, source, embedding_json, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
         )
-          .bind(c.id, c.doc_id, c.category, c.title, c.content, vecJson)
+          .bind(c.id, c.doc_id, c.category, c.title, c.content, c.source || 'NeuroScan Medical Knowledge Base', vecJson)
           .run();
       }
     } catch {
@@ -486,6 +513,8 @@ export async function indexKnowledgeBaseToVectorDB(
           category: c.category,
           title: c.title,
           content: c.content,
+          source: c.source || 'NeuroScan Medical Knowledge Base',
+          url: c.url || 'https://radiopaedia.org',
         },
       }));
       await env.VECTORIZE.upsert(vectorRecords);
@@ -538,6 +567,8 @@ export async function searchVectorDB(
               category: String(m.metadata?.category || 'general'),
               title: String(m.metadata?.title || 'Tài liệu Y khoa NeuroScan'),
               content: String(m.metadata?.content || m.metadata?.answer || ''),
+              source: String(m.metadata?.source || 'WHO CNS5 / ACR Guidelines'),
+              url: String(m.metadata?.url || 'https://radiopaedia.org'),
             };
             const boost = computeLexicalBoost(query, chunk);
             return {
@@ -576,7 +607,7 @@ export async function searchVectorDB(
   if (env?.DB) {
     try {
       const { results } = await env.DB.prepare(
-        'SELECT id, doc_id, category, title, content, embedding_json FROM rag_chunks'
+        'SELECT id, doc_id, category, title, content, source, embedding_json FROM rag_chunks'
       ).all();
 
       if (Array.isArray(results) && results.length > 0) {
@@ -593,6 +624,8 @@ export async function searchVectorDB(
             category: r.category,
             title: r.title,
             content: r.content,
+            source: r.source || 'WHO CNS5 / ACR Guidelines',
+            url: r.url || 'https://radiopaedia.org',
             embedding: parsedVec,
           };
         });
@@ -627,6 +660,8 @@ export async function searchVectorDB(
       category: chunk.category,
       title: chunk.title,
       content: chunk.content,
+      source: chunk.source,
+      url: chunk.url,
       score: finalScore,
     };
   });
@@ -675,11 +710,16 @@ export async function generateRagLLMResponse(
         { role: 'user', content: userMessage },
       ];
 
-      const aiRes = await env.AI.run(WORKERS_LLM_MODEL, {
-        messages,
-        max_tokens: 900,
-        temperature: 0.25,
-      });
+      const aiOptions = env.AI_GATEWAY_ID ? { gateway: { id: env.AI_GATEWAY_ID } } : undefined;
+      const aiRes = await env.AI.run(
+        WORKERS_LLM_MODEL,
+        {
+          messages,
+          max_tokens: 900,
+          temperature: 0.25,
+        },
+        aiOptions
+      );
 
       const responseText = aiRes?.response?.trim();
       if (responseText && responseText.length > 20) {
