@@ -1,20 +1,13 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Brain,
   ScanLine,
   MessageSquareHeart,
-  BookOpen,
-  History,
-  UploadCloud,
-  Cpu,
-  FileCheck2,
-  ShieldCheck,
-  ChevronDown,
   ArrowRight,
+  Plus,
+  Minus,
   Stethoscope,
-  Layers,
-  Database,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { PublicHeader } from '@/components/layout/PublicHeader';
@@ -25,486 +18,340 @@ import type { TumorLabel } from '@/types/domain';
 
 const LANDING_FAQS = [
   {
-    q: 'Kết quả phân loại ảnh MRI của NeuroScan AI có thay thế bác sĩ chẩn đoán hình ảnh không?',
-    a: 'Tuyệt đối không. Hệ thống chỉ hỗ trợ phân loại sơ bộ 1 lát cắt MRI vào 4 nhóm nhãn tham chiếu (Glioma, Meningioma, Pituitary, No Tumor) phục vụ mục đích học tập, nghiên cứu và sàng lọc tham khảo. Chẩn đoán xác định bắt buộc phải do bác sĩ chuyên khoa thực hiện trên toàn bộ chuỗi xung DICOM và thăm khám lâm sàng.',
+    q: 'Kết quả phân loại của NeuroScan AI có thay thế chẩn đoán của bác sĩ không?',
+    a: 'Không. NeuroScan AI là công cụ hỗ trợ phân loại hình ảnh tham khảo theo 4 nhóm tổn thương (Glioma, Meningioma, Pituitary, No Tumor) và hỗ trợ tra cứu kiến thức y khoa. Quyết định chẩn đoán và điều trị bắt buộc phải do bác sĩ chuyên khoa Chẩn đoán hình ảnh hoặc Ngoại Thần kinh kết luận.',
   },
   {
-    q: 'Tại sao hệ thống chỉ nhận ảnh PNG, JPG, JPEG trong phiên bản hiện tại?',
-    a: 'Ứng dụng tập trung vào phân loại lát cắt 2D tiêu chuẩn (PNG/JPG/JPEG) thông qua pipeline tiền xử lý Otsu ROI, cân bằng sáng CLAHE và mạng nơ-ron ONNX Runtime kết hợp lưu trữ đối tượng Cloudflare R2.',
+    q: 'Ảnh MRI tải lên có bị lưu trữ hoặc lộ thông tin cá nhân không?',
+    a: 'Mô hình ONNX chạy trực tiếp trên trình duyệt của bạn qua WebAssembly. Ở chế độ Khách, ảnh MRI chỉ nằm tạm trong bộ nhớ trình duyệt và không gửi lên máy chủ. Với tài khoản đã đăng nhập, tên file được tự động ẩn danh, tệp DICOM được tách bỏ thẻ định danh bệnh nhân trước khi lưu và bảo vệ bằng phân quyền RBAC.',
   },
   {
-    q: 'Trợ lý AI Y tế lấy dữ liệu từ đâu để trả lời người dùng?',
-    a: 'Trợ lý AI vận hành trên kiến trúc Hybrid RAG (Retrieval-Augmented Generation) kết hợp Vector Embeddings (@cf/baai/bge-m3 1024 chiều), kho tài liệu y khoa chuẩn hóa (WHO CNS5, ACR, NCI, NHS) và tra cứu trực tiếp hồ sơ ca chụp trên Cloudflare D1.',
+    q: 'Bản đồ nhiệt Grad-CAM và 2-View TTA giúp ích gì khi đọc phim?',
+    a: 'Bản đồ nhiệt CAM trích xuất trực tiếp từ tầng tích chập cuối của mạng nơ-ron giúp làm nổi bật vùng hình ảnh có trọng số cao nhất đối với dự đoán. Kỹ thuật 2-View TTA đối chiếu đồng thời ảnh gốc và ảnh lật ngang hai bán cầu não để tăng tính ổn định của xác suất Softmax.',
   },
   {
-    q: 'Quy trình gửi yêu cầu Bác sĩ xem xét (Doctor Review) hoạt động như thế nào?',
-    a: 'Sau khi nhận kết quả tham khảo từ AI, người dùng có thể chủ động tích chọn đồng ý chia sẻ dữ liệu phiên phân tích cho Bác sĩ trên hệ thống. Bác sĩ (vai trò DOCTOR) sẽ xem lát cắt MRI, đối chiếu bản đồ nhiệt Grad-CAM và để lại nhận định chuyên môn độc lập.',
+    q: 'Quy trình gửi bác sĩ xem xét (Doctor Review) hoạt động như thế nào?',
+    a: 'Người dùng đã đăng nhập có thể chủ động chọn chia sẻ phiên phân tích kèm ghi chú triệu chứng để bác sĩ chuyên khoa trên hệ thống xem phim MRI, đối chiếu bản đồ nhiệt CAM và để lại nhận định lâm sàng độc lập.',
+  },
+];
+
+const CLINICAL_CAPABILITIES = [
+  {
+    index: '01',
+    title: 'Phân loại 4 nhóm tổn thương & Real CNN CAM',
+    body: 'Chạy suy luận trực tiếp trên trình duyệt bằng mô hình ONNX dual-output với 2-View TTA, hỗ trợ ảnh PNG/JPG lẫn tệp y khoa DICOM (.dcm) và xuất báo cáo A4 PDF.',
+  },
+  {
+    index: '02',
+    title: 'Trợ lý tra cứu y khoa RAG có dẫn nguồn',
+    body: 'Tìm kiếm ngữ nghĩa trên 198 tài liệu chuẩn hóa từ WHO CNS5, ACR và NCI; tích hợp bộ lọc cảnh báo cờ đỏ cấp cứu thần kinh (115) theo thời gian thực.',
+  },
+  {
+    index: '03',
+    title: 'Luồng phối hợp Bác sĩ & Kiểm toán RBAC',
+    body: 'Tách biệt chặt chẽ vai trò Người dùng, Bác sĩ chuyên khoa (xác minh CCHN) và Quản trị viên bệnh viện; mọi thao tác nhạy cảm đều được ghi nhật ký kiểm toán.',
   },
 ];
 
 export const LandingPage: React.FC = () => {
-  const { user, loginAsDemoRole } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
   const [previewClass, setPreviewClass] = useState<TumorLabel>('Glioma');
 
-  const isDoctor = user?.role === 'DOCTOR' || user?.role === 'doctor';
-  const mriEntryPath = isDoctor ? '/doctor/vision-analysis' : '/mri-analysis';
-  const aiEntryPath = isDoctor ? '/doctor/ai-assistant' : '/ai-assistant';
+  const isDoctorOrAdmin =
+    user?.role === 'DOCTOR' ||
+    user?.role === 'doctor' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'admin';
+  const mriEntryPath = isDoctorOrAdmin ? '/doctor/vision-analysis' : '/mri-analysis';
+  const aiEntryPath = isDoctorOrAdmin ? '/doctor/ai-assistant' : '/ai-assistant';
 
-  const handleQuickRoleSwitch = async (targetRole: 'USER' | 'DOCTOR') => {
-    await loginAsDemoRole(targetRole);
-    navigate(targetRole === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard');
-  };
+  const activeMeta = TUMOR_LABEL_METADATA[previewClass];
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <PublicHeader />
 
-      {/* HERO SECTION */}
-      <section className="relative overflow-hidden py-12 sm:py-20 border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            {/* Left Copy */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/25">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Nền tảng Hỗ trợ Phân loại MRI & Tra cứu Y khoa Có Kiểm duyệt</span>
-              </div>
-
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
-                Phân tích ảnh MRI não với sự hỗ trợ của{' '}
-                <span className="text-teal-600 dark:text-teal-400">trí tuệ nhân tạo</span>
-              </h1>
-
-              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
-                NeuroScan AI hỗ trợ phân loại lát cắt MRI sọ não theo 4 nhóm tham chiếu (
-                <strong>Glioma</strong>, <strong>Meningioma</strong>, <strong>Pituitary</strong>,{' '}
-                <strong>No Tumor</strong>), kết hợp trợ lý tra cứu kiến thức y khoa có dẫn nguồn và
-                quy trình bác sĩ xem xét chuyên môn. Hệ thống chỉ hỗ trợ phân loại và tra cứu y
-                khoa, <strong>không thay thế chẩn đoán chuyên môn</strong>.
+      {/* HERO SECTION — Clinical Editorial Layout */}
+      <section className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
+            {/* Left Editorial Copy */}
+            <div className="lg:col-span-6 space-y-7">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-teal-700 dark:text-teal-400">
+                Neuroradiology Decision Support • WHO CNS5
               </p>
 
-              {/* Two Primary CTAs */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-1">
+              <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-[-0.025em] text-slate-900 dark:text-white leading-[1.15]">
+                Phân tích lát cắt MRI sọ não chính xác, minh bạch và bảo mật.
+              </h1>
+
+              <p className="text-[15px] sm:text-base text-slate-600 dark:text-slate-400 leading-[1.7] max-w-xl">
+                Hỗ trợ phân loại 4 nhóm tham chiếu (Glioma, Meningioma, Pituitary, No Tumor) trực
+                tiếp trên trình duyệt, kết hợp bản đồ nhiệt CNN CAM, trợ lý tra cứu y khoa RAG và
+                cổng hội chẩn bác sĩ chuyên khoa.
+              </p>
+
+              {/* Flat Utilitarian CTAs */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
                 <Link
                   to={mriEntryPath}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm sm:text-base font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white shadow-soft transition-all"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg text-sm font-medium bg-slate-900 hover:bg-slate-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
                 >
-                  <ScanLine className="w-5 h-5" />
-                  <span>Bắt đầu phân tích MRI</span>
+                  <ScanLine className="w-4 h-4" />
+                  <span>Phân tích ảnh MRI</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
 
                 <Link
                   to={aiEntryPath}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm sm:text-base font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 transition-colors"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg text-sm font-medium border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 transition-colors"
                 >
-                  <MessageSquareHeart className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                  <span>Khám phá trợ lý AI</span>
+                  <MessageSquareHeart className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                  <span>Tra cứu Trợ lý Y khoa</span>
                 </Link>
               </div>
 
-              {/* Quick RBAC Demo Entry Links */}
-              <div className="pt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Trải nghiệm phân quyền RBAC:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSwitch('USER')}
-                  className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline font-semibold cursor-pointer"
-                >
-                  Giao diện Người dùng (USER)
-                </button>
-                <span>•</span>
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSwitch('DOCTOR')}
-                  className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:underline font-semibold cursor-pointer"
-                >
-                  <Stethoscope className="w-3.5 h-3.5" />
-                  Giao diện Bác sĩ (DOCTOR)
-                </button>
+              {/* Subtle Account Portal Line */}
+              <div className="pt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/80 dark:border-slate-800">
+                {user ? (
+                  <Link
+                    to={isDoctorOrAdmin ? '/doctor/dashboard' : '/dashboard'}
+                    className="inline-flex items-center gap-1.5 text-slate-800 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-400 font-medium pt-3"
+                  >
+                    <Stethoscope className="w-3.5 h-3.5" />
+                    Vào Bảng điều khiển ({user.fullName})
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-4 pt-3">
+                    <Link
+                      to="/login"
+                      className="text-slate-800 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-400 font-medium"
+                    >
+                      Đăng nhập tài khoản →
+                    </Link>
+                    <span className="text-slate-300 dark:text-slate-700">|</span>
+                    <Link
+                      to="/register"
+                      className="hover:text-slate-900 dark:hover:text-white transition-colors"
+                    >
+                      Đăng ký người dùng mới
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Interactive Visual Illustration */}
-            <div className="lg:col-span-5">
-              <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-950 p-5 text-slate-100 shadow-xl space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            {/* Right Clinical PACS Workstation Preview */}
+            <div className="lg:col-span-6">
+              <div className="rounded-xl border border-slate-800 bg-[#0b0d10] text-slate-100 overflow-hidden">
+                {/* Minimalist PACS Top Bar */}
+                <div className="px-4 py-2.5 border-b border-slate-800/90 flex items-center justify-between text-[11px] font-mono text-slate-400">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
-                    <span className="text-xs font-mono uppercase tracking-wider text-slate-300">
-                      THƯ VIỆN LÁT CẮT MRI 4 NHÃN THAM CHIẾU
-                    </span>
+                    <span className="w-2 h-2 rounded-full bg-teal-500" />
+                    <span className="text-slate-200">PACS VIEWER • T1-GD / AXIAL</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                    CLINICAL MRI REFERENCE
-                  </span>
+                  <span>256×256 ONNX CAM</span>
                 </div>
 
-                {/* Class Switcher Pills */}
-                <div className="grid grid-cols-4 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
-                  {(['Glioma', 'Meningioma', 'Pituitary', 'No Tumor'] as TumorLabel[]).map(
-                    (lbl) => (
-                      <button
-                        key={lbl}
-                        type="button"
-                        onClick={() => setPreviewClass(lbl)}
-                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          previewClass === lbl
-                            ? 'bg-teal-600 text-white'
-                            : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        {lbl}
-                      </button>
-                    ),
-                  )}
-                </div>
-
-                <div className="relative flex items-center justify-center bg-[#05080f] rounded-2xl p-3 border border-slate-800/80 overflow-hidden">
-                  <img
-                    src={SYNTHETIC_MRI_SLICES[previewClass]}
-                    alt={`Lát cắt MRI tham chiếu ${previewClass}`}
-                    className="h-64 w-64 object-cover rounded-xl ring-1 ring-slate-800 shadow-2xl"
-                  />
-                  <span className="absolute bottom-4 right-4 px-2 py-0.5 rounded bg-slate-950/85 border border-slate-700 text-[10px] font-mono text-teal-300">
-                    {previewClass === 'Pituitary' ? 'Coronal T1+C' : previewClass === 'No Tumor' ? 'Axial T2/FLAIR' : 'Axial T1+C'}
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-teal-300">
-                      {TUMOR_LABEL_METADATA[previewClass].vietnameseTitle}
-                    </span>
-                    <span className="text-[11px] text-slate-400">Chuẩn phân loại WHO CNS5</span>
+                {/* MRI Frame */}
+                <div className="p-5 sm:p-6 space-y-5">
+                  <div className="relative rounded-lg bg-[#050608] border border-slate-800/80 h-64 sm:h-72 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={SYNTHETIC_MRI_SLICES[previewClass]}
+                      alt={`Lát cắt MRI tham chiếu nhóm ${previewClass}`}
+                      className="h-full w-full object-contain p-3"
+                    />
+                    <div className="absolute top-3 left-3 text-[10px] font-mono text-slate-400 space-y-0.5 pointer-events-none">
+                      <div>CLASS: {previewClass.toUpperCase()}</div>
+                      <div>MODE: 2-VIEW TTA</div>
+                    </div>
+                    <div className="absolute bottom-3 right-3 text-[10px] font-mono text-teal-400 pointer-events-none">
+                      CLIENT-SIDE WASM
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {TUMOR_LABEL_METADATA[previewClass].anatomicalLocation}
-                  </p>
+
+                  {/* 4 Class Selector Tabs (Crisp Flat Grid) */}
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(['Glioma', 'Meningioma', 'Pituitary', 'No Tumor'] as TumorLabel[]).map(
+                      (cls) => {
+                        const active = previewClass === cls;
+                        return (
+                          <button
+                            key={cls}
+                            type="button"
+                            onClick={() => setPreviewClass(cls)}
+                            className={`px-2 py-2 rounded-md text-xs font-mono transition-colors cursor-pointer ${
+                              active
+                                ? 'bg-teal-600 text-white font-semibold'
+                                : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800'
+                            }`}
+                          >
+                            {cls}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+
+                  {/* Clinical Summary Line */}
+                  <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-start justify-between gap-2 text-xs">
+                    <div className="space-y-1">
+                      <p className="font-semibold text-slate-100">{activeMeta.vietnameseTitle}</p>
+                      <p className="text-slate-400 leading-relaxed line-clamp-2">
+                        {activeMeta.overview}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="mt-10">
-            <MedicalDisclaimer />
           </div>
         </div>
       </section>
 
-      {/* 3-STEP WORKFLOW SECTION */}
-      <section className="py-14 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto space-y-2 mb-10">
-          <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-            Quy trình hoạt động chuẩn hóa
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Quy trình 3 bước hỗ trợ phân tích & tra cứu
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Thiết kế minh bạch, tôn trọng quyền riêng tư dữ liệu và phân tách rõ kết quả tự động
-            của AI với nhận định của bác sĩ.
+      {/* FLAT METRICS STRIP (Architectural Dividers, Zero Card Nesting) */}
+      <section className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
+            <div className="py-6 sm:px-6 first:pl-0">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                4 lớp
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Glioma, Meningioma, Pituitary, No Tumor
+              </p>
+            </div>
+            <div className="py-6 sm:px-6">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                DICOM + CAM
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Giải mã .dcm cục bộ & bản đồ nhiệt thật
+              </p>
+            </div>
+            <div className="py-6 sm:px-6">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                198 tài liệu
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Tri thức RAG chuẩn WHO CNS5 / ACR / NCI
+              </p>
+            </div>
+            <div className="py-6 sm:px-6">
+              <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                3 vai trò RBAC
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Người dùng, Bác sĩ CCHN & Quản trị viên
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CAPABILITIES — Editorial 3-Column Grid */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 space-y-10 w-full">
+        <div className="max-w-2xl space-y-2">
+          <p className="text-xs uppercase tracking-[0.12em] text-teal-700 dark:text-teal-400 font-semibold">
+            Kiến trúc Lâm sàng
           </p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Thiết kế cho độ tin cậy và tốc độ đọc phim thực tế
+          </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              step: 'Bước 01',
-              title: 'Tải ảnh lát cắt MRI',
-              desc: 'Kiểm tra định dạng (PNG, JPG, JPEG), dung lượng an toàn, ẩn danh tên file và xác nhận đồng ý xử lý dữ liệu.',
-              icon: <UploadCloud className="w-6 h-6 text-teal-600 dark:text-teal-400" />,
-            },
-            {
-              step: 'Bước 02',
-              title: 'AI tiền xử lý & phân loại 4 lớp',
-              desc: 'Thực hiện pipeline chuẩn hóa ảnh và dự đoán phân bố xác suất trên 4 nhóm: Glioma, Meningioma, Pituitary, No Tumor.',
-              icon: <Cpu className="w-6 h-6 text-sky-600 dark:text-sky-400" />,
-            },
-            {
-              step: 'Bước 03',
-              title: 'Xem kết quả tham khảo & Hỏi Bác sĩ',
-              desc: 'Đọc giải thích thuật ngữ dễ hiểu, tra cứu Trợ lý AI có nguồn kiểm duyệt hoặc gửi yêu cầu Bác sĩ chuyên khoa xem xét.',
-              icon: <FileCheck2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
-            },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-card space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                  {item.icon}
-                </div>
-                <span className="text-xs font-mono font-bold text-slate-400">{item.step}</span>
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-slate-200 dark:border-slate-800 pt-8">
+          {CLINICAL_CAPABILITIES.map((item) => (
+            <div key={item.index} className="space-y-3">
+              <span className="font-mono text-xs font-semibold text-teal-700 dark:text-teal-400">
+                {item.index}
+              </span>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                 {item.title}
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {item.desc}
+                {item.body}
               </p>
             </div>
           ))}
         </div>
+
+        <MedicalDisclaimer compact />
       </section>
 
-      {/* FEATURE CARDS */}
-      <section className="py-14 bg-white dark:bg-slate-900/60 border-y border-slate-200/80 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          <div className="max-w-2xl space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-              Hệ sinh thái tính năng
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-              Bốn trụ cột của nền tảng NeuroScan AI
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                title: 'MRI Classification',
-                subtitle: 'Phân loại ảnh MRI 4 lớp',
-                desc: 'Trình xem ảnh y tế chuyên dụng (Zoom/Pan), biểu đồ phân bố Softmax 4 lớp và giải thích giới hạn mô hình.',
-                to: '/mri-analysis',
-                icon: <ScanLine className="w-5 h-5 text-teal-600 dark:text-teal-400" />,
-              },
-              {
-                title: 'AI Medical Chatbot',
-                subtitle: 'Trợ lý AI Y tế có kiểm duyệt',
-                desc: 'Trả lời dựa trên dữ liệu FAQ/RAG có nguồn xác minh (WHO, NCI, NHS) và phát hiện tình huống khẩn cấp.',
-                to: '/ai-assistant',
-                icon: <MessageSquareHeart className="w-5 h-5 text-sky-600 dark:text-sky-400" />,
-              },
-              {
-                title: 'Knowledge Base',
-                subtitle: '7 nhóm kiến thức y khoa',
-                desc: 'Thư viện tra cứu có bộ lọc chủ đề, trạng thái kiểm duyệt nội dung, ngày xác minh và nguồn chính thống.',
-                to: '/knowledge',
-                icon: <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />,
-              },
-              {
-                title: 'Analysis History & RBAC',
-                subtitle: 'Lịch sử & Bác sĩ xem xét',
-                desc: 'Quản lý lịch sử phiên phân tích và quy trình chia sẻ ca bệnh có sự đồng ý giữa Người dùng và Bác sĩ.',
-                to: '/history',
-                icon: <History className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />,
-              },
-            ].map((feat) => (
-              <Link
-                key={feat.title}
-                to={feat.to}
-                className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900 p-6 hover:border-teal-500/60 transition-all flex flex-col justify-between gap-4"
-              >
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center">
-                    {feat.icon}
-                  </div>
-                  <div>
-                    <div className="text-xs font-mono text-teal-600 dark:text-teal-400 font-semibold">
-                      {feat.title}
-                    </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 mt-0.5 group-hover:text-teal-600 dark:group-hover:text-teal-400">
-                      {feat.subtitle}
-                    </h3>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    {feat.desc}
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 dark:text-teal-400">
-                  <span>Mở tính năng</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 4 TUMOR CLASSES INTRODUCTION */}
-      <section className="py-14 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="max-w-3xl space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-            Phạm vi bộ dữ liệu MRI
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Bốn nhóm nhãn phân loại trong mô hình
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            Hệ thống phân loại ảnh dựa trên 4 nhãn của tập dữ liệu tham chiếu{' '}
-            <em>Brain Tumor MRI Dataset</em>. Nhãn dự đoán không tự xác nhận bản chất mô học hay
-            thay thế sinh thiết giải phẫu bệnh.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {(['Glioma', 'Meningioma', 'Pituitary', 'No Tumor'] as TumorLabel[]).map((label) => {
-            const info = TUMOR_LABEL_METADATA[label];
-            return (
-              <div
-                key={label}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-card space-y-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span
-                    className={`px-3 py-1 rounded-xl text-xs font-bold border ${info.badgeColorClass}`}
-                  >
-                    {info.label}
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">Nhóm phân loại tham chiếu</span>
-                </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {info.vietnameseTitle}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  <strong>Vị trí giải phẫu:</strong> {info.anatomicalLocation}
-                </p>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {info.overview}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* AI ARCHITECTURE & PIPELINE SECTION */}
-      <section className="py-14 bg-slate-900 text-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="max-w-3xl space-y-2">
-            <span className="text-xs font-mono uppercase tracking-wider text-teal-400">
-              Kiến trúc Kỹ thuật & Định hướng Nghiên cứu
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              Công nghệ xử lý ảnh MRI & Kiến trúc Điện toán Biên (Edge AI)
-            </h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              Thiết kế tách biệt tầng giao diện <strong>React + TypeScript</strong>, tầng điều phối{' '}
-              <strong>Cloudflare Workers (Hono)</strong>, cơ sở dữ liệu <strong>Cloudflare D1 & R2 Storage</strong> và dịch
-              vụ <strong>ONNX Runtime / Vectorize RAG (Llama 3.3 70B & BGE-M3)</strong>.
+      {/* FAQ — Clean Border-Bottom Editorial Accordion */}
+      <section className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 space-y-8">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-teal-700 dark:text-teal-400 font-semibold">
+              Câu hỏi thường gặp
             </p>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Minh bạch về giới hạn kỹ thuật và quyền riêng tư
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/15 text-teal-400 flex items-center justify-center">
-                <Layers className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">
-                Tiền xử lý Brain ROI Cropping & CLAHE
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Định hướng sử dụng OpenCV cắt bỏ vùng nền đen thừa và ký tự nhiễu quanh hộp sọ, kết
-                hợp chuẩn hóa tương phản cục bộ CLAHE và Z-score nhằm giảm sai lệch giữa các dòng
-                máy chụp MRI (1.5T và 3.0T).
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
-                <Brain className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">
-                Định hướng Nghiên cứu Đa Kiến trúc (Ensemble)
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Tài liệu chiến lược đề xuất nghiên cứu kết hợp các họ mạng trích xuất đặc trưng bổ
-                trợ nhau (như ConvNeXt, Swin Transformer V2 và EfficientNetV2) huấn luyện theo
-                5-Fold Cross-Validation ở tầng AI Service.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center">
-                <Database className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">
-                Kiến trúc Chatbot FAQ JSON + RAG
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Kết hợp kho câu hỏi chuẩn hóa JSON và truy xuất ngữ nghĩa vector (Cloudflare Vectorize, embedding bge-m3). Mọi câu trả lời
-                y khoa đều bắt buộc đính kèm metadata tổ chức phát hành, ngày xác minh và quy tắc
-                chuyển hướng cấp cứu.
-              </p>
-            </div>
+          <div className="divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800">
+            {LANDING_FAQS.map((item, idx) => {
+              const isOpen = openFaqIdx === idx;
+              return (
+                <div key={idx} className="py-5">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
+                    className="w-full text-left flex items-center justify-between gap-4 font-medium text-sm sm:text-[15px] text-slate-900 dark:text-slate-100 cursor-pointer"
+                  >
+                    <span>{item.q}</span>
+                    {isOpen ? (
+                      <Minus className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" />
+                    ) : (
+                      <Plus className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+                  {isOpen && (
+                    <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed pr-8">
+                      {item.a}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* FAQ SECTION */}
-      <section className="py-14 sm:py-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full space-y-8">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-            Giải đáp thắc mắc
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Câu hỏi thường gặp về NeuroScan AI
-          </h2>
-        </div>
-
-        <div className="space-y-3">
-          {LANDING_FAQS.map((item, idx) => {
-            const isOpen = openFaqIdx === idx;
-            return (
-              <div
-                key={idx}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden"
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenFaqIdx(isOpen ? null : idx)}
-                  aria-expanded={isOpen}
-                  className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 font-semibold text-sm sm:text-base text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                >
-                  <span>{item.q}</span>
-                  <ChevronDown
-                    className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${
-                      isOpen ? 'rotate-180 text-teal-500' : ''
-                    }`}
-                  />
-                </button>
-                {isOpen && (
-                  <div className="px-5 pb-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 pt-3">
-                    {item.a}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer className="mt-auto bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-10">
+      {/* MINIMALIST FOOTER */}
+      <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 text-xs text-slate-500 dark:text-slate-400">
           <div className="space-y-1.5 max-w-xl">
-            <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-white">
-              <Brain className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>NeuroScan AI — Nền tảng Hỗ trợ Phân loại U não MRI & Trợ lý AI Y tế</span>
+            <div className="flex items-center gap-2 font-semibold text-sm text-slate-900 dark:text-white">
+              <Brain className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+              <span>NeuroScan Clinical AI</span>
             </div>
-            <p>
-              Dự án nghiên cứu & phát triển ứng dụng Healthcare AI. Toàn bộ dữ liệu hiển thị trong
-              chế độ Demo là dữ liệu giả lập minh họa, không chứa thông tin bệnh nhân thật.
+            <p className="leading-relaxed">
+              Công cụ hỗ trợ phân loại hình ảnh MRI sọ não và tra cứu kiến thức y khoa. Kết quả AI
+              chỉ mang tính tham khảo và không thay thế chẩn đoán lâm sàng của bác sĩ chuyên khoa.
             </p>
           </div>
-          <div className="flex flex-wrap gap-4 font-medium">
-            <Link to="/mri-analysis" className="hover:text-teal-600 dark:hover:text-teal-400">
+          <div className="flex flex-wrap gap-5 font-medium">
+            <Link to="/mri-analysis" className="hover:text-slate-900 dark:hover:text-white">
               Phân tích MRI
             </Link>
-            <Link to="/ai-assistant" className="hover:text-teal-600 dark:hover:text-teal-400">
+            <Link to="/ai-assistant" className="hover:text-slate-900 dark:hover:text-white">
               Trợ lý AI
             </Link>
-            <Link to="/knowledge" className="hover:text-teal-600 dark:hover:text-teal-400">
+            <Link to="/knowledge" className="hover:text-slate-900 dark:hover:text-white">
               Kiến thức y khoa
             </Link>
-            <Link to="/login" className="hover:text-teal-600 dark:hover:text-teal-400">
-              Đăng nhập (RBAC)
+            <Link to="/privacy-policy" className="hover:text-slate-900 dark:hover:text-white">
+              Chính sách bảo mật
+            </Link>
+            <Link to="/terms-of-service" className="hover:text-slate-900 dark:hover:text-white">
+              Điều khoản sử dụng
+            </Link>
+            <Link to="/login" className="hover:text-slate-900 dark:hover:text-white">
+              Đăng nhập
             </Link>
           </div>
         </div>

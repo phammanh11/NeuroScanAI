@@ -18,7 +18,7 @@ import { useToast } from '../../app/providers/ToastProvider';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { TumorClassBadge } from '../../components/medical/TumorClassBadge';
 import { ChatMessage } from '../../components/medical/ChatMessage';
-import { neuroscanAdapter } from '../../services/api/neuroscanAdapter';
+import { GUEST_OWNER_ID, neuroscanAdapter } from '../../services/api/neuroscanAdapter';
 import type { ChatMessageRecord, ChatSessionRecord, MRIAnalysisRecord } from '../../types/domain';
 
 const DEFAULT_SUGGESTED_QUESTIONS = [
@@ -78,7 +78,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
     });
   };
 
-  const effectiveUserId = user?.id || '2';
+  const effectiveUserId = user?.id || GUEST_OWNER_ID;
 
   useEffect(() => {
     let mounted = true;
@@ -277,7 +277,10 @@ export const AIMedicalChatbotPage: React.FC = () => {
   };
 
   const knowledgePath =
-    user?.role === 'DOCTOR' || user?.role === 'doctor'
+    user?.role === 'DOCTOR' ||
+    user?.role === 'doctor' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'admin'
       ? '/knowledge'
       : '/medical-knowledge';
 

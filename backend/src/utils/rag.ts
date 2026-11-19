@@ -528,7 +528,7 @@ export async function indexKnowledgeBaseToVectorDB(
     indexedCount: chunks.length,
     embeddingModel: modelName,
     vectorBackend: vectorizeSuccess
-      ? 'Cloudflare Vectorize Index (neuroscan-rag-index)'
+      ? 'Cloudflare Vectorize Index (neuroscan-vector-index)'
       : 'Cloudflare D1 Vector Store (rag_chunks 1024-dim)',
   };
 }
@@ -584,7 +584,7 @@ export async function searchVectorDB(
             trace: {
               pipeline: 'Hybrid RAG (Vectorize Cosine + Medical Lexical Boost)',
               embeddingModel,
-              vectorBackend: 'Cloudflare Vectorize (neuroscan-rag-index)',
+              vectorBackend: 'Cloudflare Vectorize (neuroscan-vector-index)',
               totalChunksIndexed: indexInfo.indexedCount,
               topChunks: mapped.slice(0, topK).map((r) => ({
                 id: r.id,

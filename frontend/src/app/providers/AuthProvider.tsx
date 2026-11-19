@@ -6,7 +6,7 @@ interface AuthContextValue {
   user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginAsDemoRole: (role: UserRole) => Promise<UserProfile>;
+  isInitializing: boolean;
   loginWithCredentials: (email: string, password: string) => Promise<UserProfile>;
   registerAccount: (fullName: string, email: string, password: string, role?: UserRole) => Promise<UserProfile>;
   updateCurrentUser: (patch: Partial<UserProfile>) => Promise<UserProfile>;
@@ -16,14 +16,38 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
- * AuthProvider quản lý trạng thái xác thực và phân quyền RBAC (USER / DOCTOR) trong bộ nhớ phiên.
- * Không tự đăng nhập khi khởi tạo. Người dùng vẫn có thể chọn tài khoản Demo tại màn hình Login.
+ * AuthProvider quản lý trạng thái xác thực và phân quyền RBAC (USER / DOCTOR / ADMIN).
+ * Tự động khôi phục phiên đăng nhập qua HttpOnly Cookie (/api/auth/me) khi tải lại trang (F5).
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const authRequestRef = useRef(0);
   const profileRequestRef = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    const bootstrapRequestId = authRequestRef.current;
+
+    neuroscanAdapter
+      .restoreSession()
+      .then((restored) => {
+        if (!active || bootstrapRequestId !== authRequestRef.current) return;
+        if (restored) {
+          setSession(restored);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsInitializing(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -39,22 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, remainingMs);
     return () => window.clearTimeout(timeoutId);
   }, [session]);
-
-  const loginAsDemoRole = async (role: UserRole): Promise<UserProfile> => {
-    const requestId = ++authRequestRef.current;
-    profileRequestRef.current += 1;
-    setIsLoading(true);
-    try {
-      const nextSession = await neuroscanAdapter.loginWithDemoRole(role);
-      if (requestId !== authRequestRef.current) {
-        throw new Error('Yêu cầu đăng nhập trước đó đã được thay thế.');
-      }
-      setSession(nextSession);
-      return nextSession.user;
-    } finally {
-      if (requestId === authRequestRef.current) setIsLoading(false);
-    }
-  };
 
   const loginWithCredentials = async (email: string, password: string): Promise<UserProfile> => {
     const requestId = ++authRequestRef.current;
@@ -133,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user: session?.user ?? null,
         isAuthenticated: Boolean(session?.user),
         isLoading,
-        loginAsDemoRole,
+        isInitializing,
         loginWithCredentials,
         registerAccount,
         updateCurrentUser,

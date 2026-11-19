@@ -92,6 +92,21 @@ const DoctorVisionAnalysisPage = lazy(() =>
     default: m.DoctorVisionAnalysisPage,
   })),
 );
+const AdminPortalPage = lazy(() =>
+  import('@/features/admin/AdminPortalPage').then((m) => ({
+    default: m.AdminPortalPage,
+  })),
+);
+const PrivacyPolicyPage = lazy(() =>
+  import('@/features/legal/LegalPages').then((m) => ({
+    default: m.PrivacyPolicyPage,
+  })),
+);
+const TermsOfServicePage = lazy(() =>
+  import('@/features/legal/LegalPages').then((m) => ({
+    default: m.TermsOfServicePage,
+  })),
+);
 
 const PublicPageLayout: React.FC = () => {
   const { pathname } = useLocation();
@@ -113,7 +128,16 @@ const PublicPageLayout: React.FC = () => {
         }
       >
         <RouteErrorBoundary>
-          <Outlet />
+          <div
+            key={pathname}
+            className={
+              isChatbotRoute
+                ? 'motion-page-enter flex-1 min-h-0 flex flex-col'
+                : 'motion-page-enter'
+            }
+          >
+            <Outlet />
+          </div>
         </RouteErrorBoundary>
       </main>
     </div>
@@ -125,7 +149,12 @@ const PublicOrRoleLayout: React.FC = () => {
   if (!isAuthenticated || !user) {
     return <PublicPageLayout />;
   }
-  if (user.role === 'DOCTOR' || user.role === 'doctor') {
+  if (
+    user.role === 'DOCTOR' ||
+    user.role === 'doctor' ||
+    user.role === 'ADMIN' ||
+    user.role === 'admin'
+  ) {
     return <DoctorLayout />;
   }
   return <UserLayout />;
@@ -152,6 +181,8 @@ export const AppRouter: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
           {/* Publicly Accessible & Role-Aware Routes (No forced redirect to /login) */}
           <Route element={<PublicOrRoleLayout />}>
@@ -177,10 +208,10 @@ export const AppRouter: React.FC = () => {
             <Route path="/settings" element={<ProfileAndSettingsPage />} />
           </Route>
 
-          {/* DOCTOR Role Protected Routes */}
+          {/* DOCTOR & ADMIN Role Protected Routes */}
           <Route
             element={
-              <ProtectedRoute allowedRoles={['DOCTOR']}>
+              <ProtectedRoute allowedRoles={['DOCTOR', 'ADMIN']}>
                 <DoctorLayout />
               </ProtectedRoute>
             }
@@ -194,6 +225,17 @@ export const AppRouter: React.FC = () => {
             <Route path="/doctor/history" element={<DoctorHistoryPage />} />
             <Route path="/doctor/ai-assistant" element={<AIMedicalChatbotPage />} />
             <Route path="/doctor/profile" element={<ProfileAndSettingsPage />} />
+          </Route>
+
+          {/* ADMIN-ONLY Protected Route */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <DoctorLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/admin" element={<AdminPortalPage />} />
           </Route>
 
           {/* Fallback Redirect */}

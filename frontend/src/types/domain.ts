@@ -134,6 +134,7 @@ export interface MRIAnalysisRecord {
     pipelineMode: 'MOCK_FIXTURE' | 'BACKEND_INFERENCE' | 'CLIENT_ONNX_INFERENCE';
     preprocessingApplied: string[];
     inferenceTimeMs?: number;
+    qualityWarning?: string;
   };
   patientSharedConsent: boolean;
   patientSymptomNote?: string;

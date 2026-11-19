@@ -6,7 +6,6 @@ import {
   Loader2,
   RotateCcw,
   ArrowRight,
-  Info,
   FileCheck,
   RefreshCw,
   Trash2,
@@ -74,6 +73,7 @@ export const MRIAnalysisPage: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [pendingAutoRun, setPendingAutoRun] = useState(false);
   const analysisRunRef = useRef(0);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const uploaderRef = useRef<MRIUploaderHandle | null>(null);
@@ -195,6 +195,14 @@ export const MRIAnalysisPage: React.FC = () => {
       await new Promise((r) => setTimeout(r, 450));
       if (runId !== analysisRunRef.current) return;
 
+      if (createdRecord.modelMetadata.qualityWarning) {
+        showToast({
+          variant: 'warning',
+          title: 'Cảnh báo định dạng ảnh đầu vào',
+          description: createdRecord.modelMetadata.qualityWarning,
+        });
+      }
+
       showToast({
         variant: 'success',
         title: `Phân tích AI hoàn tất: ${createdRecord.predictedLabel}`,
@@ -253,6 +261,7 @@ export const MRIAnalysisPage: React.FC = () => {
     setSymptomNote('');
     setConsentChecked(true);
     setCurrentStep(0);
+    setPendingAutoRun(state?.autoRun !== false);
 
     window.setTimeout(() => {
       if (window.innerWidth < 1024 && stepperSectionRef.current) {
@@ -261,11 +270,19 @@ export const MRIAnalysisPage: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 60);
-
-    if (state?.autoRun !== false) {
-      void executeAnalysisRef.current(preselectedFile, nextPreviewUrl, true, '');
-    }
   }, [location.pathname, location.state, navigate]);
+
+  // Chạy tự động an toàn với React StrictMode (cleanup hủy timer của mount ảo đầu tiên)
+  useEffect(() => {
+    if (!pendingAutoRun || !selectedFile || !previewUrl) return;
+    const timerId = window.setTimeout(() => {
+      setPendingAutoRun(false);
+      void executeAnalysisRef.current(selectedFile, previewUrl, true, '');
+    }, 50);
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [pendingAutoRun, selectedFile, previewUrl]);
 
   const runAnalysis = async () => {
     if (!selectedFile || !previewUrl) {
@@ -332,10 +349,10 @@ export const MRIAnalysisPage: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                1. Khu vực tải ảnh MRI (Upload Zone)
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Tải lên lát cắt MRI
               </h2>
-              <span className="text-xs font-mono text-slate-500">PNG • JPG • JPEG (≤ 15MB)</span>
+              <span className="text-[11px] font-mono text-slate-500">PNG • JPG • DICOM (.dcm) ≤ 15MB</span>
             </div>
 
             <MRIUploader
@@ -464,20 +481,30 @@ export const MRIAnalysisPage: React.FC = () => {
               )}
             </div>
 
-            <div className="min-h-[260px] rounded-2xl bg-[#060911] border border-slate-800 flex items-center justify-center p-4 overflow-hidden">
+            <div className="relative min-h-[260px] rounded-2xl bg-[#060911] border border-slate-800 flex items-center justify-center p-4 overflow-hidden">
               {previewUrl ? (
-                <img
-                  src={previewUrl}
-                  alt="Xem trước ảnh MRI tải lên"
-                  onLoad={() => setPreviewLoadError(false)}
-                  onError={() => {
-                    setPreviewLoadError(true);
-                    setValidationError(
-                      'Không thể hiển thị ảnh xem trước. Vui lòng chọn lại file ảnh.',
-                    );
-                  }}
-                  className="max-h-[260px] w-auto object-contain rounded-lg"
-                />
+                <>
+                  <img
+                    src={previewUrl}
+                    alt="Xem trước ảnh MRI tải lên"
+                    onLoad={() => setPreviewLoadError(false)}
+                    onError={() => {
+                      setPreviewLoadError(true);
+                      setValidationError(
+                        'Không thể hiển thị ảnh xem trước. Vui lòng chọn lại file ảnh.',
+                      );
+                    }}
+                    className="max-h-[260px] w-auto object-contain rounded-lg"
+                  />
+                  {isAnalyzing && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-teal-950/15"
+                    >
+                      <div className="motion-scan-line absolute left-0 right-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-[0_0_14px_rgba(45,212,191,0.9)]" />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center space-y-2 text-slate-500 p-6">
                   <ScanLine className="w-10 h-10 mx-auto opacity-40" />
@@ -530,28 +557,21 @@ export const MRIAnalysisPage: React.FC = () => {
             )}
           </div>
 
-          {/* Stepper & Analysis Information */}
+          {/* Pipeline Progress */}
           <div
             ref={stepperSectionRef}
-            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                3. Trạng thái quy trình (UI Stepper)
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Tiến trình phân tích
               </h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-500/20">
-                Quy trình thực tế
+              <span className="text-[11px] font-mono uppercase tracking-wider text-teal-700 dark:text-teal-400">
+                ONNX 2-View TTA
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2">
-              <Info className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
-              <span>
-                Hệ thống nạp trực tiếp mô hình ONNX Student (15.3 MB) vào trình duyệt qua ONNX Runtime Web để tính toán phân bố xác suất Softmax 4 lớp theo thời gian thực.
-              </span>
-            </div>
-
-            <ol className="space-y-3 pt-1">
+            <ol className="space-y-2.5 pt-1">
               {pipelineSteps.map((step) => {
                 const isDone = currentStep > step.id;
                 const isActive = currentStep === step.id;

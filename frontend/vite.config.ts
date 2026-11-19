@@ -29,13 +29,13 @@ function honoLocalDevPlugin(): Plugin {
             }
           }
 
-          let body: any = undefined;
+          let body: Uint8Array | undefined = undefined;
           if (req.method !== 'GET' && req.method !== 'HEAD') {
             const chunks: Buffer[] = [];
             for await (const chunk of req) {
               chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
             }
-            body = Buffer.concat(chunks);
+            body = new Uint8Array(Buffer.concat(chunks));
           }
 
           const webReq = new Request(fullUrl, {
@@ -55,14 +55,17 @@ function honoLocalDevPlugin(): Plugin {
 
           const arrayBuf = await webRes.arrayBuffer();
           res.end(Buffer.from(arrayBuf));
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('[Hono Dev Middleware Error]:', err);
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           res.end(
             JSON.stringify({
               success: false,
-              error: { code: 'DEV_SERVER_ERROR', message: err.message || 'Dev Server Error' },
+              error: {
+                code: 'DEV_SERVER_ERROR',
+                message: err instanceof Error ? err.message : 'Dev Server Error',
+              },
             })
           );
         }
@@ -76,6 +79,26 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          if (id.includes('onnxruntime-web')) return 'vendor-onnx';
+          if (id.includes('lucide-react')) return 'vendor-icons';
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('react-router')
+          ) {
+            return 'vendor-react';
+          }
+          return undefined;
+        },
+      },
     },
   },
   server: {

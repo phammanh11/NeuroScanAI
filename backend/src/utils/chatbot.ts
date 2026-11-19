@@ -240,7 +240,7 @@ async function lookupScansInDatabase(
   scans: MatchedScanSummary[];
   contextText: string;
 }> {
-  if (!env?.DB) {
+  if (!env?.DB || userRole === 'guest') {
     return { scans: [], contextText: '' };
   }
 
@@ -519,6 +519,13 @@ ${scanContextText ? `=== DỮ LIỆU CA CHỤP MRI & HỒ SƠ BỆNH NHÂN TRONG
           `### Giải thích chuyên môn từ Kho tri thức RAG\n` +
           `- **Điểm tự tin (Confidence Score)** phản ánh xác suất Softmax của mạng nơ-ron trên lát cắt 2D hiện tại; đây không phải xác suất chẩn đoán và chưa được hiệu chuẩn lâm sàng.\n` +
           `- Bạn có thể nhấn vào **Thẻ ca chụp MRI** hiển thị bên dưới để mở giao diện chi tiết và xem nhận xét của Bác sĩ Chuyên khoa.`;
+      } else if (userRole === 'guest') {
+        finalReply =
+          `🔒 **YÊU CẦU ĐĂNG NHẬP ĐỂ TRA CỨU HỒ SƠ MRI:**\n\n` +
+          `Để bảo vệ quyền riêng tư dữ liệu sức khỏe, chế độ **Khách (Chưa đăng nhập)** không được phép tra cứu các ca chụp MRI hoặc hồ sơ bệnh nhân lưu trong cơ sở dữ liệu.\n\n` +
+          `### Bạn có thể:\n` +
+          `- **Đăng nhập** vào tài khoản Người bệnh hoặc Bác sĩ để tra cứu các ca chụp thuộc quyền truy cập của mình.\n` +
+          `- Tiếp tục đặt câu hỏi kiến thức y khoa về **Glioma, Meningioma, Pituitary, No Tumor**, chuỗi xung MRI hoặc dấu hiệu cờ đỏ cấp cứu ngay tại đây.`;
       } else {
         finalReply =
           `📋 **KẾT QUẢ TRA CỨU HỆ THỐNG NEUROSCAN D1:**\n\n` +

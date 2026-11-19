@@ -36,7 +36,6 @@ export interface LoadingStateProps {
  */
 export const LoadingState: React.FC<LoadingStateProps> = ({
   title = 'Đang tải dữ liệu...',
-  description: _description,
   compact = false,
   variant = 'auto',
   className = '',

@@ -11,13 +11,24 @@ export const httpClient = axios.create({
 });
 
 let inMemoryAccessToken: string | null = null;
+let isCookieAuthenticated = false;
 
 export function setHttpAuthToken(token: string | null) {
   inMemoryAccessToken = token;
+  if (token) {
+    isCookieAuthenticated = true;
+  }
+}
+
+export function setCookieAuthActive(active: boolean) {
+  isCookieAuthenticated = active;
+  if (!active) {
+    inMemoryAccessToken = null;
+  }
 }
 
 export function hasHttpAuthToken(): boolean {
-  return Boolean(inMemoryAccessToken);
+  return Boolean(inMemoryAccessToken || isCookieAuthenticated);
 }
 
 httpClient.interceptors.request.use((config) => {

@@ -14,19 +14,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
 }) => {
   return (
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between pb-5 border-b border-slate-200/80 dark:border-slate-800/80">
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between pb-5 border-b border-slate-200 dark:border-slate-800">
       <div className="min-w-0 flex-1 space-y-1.5">
         {badgeText && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-teal-700 dark:text-teal-400">
             {badgeText}
-          </span>
+          </p>
         )}
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+        <h1 className="text-2xl sm:text-[26px] font-semibold tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
           {title}
         </h1>
         {description && (
-          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl leading-relaxed">
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
             {description}
           </p>
         )}

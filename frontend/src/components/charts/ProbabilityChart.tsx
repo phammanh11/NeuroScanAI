@@ -53,7 +53,7 @@ const CustomProbabilityTooltip: React.FC<CustomTooltipProps> = ({ active, payloa
         {item.vietnameseName}
       </div>
       <div className="pt-0.5 font-mono font-semibold text-teal-700 dark:text-teal-300">
-        Tỷ trọng Softmax: {item.probability}% (Minh họa)
+        Tỷ trọng Softmax: {item.probability}%
       </div>
     </div>
   );
@@ -123,7 +123,7 @@ export const ProbabilityChart: React.FC<ProbabilityChartProps> = ({
             </div>
             <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="motion-bar-grow h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${Math.max(item.probability, 2)}%`,
                   backgroundColor: item.color,

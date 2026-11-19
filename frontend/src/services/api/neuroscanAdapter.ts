@@ -1,5 +1,10 @@
 import { API_ENDPOINTS, ENV_CONFIG } from '@/constants/apiEndpoints';
-import { hasHttpAuthToken, httpClient, setHttpAuthToken } from '@/services/api/httpClient';
+import {
+  hasHttpAuthToken,
+  httpClient,
+  setCookieAuthActive,
+  setHttpAuthToken,
+} from '@/services/api/httpClient';
 import { mockStore } from '@/services/mock/mockStore';
 
 export const GUEST_OWNER_ID = 'guest-session';
@@ -20,32 +25,154 @@ import type {
   UserRole,
 } from '@/types/domain';
 
-// Tài khoản Test phục vụ kiểm thử hai vai trò RBAC (Bác sĩ Chuyên khoa & Người dùng)
-export const TEST_DOCTOR_CREDENTIALS = {
-  email: 'demo.doctor@neuroscan.vn',
-  password: 'Doctor@123',
-  fullName: 'BS.CKII Trần Quốc Bảo',
-  role: 'DOCTOR' as UserRole,
-  specialty: 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)',
-  organization: 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh',
-};
+interface ApiErrorLike {
+  message?: string;
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+      error?: { message?: string };
+    };
+  };
+}
 
-export const TEST_USER_CREDENTIALS = {
-  email: 'demo.user@neuroscan.vn',
-  password: 'User@123',
-  fullName: 'Nguyễn Minh An',
-  role: 'USER' as UserRole,
-  phone: '0912 345 678',
-};
+interface BackendPatientRow {
+  id?: number | string;
+  user_id?: number | string;
+  full_name?: string;
+  gender?: 'Nam' | 'Nữ' | 'Khác';
+  date_of_birth?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  medical_history?: string;
+  symptoms_initial?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
-function mapBackendPatientToRecord(p: any): PatientRecord {
+interface BackendPredictionRow {
+  id?: number | string;
+  scan_id?: number | string;
+  patient_name?: string;
+  label?: MRIAnalysisRecord['predictedLabel'];
+  confidence?: number | string;
+  probabilities?: string | MRIAnalysisRecord['probabilities'];
+  model_version?: string;
+  inference_time_ms?: number;
+  created_at?: string;
+  shared_with_doctor?: number | boolean;
+  symptom_note?: string;
+  shared_at?: string;
+  preprocessed_image_url?: string | null;
+  preprocessedImageUrl?: string | null;
+  gradcam_url?: string | null;
+  gradcamUrl?: string | null;
+  scan?: {
+    file_url?: string;
+    r2_key?: string;
+    file_key?: string;
+    patient_id?: number | string;
+    patient_name?: string;
+    file_name?: string;
+    file_size?: number;
+    findings_summary?: string;
+    notes?: string;
+  };
+  review?: {
+    id?: number | string;
+    doctor_id?: number | string;
+    doctor_name?: string;
+    confirmed_label?: MRIAnalysisRecord['predictedLabel'];
+    ai_assessment?: NonNullable<MRIAnalysisRecord['doctorReview']>['aiAssessment'];
+    note?: string;
+    doctor_note?: string;
+    recommended_step?: string;
+    created_at?: string;
+  } | null;
+}
+
+interface BackendChatSource {
+  organization?: string;
+  source?: string;
+  title?: string;
+  name?: string;
+  url?: string;
+  lastVerified?: string;
+}
+
+interface BackendChatMessageRow {
+  id?: number | string;
+  sender?: string;
+  content?: string;
+  created_at?: string;
+  is_emergency?: number | boolean;
+  sources_json?: string | Record<string, unknown> | BackendChatSource[] | null;
+}
+
+export interface BackendFaqDoc {
+  id: number;
+  title: string;
+  content: string;
+  source: string;
+  category: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AdminDoctorRecord {
+  id: number;
+  email: string;
+  fullName: string;
+  role: 'doctor' | 'admin';
+  isActive: boolean;
+  specialty: string;
+  licenseNo: string;
+  organization: string;
+  phone: string;
+  createdAt: string;
+}
+
+export interface AuditLogRecord {
+  id: number;
+  actor_user_id: number | null;
+  actor_email: string;
+  actor_role: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  details: string;
+  ip_address: string;
+  created_at: string;
+}
+
+export interface TelemetryErrorRecord {
+  id: number;
+  source: string;
+  level: string;
+  message: string;
+  stack: string;
+  route: string;
+  user_agent: string;
+  ip_address: string;
+  created_at: string;
+}
+
+function asApiError(err: unknown): ApiErrorLike {
+  if (typeof err === 'object' && err !== null) {
+    return err as ApiErrorLike;
+  }
+  return { message: String(err) };
+}
+
+function mapBackendPatientToRecord(p: BackendPatientRow): PatientRecord {
   const birthYear = p.date_of_birth ? new Date(p.date_of_birth).getFullYear() : 1985;
   const age = new Date().getFullYear() - birthYear;
   return {
     id: String(p.id || p.user_id),
     patientCode: `BN-2026-${String(p.id || p.user_id).padStart(3, '0')}`,
     fullName: p.full_name || 'Bệnh nhân',
-    gender: (p.gender as any) || 'Nam',
+    gender: p.gender || 'Nam',
     dateOfBirth: p.date_of_birth || '1985-01-01',
     age: isNaN(age) || age <= 0 ? 38 : age,
     phone: p.phone || '',
@@ -61,7 +188,7 @@ function mapBackendPatientToRecord(p: any): PatientRecord {
   };
 }
 
-function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnalysisRecord {
+function mapPredictionToAnalysisRecord(item: BackendPredictionRow, owner?: UserProfile): MRIAnalysisRecord {
   const scan = item.scan || {};
   const review = item.review;
   const predId = String(item.id || item.scan_id || Date.now());
@@ -79,13 +206,15 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
     fileUrl = '/sample_scans/sample_glioma_axial.jpg';
   }
 
-  let probObj = item.probabilities;
-  if (typeof probObj === 'string') {
+  let probObj: MRIAnalysisRecord['probabilities'] = null;
+  if (typeof item.probabilities === 'string') {
     try {
-      probObj = JSON.parse(probObj);
+      probObj = JSON.parse(item.probabilities) as MRIAnalysisRecord['probabilities'];
     } catch {
       probObj = null;
     }
+  } else if (item.probabilities) {
+    probObj = item.probabilities;
   }
 
   const role = owner?.role === 'DOCTOR' || owner?.role === 'doctor' ? 'DOCTOR' : 'USER';
@@ -100,7 +229,7 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
     uploadedDoctorId: review?.doctor_id ? String(review.doctor_id) : '1',
     uploadedDoctorName: review?.doctor_name || 'BS.CKII Trần Quốc Bảo',
     sanitizedFileName: scan.file_name || 'mri_scan.png',
-    fileFormat: (scan.file_name?.toLowerCase().endsWith('.png') ? 'PNG' : 'JPG') as any,
+    fileFormat: scan.file_name?.toLowerCase().endsWith('.png') ? 'PNG' : 'JPG',
     fileSizeBytes: scan.file_size || 250000,
     imageDimensions: { width: 512, height: 512 },
     createdAt: item.created_at || new Date().toISOString(),
@@ -117,12 +246,13 @@ function mapPredictionToAnalysisRecord(item: any, owner?: UserProfile): MRIAnaly
       preprocessingApplied: ['Cloudflare R2 Object Storage', 'ONNX Runtime Student Inference (256x256)', 'Cloudflare D1 Persistence'],
       inferenceTimeMs: item.inference_time_ms || 42,
     },
-    patientSharedConsent: true,
+    patientSharedConsent: item.shared_with_doctor !== undefined ? Boolean(item.shared_with_doctor) : true,
     patientSymptomNote:
+      item.symptom_note ||
       scan.findings_summary ||
       scan.notes ||
       'Triệu chứng lâm sàng và ảnh chụp MRI đã được đồng bộ trên hệ thống Cloudflare D1 & R2.',
-    sharedWithDoctorAt: item.created_at || new Date().toISOString(),
+    sharedWithDoctorAt: item.shared_at || item.created_at || new Date().toISOString(),
     reviewStatus: review ? 'REVIEWED' : 'PENDING_REVIEW',
     assignedDoctorId: String(review?.doctor_id || '1'),
     assignedDoctorName: review?.doctor_name || 'BS.CKII Trần Quốc Bảo',
@@ -156,11 +286,53 @@ export const neuroscanAdapter = {
     return mockStore.getSimulateError();
   },
 
-  // Đăng nhập nhanh tài khoản test (hỗ trợ kiểm thử 2 vai trò: DOCTOR & USER)
-  async loginWithDemoRole(role: UserRole = 'DOCTOR'): Promise<AuthSession> {
-    const isUser = role === 'USER' || role === 'patient';
-    const creds = isUser ? TEST_USER_CREDENTIALS : TEST_DOCTOR_CREDENTIALS;
-    return this.loginWithEmailPassword(creds.email, creds.password, isUser ? 'USER' : 'DOCTOR');
+  // Khôi phục phiên đăng nhập từ HttpOnly Cookie (GET /api/auth/me) khi người dùng F5 / tải lại trang
+  async restoreSession(): Promise<AuthSession | null> {
+    if (ENV_CONFIG.MOCK_MODE) {
+      return null;
+    }
+    try {
+      const { data } = await httpClient.get(API_ENDPOINTS.AUTH.ME);
+      if (data?.success && data?.data?.user) {
+        const u = data.data.user;
+        setCookieAuthActive(true);
+
+        const mappedRole: UserRole =
+          u.role === 'doctor' || u.role === 'DOCTOR'
+            ? 'DOCTOR'
+            : u.role === 'admin' || u.role === 'ADMIN'
+              ? 'ADMIN'
+              : 'USER';
+
+        const authSession: AuthSession = {
+          user: {
+            id: String(u.id),
+            email: u.email,
+            fullName: u.full_name,
+            role: mappedRole,
+            specialty: u.specialty,
+            organizationOrUnit: u.organization,
+            phone: u.phone,
+            isDemoAccount: false,
+            joinedAt: u.created_at || new Date().toISOString(),
+            preferences: {
+              emailNotifications: true,
+              doctorReviewAlerts: true,
+              saveHistoryConsent: true,
+              anonymizeExports: true,
+            },
+          },
+          accessTokenDemo: '',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+
+        mockStore.setCurrentSession(authSession);
+        return authSession;
+      }
+    } catch {
+      setCookieAuthActive(false);
+    }
+    return null;
   },
 
   async loginWithEmailPassword(
@@ -169,6 +341,15 @@ export const neuroscanAdapter = {
     preferredRole?: UserRole
   ): Promise<AuthSession> {
     const cleanEmail = email.trim().toLowerCase();
+    if (ENV_CONFIG.MOCK_MODE) {
+      await mockStore.delay(250);
+      const session = preferredRole
+        ? mockStore.loginWithRole(preferredRole === 'DOCTOR' || preferredRole === 'doctor' ? 'DOCTOR' : 'USER')
+        : mockStore.loginWithCredentials(cleanEmail);
+      setHttpAuthToken(session.accessTokenDemo);
+      return session;
+    }
+
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.AUTH.LOGIN, {
         email: cleanEmail,
@@ -181,8 +362,11 @@ export const neuroscanAdapter = {
         setHttpAuthToken(token);
 
         const mappedRole: UserRole =
-          u.role === 'doctor' || u.role === 'DOCTOR' ? 'DOCTOR' :
-          u.role === 'admin' || u.role === 'ADMIN' ? 'ADMIN' : 'USER';
+          u.role === 'doctor' || u.role === 'DOCTOR'
+            ? 'DOCTOR'
+            : u.role === 'admin' || u.role === 'ADMIN'
+              ? 'ADMIN'
+              : 'USER';
 
         const authSession: AuthSession = {
           user: {
@@ -209,34 +393,15 @@ export const neuroscanAdapter = {
         mockStore.setCurrentSession(authSession);
         return authSession;
       }
-    } catch (err: any) {
-      // Nếu người dùng nhập sai mật khẩu thực sự (không phải tài khoản mặc định), trả lỗi rõ ràng
-      const isDefaultAccount =
-        (cleanEmail === TEST_DOCTOR_CREDENTIALS.email && password === TEST_DOCTOR_CREDENTIALS.password) ||
-        (cleanEmail === TEST_USER_CREDENTIALS.email && password === TEST_USER_CREDENTIALS.password);
-      if (!isDefaultAccount && err?.response?.status === 401 && err?.response?.data?.error?.message) {
-        throw new Error(err.response.data.error.message);
-      }
-      console.warn('[API Login Warning, falling back to local session]:', err?.message);
+      throw new Error(data?.error?.message || data?.message || 'Đăng nhập không thành công.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      const serverMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message;
+      throw new Error(serverMsg || 'Không thể kết nối máy chủ xác thực. Vui lòng thử lại.');
     }
-
-    // Fallback an toàn theo đúng vai trò USER hoặc DOCTOR (không bao giờ gán nhầm USER sang DOCTOR)
-    await mockStore.delay(250);
-    const resolvedRole: UserRole =
-      preferredRole === 'USER' || preferredRole === 'patient'
-        ? 'USER'
-        : preferredRole === 'DOCTOR' || preferredRole === 'doctor'
-          ? 'DOCTOR'
-          : cleanEmail.includes('doctor') || cleanEmail.includes('bacsi')
-            ? 'DOCTOR'
-            : 'USER';
-
-    const session =
-      cleanEmail === TEST_DOCTOR_CREDENTIALS.email || cleanEmail === TEST_USER_CREDENTIALS.email
-        ? mockStore.loginWithRole(resolvedRole)
-        : mockStore.loginWithCredentials(cleanEmail);
-    setHttpAuthToken(session.accessTokenDemo);
-    return session;
   },
 
   async registerUser(
@@ -245,12 +410,13 @@ export const neuroscanAdapter = {
     password: string,
     role: UserRole = 'USER'
   ): Promise<AuthSession> {
+    void role;
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.AUTH.REGISTER, {
         fullName,
         email,
         password,
-        role: role === 'DOCTOR' || role === 'doctor' ? 'doctor' : 'patient',
+        role: 'patient',
       });
 
       if (data?.success && data?.data) {
@@ -259,7 +425,11 @@ export const neuroscanAdapter = {
         setHttpAuthToken(token);
 
         const mappedRole: UserRole =
-          u.role === 'doctor' || u.role === 'DOCTOR' ? 'DOCTOR' : 'USER';
+          u.role === 'doctor' || u.role === 'DOCTOR'
+            ? 'DOCTOR'
+            : u.role === 'admin' || u.role === 'ADMIN'
+              ? 'ADMIN'
+              : 'USER';
 
         const authSession: AuthSession = {
           user: {
@@ -286,26 +456,145 @@ export const neuroscanAdapter = {
         mockStore.setCurrentSession(authSession);
         return authSession;
       }
-    } catch (err: any) {
-      if (err?.response?.data?.message) {
-        throw new Error(err.response.data.message);
-      }
-      console.warn('[API Register Error, falling back]:', err?.message);
+      throw new Error(data?.error?.message || data?.message || 'Đăng ký tài khoản không thành công.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      const serverMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message;
+      throw new Error(serverMsg || 'Không thể kết nối máy chủ đăng ký. Vui lòng thử lại.');
     }
-
-    return this.loginWithEmailPassword(email, password);
   },
 
-  async requestPasswordReset(_email: string): Promise<{ message: string }> {
-    return {
-      message: 'Nếu địa chỉ email tồn tại trên hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi.',
-    };
+  async requestPasswordReset(
+    email: string
+  ): Promise<{ message: string; devResetCode?: string; emailDelivered?: boolean }> {
+    try {
+      const { data } = await httpClient.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
+        email: email.trim().toLowerCase(),
+      });
+      return {
+        message:
+          data?.message ||
+          'Nếu địa chỉ email tồn tại trên hệ thống, mã xác nhận đặt lại mật khẩu đã được gửi.',
+        devResetCode: data?.data?.devResetCode,
+        emailDelivered: data?.data?.emailDelivered,
+      };
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Không thể gửi yêu cầu khôi phục mật khẩu.'
+      );
+    }
+  },
+
+  async confirmPasswordReset(
+    email: string,
+    resetCode: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    try {
+      const { data } = await httpClient.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
+        email: email.trim().toLowerCase(),
+        resetCode,
+        newPassword,
+      });
+      if (data?.success) {
+        return { message: data?.message || 'Đặt lại mật khẩu thành công.' };
+      }
+      throw new Error(data?.error?.message || 'Không thể đặt lại mật khẩu.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Mã xác nhận không hợp lệ hoặc đã hết hạn.'
+      );
+    }
+  },
+
+  async getAdminDoctors(): Promise<AdminDoctorRecord[]> {
+    const { data } = await httpClient.get(API_ENDPOINTS.ADMIN.DOCTORS);
+    if (data?.success && Array.isArray(data?.data?.doctors)) {
+      return data.data.doctors as AdminDoctorRecord[];
+    }
+    throw new Error(data?.error?.message || 'Không thể tải danh sách tài khoản Bác sĩ.');
+  },
+
+  async createDoctorAccount(payload: {
+    fullName: string;
+    email: string;
+    password: string;
+    licenseNo: string;
+    specialty?: string;
+    organization?: string;
+    phone?: string;
+  }): Promise<AdminDoctorRecord> {
+    try {
+      const { data } = await httpClient.post(API_ENDPOINTS.ADMIN.DOCTORS, payload);
+      if (data?.success && data?.data?.doctor) {
+        return data.data.doctor as AdminDoctorRecord;
+      }
+      throw new Error(data?.error?.message || 'Không thể tạo tài khoản Bác sĩ.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi cấp tài khoản Bác sĩ.'
+      );
+    }
+  },
+
+  async toggleDoctorAccountStatus(id: number, isActive: boolean): Promise<boolean> {
+    try {
+      const { data } = await httpClient.patch(API_ENDPOINTS.ADMIN.DOCTOR_STATUS(id), { isActive });
+      return Boolean(data?.success);
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Không thể cập nhật trạng thái tài khoản.'
+      );
+    }
+  },
+
+  async getAuditLogs(): Promise<AuditLogRecord[]> {
+    const { data } = await httpClient.get(API_ENDPOINTS.ADMIN.AUDIT_LOGS);
+    if (data?.success && Array.isArray(data?.data?.logs)) {
+      return data.data.logs as AuditLogRecord[];
+    }
+    throw new Error(data?.error?.message || 'Không thể tải Nhật ký Kiểm toán.');
+  },
+
+  async getTelemetryErrors(): Promise<TelemetryErrorRecord[]> {
+    const { data } = await httpClient.get(API_ENDPOINTS.ADMIN.TELEMETRY);
+    if (data?.success && Array.isArray(data?.data?.errors)) {
+      return data.data.errors as TelemetryErrorRecord[];
+    }
+    throw new Error(data?.error?.message || 'Không thể tải Nhật ký Giám sát lỗi.');
+  },
+
+  async triggerRagIndex(): Promise<string> {
+    const { data } = await httpClient.post(API_ENDPOINTS.RAG.INDEX);
+    return data?.message || 'Đã đồng bộ tri thức RAG thành công.';
   },
 
   async logout(): Promise<void> {
     try {
       await httpClient.post(API_ENDPOINTS.AUTH.LOGOUT);
-    } catch {}
+    } catch {
+      // Ignore network errors during logout cleanup
+    }
+    setCookieAuthActive(false);
     setHttpAuthToken(null);
     mockStore.logout();
   },
@@ -320,7 +609,9 @@ export const neuroscanAdapter = {
       if (data?.success && Array.isArray(data?.data?.patients) && data.data.patients.length > 0) {
         return data.data.patients.map(mapBackendPatientToRecord);
       }
-    } catch {}
+    } catch {
+      // Fallback to local store when API is unreachable
+    }
     return mockStore.getDoctorPatients(doctorId || 'usr-doc-01');
   },
 
@@ -330,11 +621,16 @@ export const neuroscanAdapter = {
       if (data?.success && data?.data?.patient) {
         return mapBackendPatientToRecord(data.data.patient);
       }
-    } catch {}
+    } catch {
+      // Fallback to local store when API is unreachable
+    }
     return mockStore.getPatientById(patientId);
   },
 
   async createPatient(payload: CreatePatientPayload, doctor: UserProfile): Promise<PatientRecord> {
+    if (ENV_CONFIG.MOCK_MODE) {
+      return mockStore.createPatient(payload, doctor);
+    }
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.PATIENTS.CREATE, {
         fullName: payload.fullName,
@@ -348,11 +644,22 @@ export const neuroscanAdapter = {
       if (data?.success && data?.data?.patient) {
         return mapBackendPatientToRecord(data.data.patient);
       }
-    } catch {}
-    return mockStore.createPatient(payload, doctor);
+      throw new Error(data?.error?.message || 'Không thể tạo hồ sơ bệnh nhân.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi lưu hồ sơ bệnh nhân lên máy chủ.'
+      );
+    }
   },
 
   async updatePatient(payload: UpdatePatientPayload): Promise<PatientRecord> {
+    if (ENV_CONFIG.MOCK_MODE) {
+      return mockStore.updatePatient(payload);
+    }
     try {
       const { data } = await httpClient.put(API_ENDPOINTS.PATIENTS.UPDATE(payload.id), {
         fullName: payload.fullName,
@@ -365,19 +672,38 @@ export const neuroscanAdapter = {
       if (data?.success && data?.data?.patient) {
         return mapBackendPatientToRecord(data.data.patient);
       }
-    } catch {}
-    return mockStore.updatePatient(payload);
+      throw new Error(data?.error?.message || 'Không thể cập nhật hồ sơ bệnh nhân.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi cập nhật hồ sơ bệnh nhân.'
+      );
+    }
   },
 
   async deletePatient(patientId: string): Promise<boolean> {
+    if (ENV_CONFIG.MOCK_MODE) {
+      return mockStore.deletePatient(patientId);
+    }
     try {
       const { data } = await httpClient.delete(API_ENDPOINTS.PATIENTS.DELETE(patientId));
       if (data?.success) {
         mockStore.deletePatient(patientId);
         return true;
       }
-    } catch {}
-    return mockStore.deletePatient(patientId);
+      throw new Error(data?.error?.message || 'Không thể xóa hồ sơ bệnh nhân.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi xóa hồ sơ bệnh nhân.'
+      );
+    }
   },
 
   async getPatientAnalyses(patientId: string): Promise<MRIAnalysisRecord[]> {
@@ -405,9 +731,11 @@ export const neuroscanAdapter = {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
       if (data?.success && Array.isArray(data?.data?.predictions)) {
-        return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
+        return data.data.predictions.map((p: BackendPredictionRow) => mapPredictionToAnalysisRecord(p));
       }
-    } catch {}
+    } catch {
+      // Fallback to local store when API is unreachable
+    }
 
     return mockStore.getUserAnalyses(userId);
   },
@@ -419,7 +747,9 @@ export const neuroscanAdapter = {
         if (data?.success && data?.data?.prediction) {
           return mapPredictionToAnalysisRecord(data.data.prediction);
         }
-      } catch {}
+      } catch {
+        // Fallback to local store when API is unreachable
+      }
     }
 
     const found = mockStore.getAnalysisById(id);
@@ -483,16 +813,20 @@ export const neuroscanAdapter = {
         if (!mapped.preprocessedImageUrl && aiResult?.preprocessedImageUrl) {
           mapped.preprocessedImageUrl = aiResult.preprocessedImageUrl;
         }
+        if (aiResult?.qualityWarning) {
+          mapped.modelMetadata.qualityWarning = aiResult.qualityWarning;
+        }
         return mapped;
       }
-    } catch (err: any) {
-      if (err?.response?.status === 401 || err?.response?.status === 403) {
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      if (err.response?.status === 401 || err.response?.status === 403) {
         throw new Error(
-          err?.response?.data?.error?.message ||
+          err.response?.data?.error?.message ||
             'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.',
         );
       }
-      console.warn('[Real AI Pipeline Warning, continuing with client ONNX inference]:', err?.message);
+      console.warn('[Real AI Pipeline Warning, continuing with client ONNX inference]:', err.message);
     }
 
     // Client ONNX execution fallback (khi chạy local không có Cloudflare Worker)
@@ -503,7 +837,9 @@ export const neuroscanAdapter = {
     if (hasHttpAuthToken() && userId !== GUEST_OWNER_ID) {
       try {
         await httpClient.delete(`/predictions/${id}`);
-      } catch {}
+      } catch {
+        // Continue deleting from local cache even if backend request failed
+      }
     }
     mockStore.deleteAnalysis(id, userId);
   },
@@ -516,6 +852,24 @@ export const neuroscanAdapter = {
     if (!hasHttpAuthToken()) {
       throw new Error('Vui lòng đăng nhập tài khoản để gửi yêu cầu Bác sĩ xem xét.');
     }
+    try {
+      const { data } = await httpClient.post(API_ENDPOINTS.MRI.REQUEST_REVIEW(payload.analysisId), {
+        consentToShareWithDoctor: payload.consentToShareWithDoctor,
+        patientSymptomNote: payload.patientSymptomNote,
+      });
+      if (data?.success) {
+        return this.getAnalysisById(payload.analysisId);
+      }
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      if (err.response?.status === 401 || err.response?.status === 403 || err.response?.status === 400) {
+        throw new Error(
+          err.response?.data?.error?.message ||
+            'Không thể gửi yêu cầu Bác sĩ xem xét. Vui lòng thử lại.',
+        );
+      }
+      console.warn('[Request Review API Warning]:', err.message);
+    }
     return mockStore.requestDoctorReview(payload);
   },
 
@@ -524,9 +878,11 @@ export const neuroscanAdapter = {
       try {
         const { data } = await httpClient.get(API_ENDPOINTS.MRI.PREDICTIONS);
         if (data?.success && Array.isArray(data?.data?.predictions)) {
-          return data.data.predictions.map((p: any) => mapPredictionToAnalysisRecord(p));
+          return data.data.predictions.map((p: BackendPredictionRow) => mapPredictionToAnalysisRecord(p));
         }
-      } catch {}
+      } catch {
+        // Fallback to local store when API is unreachable
+      }
     }
 
     return mockStore.getDoctorAssignedCases(doctorId || '1');
@@ -549,11 +905,19 @@ export const neuroscanAdapter = {
       if (data?.success) {
         return this.getAnalysisById(payload.analysisId);
       }
-    } catch (err: any) {
-      console.warn('[Doctor Review API Warning]:', err?.message);
+      throw new Error(data?.error?.message || 'Không thể lưu đánh giá chuyên môn.');
+    } catch (rawErr: unknown) {
+      if (ENV_CONFIG.MOCK_MODE) {
+        return mockStore.submitDoctorReview(payload, doctor);
+      }
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi gửi nhận xét chuyên môn lên máy chủ.'
+      );
     }
-
-    return mockStore.submitDoctorReview(payload, doctor);
   },
 
   // ==========================================
@@ -561,23 +925,27 @@ export const neuroscanAdapter = {
   // ==========================================
 
   async getChatSessions(userId: string): Promise<ChatSessionRecord[]> {
-    const parseBackendMsg = (m: any, sessId: string): ChatMessageRecord => {
-      let parsedMeta: any = null;
+    const parseBackendMsg = (m: BackendChatMessageRow, sessId: string): ChatMessageRecord => {
+      let parsedMeta: Record<string, unknown> | BackendChatSource[] | null = null;
       if (m.sources_json) {
         try {
-          parsedMeta = typeof m.sources_json === 'string' ? JSON.parse(m.sources_json) : m.sources_json;
+          parsedMeta =
+            typeof m.sources_json === 'string'
+              ? (JSON.parse(m.sources_json) as Record<string, unknown> | BackendChatSource[])
+              : m.sources_json;
         } catch {
           parsedMeta = null;
         }
       }
 
-      const rawSources = Array.isArray(parsedMeta)
+      const metaObj = parsedMeta && !Array.isArray(parsedMeta) ? parsedMeta : null;
+      const rawSources: BackendChatSource[] = Array.isArray(parsedMeta)
         ? parsedMeta
-        : Array.isArray(parsedMeta?.sources)
-          ? parsedMeta.sources
+        : Array.isArray(metaObj?.sources)
+          ? (metaObj.sources as BackendChatSource[])
           : [];
 
-      const sources = rawSources.map((s: any) => ({
+      const sources = rawSources.map((s) => ({
         organization: s.organization || s.source || 'WHO CNS5 / ACR Guidelines',
         title: s.title || s.name || 'Tài liệu Y khoa NeuroScan',
         url: s.url || 'https://radiopaedia.org',
@@ -592,16 +960,25 @@ export const neuroscanAdapter = {
         content: m.content || '',
         createdAt: m.created_at || new Date().toISOString(),
         urgency:
-          parsedMeta?.urgency ||
+          (metaObj?.urgency as ChatMessageRecord['urgency']) ||
           (m.is_emergency ? 'emergency' : 'informational'),
         sources: sources.length > 0 ? sources : undefined,
-        ragTrace: parsedMeta?.ragTrace || undefined,
-        matchedScans: Array.isArray(parsedMeta?.matchedScans) ? parsedMeta.matchedScans : undefined,
-        suggestions: Array.isArray(parsedMeta?.suggestions) ? parsedMeta.suggestions : undefined,
+        ragTrace: (metaObj?.ragTrace as ChatMessageRecord['ragTrace']) || undefined,
+        matchedScans: Array.isArray(metaObj?.matchedScans)
+          ? (metaObj.matchedScans as ChatMessageRecord['matchedScans'])
+          : undefined,
+        suggestions: Array.isArray(metaObj?.suggestions)
+          ? (metaObj.suggestions as string[])
+          : undefined,
         isOutOfScope: false,
         isDemoIllustration: false,
       };
     };
+
+    // Khách chưa đăng nhập chỉ dùng phiên chat cục bộ trên trình duyệt, không truy xuất lịch sử D1 của tài khoản khác
+    if (!hasHttpAuthToken() || !userId || userId === GUEST_OWNER_ID) {
+      return mockStore.getChatSessions(GUEST_OWNER_ID);
+    }
 
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.CHAT.SESSIONS);
@@ -609,14 +986,16 @@ export const neuroscanAdapter = {
         const mappedSessions: ChatSessionRecord[] = [];
         for (const s of data.data.sessions) {
           const sessId = String(s.id);
-          let rawMsgs: any[] = Array.isArray(s.messages) ? s.messages : [];
+          let rawMsgs: BackendChatMessageRow[] = Array.isArray(s.messages) ? s.messages : [];
           if (rawMsgs.length === 0) {
             try {
               const histRes = await httpClient.get(`${API_ENDPOINTS.CHAT.HISTORY}?sessionId=${s.id}`);
               if (histRes.data?.success && Array.isArray(histRes.data?.data?.messages)) {
                 rawMsgs = histRes.data.data.messages;
               }
-            } catch {}
+            } catch {
+              // Keep empty messages list if history endpoint fails
+            }
           }
 
           const messages: ChatMessageRecord[] =
@@ -651,7 +1030,9 @@ export const neuroscanAdapter = {
 
         return mappedSessions;
       }
-    } catch {}
+    } catch {
+      // Fallback to local store when API is unreachable
+    }
 
     return mockStore.getChatSessions(userId);
   },
@@ -660,6 +1041,9 @@ export const neuroscanAdapter = {
     userId: string,
     linkedAnalysis?: MRIAnalysisRecord | null
   ): Promise<ChatSessionRecord> {
+    if (!hasHttpAuthToken() || !userId || userId === GUEST_OWNER_ID) {
+      return mockStore.createChatSession(GUEST_OWNER_ID, linkedAnalysis);
+    }
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.CHAT.SESSIONS, {
         title: linkedAnalysis
@@ -698,15 +1082,21 @@ export const neuroscanAdapter = {
           ],
         };
       }
-    } catch {}
+    } catch {
+      // Fallback to local store when API is unreachable
+    }
 
     return mockStore.createChatSession(userId, linkedAnalysis);
   },
 
   async deleteChatSession(sessionId: string): Promise<void> {
-    try {
-      await httpClient.delete(`${API_ENDPOINTS.CHAT.SESSIONS}/${sessionId}`);
-    } catch {}
+    if (hasHttpAuthToken() && !isNaN(Number(sessionId))) {
+      try {
+        await httpClient.delete(`${API_ENDPOINTS.CHAT.SESSIONS}/${sessionId}`);
+      } catch {
+        // Ignore network errors while removing local session
+      }
+    }
     mockStore.deleteChatSession(sessionId);
   },
 
@@ -746,7 +1136,7 @@ export const neuroscanAdapter = {
           createdAt: new Date().toISOString(),
           urgency: resp.urgency || (resp.isEmergency ? 'emergency' : 'informational'),
           content: resp.reply,
-          sources: resp.sources?.map((s: any) => ({
+          sources: resp.sources?.map((s: BackendChatSource) => ({
             organization: s.organization || s.source || 'WHO CNS5 / ACR Guidelines',
             title: s.title || 'Tài liệu Y khoa NeuroScan',
             url: s.url || 'https://radiopaedia.org',
@@ -774,24 +1164,34 @@ export const neuroscanAdapter = {
   },
 
   // Quản lý bộ câu hỏi đáp y tế cho Quản trị viên (FR08)
-  async getFaqDocuments(): Promise<any[]> {
+  async getFaqDocuments(): Promise<BackendFaqDoc[]> {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.FAQ.LIST);
       if (data?.success && Array.isArray(data?.data?.documents)) {
-        return data.data.documents;
+        return data.data.documents as BackendFaqDoc[];
       }
-    } catch {}
+    } catch {
+      // Return empty list if FAQ endpoint is unreachable
+    }
     return [];
   },
 
-  async createFaqDocument(doc: { title: string; content: string; source: string; category: string }): Promise<any> {
+  async createFaqDocument(doc: {
+    title: string;
+    content: string;
+    source: string;
+    category: string;
+  }): Promise<BackendFaqDoc | undefined> {
     const { data } = await httpClient.post(API_ENDPOINTS.FAQ.CREATE, doc);
-    return data?.data?.document;
+    return data?.data?.document as BackendFaqDoc | undefined;
   },
 
-  async updateFaqDocument(id: number | string, doc: Partial<{ title: string; content: string; source: string; category: string }>): Promise<any> {
+  async updateFaqDocument(
+    id: number | string,
+    doc: Partial<{ title: string; content: string; source: string; category: string }>
+  ): Promise<BackendFaqDoc | undefined> {
     const { data } = await httpClient.put(API_ENDPOINTS.FAQ.UPDATE(id), doc);
-    return data?.data?.document;
+    return data?.data?.document as BackendFaqDoc | undefined;
   },
 
   async deleteFaqDocument(id: number | string): Promise<boolean> {
@@ -801,9 +1201,39 @@ export const neuroscanAdapter = {
 
   async updateUserProfile(
     userId: string,
-    _role: UserRole,
+    role: UserRole,
     patch: Partial<UserProfile>
   ): Promise<UserProfile> {
+    if (hasHttpAuthToken() && userId !== GUEST_OWNER_ID) {
+      try {
+        const { data } = await httpClient.put(API_ENDPOINTS.AUTH.PROFILE, {
+          fullName: patch.fullName,
+          phone: patch.phone,
+          organizationOrUnit: patch.organizationOrUnit,
+          specialty: patch.specialty,
+        });
+        if (data?.success && data?.data?.user) {
+          const u = data.data.user;
+          const synced = mockStore.updateProfile(userId, {
+            ...patch,
+            fullName: u.full_name || patch.fullName,
+            phone: u.phone ?? patch.phone,
+            organizationOrUnit: u.organization ?? patch.organizationOrUnit,
+            specialty: u.specialty ?? patch.specialty,
+          });
+          return {
+            ...synced,
+            role: synced.role || role,
+          };
+        }
+      } catch (rawErr: unknown) {
+        const err = asApiError(rawErr);
+        if (err.response?.status === 400 || err.response?.status === 401) {
+          throw new Error(err.response?.data?.error?.message || 'Không thể cập nhật hồ sơ.');
+        }
+        console.warn('[Profile Update API Warning]:', err.message);
+      }
+    }
     return mockStore.updateProfile(userId, patch);
   },
 
@@ -812,6 +1242,24 @@ export const neuroscanAdapter = {
     currentPass: string,
     newPass: string
   ): Promise<boolean> {
+    if (hasHttpAuthToken() && userId !== GUEST_OWNER_ID) {
+      try {
+        const { data } = await httpClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+          currentPassword: currentPass,
+          newPassword: newPass,
+        });
+        if (data?.success) {
+          return true;
+        }
+        return false;
+      } catch (rawErr: unknown) {
+        const err = asApiError(rawErr);
+        if (err.response?.status === 400 || err.response?.status === 401) {
+          return false;
+        }
+        console.warn('[Change Password API Warning]:', err.message);
+      }
+    }
     return mockStore.changePassword(userId, currentPass, newPass);
   },
 };

@@ -29,7 +29,48 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
-from model import get_student_model
+from model import BrainMriStudentCamWrapper, get_student_model
+
+
+class ClaheRgbTransform:
+    """Tăng cường độ tương phản cục bộ CLAHE giúp phân tách rõ ranh giới Glioma vs Meningioma."""
+
+    def __init__(self, clip_limit: float = 2.0, tile_grid_size: Tuple[int, int] = (8, 8)):
+        self.clip_limit = clip_limit
+        self.tile_grid_size = tile_grid_size
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        rgb = np.array(img)
+        lab = cv2.cvtColor(rgb, cv2.COLOR_RGB2LAB)
+        l_ch, a_ch, b_ch = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=self.clip_limit, tileGridSize=self.tile_grid_size)
+        l_eq = clahe.apply(l_ch)
+        merged = cv2.merge((l_eq, a_ch, b_ch))
+        return Image.fromarray(cv2.cvtColor(merged, cv2.COLOR_LAB2RGB))
+
+
+class WeightedFocalCrossEntropyLoss(nn.Module):
+    """CrossEntropy có trọng số lớp (tăng ưu tiên Glioma) kết hợp Focal modulation & Label Smoothing."""
+
+    def __init__(self, class_weights: torch.Tensor, gamma: float = 1.0, label_smoothing: float = 0.08):
+        super().__init__()
+        self.register_buffer("class_weights", class_weights)
+        self.gamma = gamma
+        self.label_smoothing = label_smoothing
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        ce = torch.nn.functional.cross_entropy(
+            logits,
+            targets,
+            weight=self.class_weights,
+            label_smoothing=self.label_smoothing,
+            reduction="none",
+        )
+        if self.gamma > 0.0:
+            pt = torch.exp(-ce)
+            loss = ((1.0 - pt) ** self.gamma) * ce
+            return loss.mean()
+        return ce.mean()
 
 # 4 lớp chuẩn hoá theo dữ liệu thực tế
 CLASS_NAMES = ["glioma", "meningioma", "notumor", "pituitary"]
@@ -257,36 +298,47 @@ def validate(
     return val_loss, metrics, confusion_mat
 
 
-def export_model_to_onnx(model: nn.Module, output_onnx_path: str, device: torch.device):
-    """Xuất mô hình PyTorch sang file ONNX chuẩn hóa."""
+def export_model_to_onnx(
+    model: nn.Module,
+    output_onnx_path: str,
+    device: torch.device,
+    with_cam: bool = True,
+):
+    """Xuất mô hình PyTorch sang file ONNX chuẩn hóa (mặc định kèm nhánh cam_maps Real CNN CAM)."""
     model.eval()
+    export_target = BrainMriStudentCamWrapper(model) if with_cam else model
+    export_target.eval()
     dummy_input = torch.randn(1, 3, 256, 256, device=device)
-    print(f"[*] Đang xuất mô hình ONNX ra file: {output_onnx_path}")
+    output_names = ["logits", "cam_maps"] if with_cam else ["logits"]
+    dynamic_axes = {"image": {0: "batch_size"}, "logits": {0: "batch_size"}}
+    if with_cam:
+        dynamic_axes["cam_maps"] = {0: "batch_size"}
+    print(f"[*] Đang xuất mô hình ONNX ra file: {output_onnx_path} (with_cam={with_cam})")
 
     try:
         torch.onnx.export(
-            model,
+            export_target,
             dummy_input,
             output_onnx_path,
             export_params=True,
             opset_version=14,
             do_constant_folding=True,
             input_names=["image"],
-            output_names=["logits"],
-            dynamic_axes={"image": {0: "batch_size"}, "logits": {0: "batch_size"}},
+            output_names=output_names,
+            dynamic_axes=dynamic_axes,
             dynamo=False,
         )
     except (TypeError, Exception):
         torch.onnx.export(
-            model,
+            export_target,
             dummy_input,
             output_onnx_path,
             export_params=True,
             opset_version=14,
             do_constant_folding=True,
             input_names=["image"],
-            output_names=["logits"],
-            dynamic_axes={"image": {0: "batch_size"}, "logits": {0: "batch_size"}},
+            output_names=output_names,
+            dynamic_axes=dynamic_axes,
         )
     print(f"[✓] Đã xuất ONNX thành công! Kích thước file: {os.path.getsize(output_onnx_path) / (1024*1024):.2f} MB")
 
@@ -297,6 +349,10 @@ def main():
     parser.add_argument("--epochs", type=int, default=15, help="Số epochs huấn luyện")
     parser.add_argument("--batch_size", type=int, default=32, help="Kích thước batch")
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate ban đầu")
+    parser.add_argument("--glioma_weight", type=float, default=1.5, help="Trọng số phạt cho lớp Glioma nhằm nâng Recall")
+    parser.add_argument("--focal_gamma", type=float, default=1.0, help="Hệ số Focal Loss (0 = tắt Focal)")
+    parser.add_argument("--use_clahe", action="store_true", help="Bật tăng cường tương phản CLAHE khi huấn luyện")
+    parser.add_argument("--no_cam_export", action="store_true", help="Chỉ xuất logits (không kèm cam_maps)")
     parser.add_argument("--output", type=str, default="best_brain_mri_model.pth", help="Tên file lưu checkpoint")
     parser.add_argument("--export_onnx", type=str, default="brain_mri_student.onnx", help="Đường dẫn file ONNX xuất ra")
     parser.add_argument("--dry_run", action="store_true", help="Chạy thử nghiệm nhanh (smoke test 2 batches/epoch)")
@@ -343,8 +399,10 @@ def main():
         print(f"[!] Không tìm thấy ảnh nào trong thư mục {args.data_dir}. Vui lòng kiểm tra lại đường dẫn.")
         sys.exit(1)
 
-    # 2. Định nghĩa Transforms (Đồng bộ với ImageNet)
+    # 2. Định nghĩa Transforms (Đồng bộ với ImageNet, tùy chọn CLAHE)
+    base_pre = [ClaheRgbTransform()] if args.use_clahe else []
     train_transform = transforms.Compose([
+        *base_pre,
         transforms.Resize((256, 256)),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomRotation(degrees=15),
@@ -354,6 +412,7 @@ def main():
     ])
 
     val_transform = transforms.Compose([
+        *base_pre,
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -369,7 +428,14 @@ def main():
     print("\n[*] Đang khởi tạo mô hình học sinh MobileNetV2 (1280 -> 5 Logits)...")
     model = get_student_model(num_classes=5).to(device)
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    class_weights = torch.tensor(
+        [args.glioma_weight, 1.0, 1.0, 1.0, 1.0], dtype=torch.float32, device=device
+    )
+    criterion = WeightedFocalCrossEntropyLoss(
+        class_weights=class_weights,
+        gamma=args.focal_gamma,
+        label_smoothing=0.08,
+    )
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
 
@@ -447,7 +513,7 @@ def main():
             print(f"[*] Nạp checkpoint tốt nhất để xuất ONNX: {args.output}")
             checkpoint = torch.load(args.output, map_location=device)
             model.load_state_dict(checkpoint["model_state_dict"])
-        export_model_to_onnx(model, args.export_onnx, device)
+        export_model_to_onnx(model, args.export_onnx, device, with_cam=not args.no_cam_export)
 
 
 if __name__ == "__main__":

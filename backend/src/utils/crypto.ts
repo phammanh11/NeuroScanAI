@@ -77,3 +77,94 @@ export async function verifyPassword(
   return diff === 0;
 }
 
+export interface SignedSessionPayload {
+  uid: number;
+  role: 'patient' | 'doctor' | 'admin';
+  exp: number;
+  jti: string;
+}
+
+function toBase64Url(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(input: string): string {
+  const padded = input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (input.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function hmacSha256Hex(message: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return bufferToHex(signature);
+}
+
+export async function signSessionToken(
+  uid: number,
+  role: 'patient' | 'doctor' | 'admin',
+  secret: string,
+  ttlSeconds = 7 * 24 * 60 * 60
+): Promise<string> {
+  const payload: SignedSessionPayload = {
+    uid,
+    role,
+    exp: Date.now() + ttlSeconds * 1000,
+    jti: generateRandomHex(12),
+  };
+  const encodedPayload = toBase64Url(JSON.stringify(payload));
+  const sig = await hmacSha256Hex(`ns1.${encodedPayload}`, secret);
+  return `ns1.${encodedPayload}.${sig}`;
+}
+
+export async function verifySessionToken(
+  token: string,
+  secret: string
+): Promise<SignedSessionPayload | null> {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== 'ns1') return null;
+
+  const [, encodedPayload, providedSig] = parts;
+  if (!encodedPayload || !providedSig) return null;
+
+  try {
+    const expectedSig = await hmacSha256Hex(`ns1.${encodedPayload}`, secret);
+    if (expectedSig.length !== providedSig.length) return null;
+    let diff = 0;
+    for (let i = 0; i < expectedSig.length; i++) {
+      diff |= expectedSig.charCodeAt(i) ^ providedSig.charCodeAt(i);
+    }
+    if (diff !== 0) return null;
+
+    const payload = JSON.parse(fromBase64Url(encodedPayload)) as SignedSessionPayload;
+    if (
+      !payload ||
+      typeof payload.uid !== 'number' ||
+      payload.uid <= 0 ||
+      typeof payload.exp !== 'number' ||
+      payload.exp <= Date.now()
+    ) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+

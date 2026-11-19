@@ -13,6 +13,9 @@ export interface WorkerEnv {
   CF_LLM_MODEL?: string;
   AI_GATEWAY_ID?: string;
   GEMINI_API_KEY?: string;
+  SESSION_SECRET?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM_EMAIL?: string;
 }
 
 const SCHEMA_STATEMENTS = [
@@ -23,6 +26,7 @@ const SCHEMA_STATEMENTS = [
     password_salt TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'patient',
     full_name TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
@@ -122,6 +126,45 @@ const SCHEMA_STATEMENTS = [
     embedding_json TEXT NOT NULL,
     updated_at TEXT DEFAULT (datetime('now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS user_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_user_id INTEGER DEFAULT NULL,
+    actor_email TEXT DEFAULT '',
+    actor_role TEXT DEFAULT 'guest',
+    action TEXT NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_id TEXT DEFAULT '',
+    details TEXT DEFAULT '',
+    ip_address TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS error_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL DEFAULT 'frontend',
+    level TEXT NOT NULL DEFAULT 'error',
+    message TEXT NOT NULL,
+    stack TEXT DEFAULT '',
+    route TEXT DEFAULT '',
+    user_agent TEXT DEFAULT '',
+    ip_address TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
 ];
 
 let initialized = false;
@@ -171,10 +214,14 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
     }
 
     for (const colStmt of [
+      `ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`,
       `ALTER TABLE patients ADD COLUMN gender TEXT DEFAULT 'Nam'`,
       `ALTER TABLE patients ADD COLUMN address TEXT DEFAULT ''`,
       `ALTER TABLE patients ADD COLUMN medical_history TEXT DEFAULT ''`,
       `ALTER TABLE patients ADD COLUMN emergency_contact TEXT DEFAULT ''`,
+      `ALTER TABLE predictions ADD COLUMN shared_with_doctor INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE predictions ADD COLUMN symptom_note TEXT DEFAULT ''`,
+      `ALTER TABLE predictions ADD COLUMN shared_at TEXT DEFAULT NULL`,
     ]) {
       await env.DB.prepare(colStmt).run().catch(() => {});
     }
@@ -275,6 +322,118 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
           full_name = excluded.full_name
       `)
         .bind(hash, salt)
+        .run()
+        .catch(() => {});
+    }
+
+    // 3b. Nạp / Đồng bộ tài khoản quản trị & người dùng kiểm thử (admin@gmail.com & user@gmail.com / pass@123)
+    const primaryAdmin: any = await env.DB.prepare(
+      'SELECT id, password_salt, role FROM users WHERE email = ?'
+    )
+      .bind('admin@gmail.com')
+      .first()
+      .catch(() => null);
+
+    if (!primaryAdmin || primaryAdmin.password_salt === 'neuro_salt_2026' || primaryAdmin.role !== 'admin') {
+      const { hash, salt } = await hashPassword('pass@123');
+      await env.DB.prepare(`
+        INSERT INTO users (id, email, password_hash, password_salt, role, full_name)
+        VALUES (7, 'admin@gmail.com', ?, ?, 'admin', 'Quản trị viên NeuroScan')
+        ON CONFLICT(email) DO UPDATE SET
+          password_hash = excluded.password_hash,
+          password_salt = excluded.password_salt,
+          role = 'admin',
+          full_name = excluded.full_name
+      `)
+        .bind(hash, salt)
+        .run()
+        .catch(() => {});
+    }
+
+    const primaryAdminRow: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind('admin@gmail.com')
+      .first()
+      .catch(() => ({ id: 7 }));
+    if (primaryAdminRow?.id) {
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO doctors (user_id, specialty, license_no, organization, phone)
+        VALUES (?, 'Quản trị & Chẩn đoán hình ảnh Thần kinh', 'ADMIN-NEURO-2026', 'NeuroScan AI Medical Platform', '0909 000 111')
+      `)
+        .bind(primaryAdminRow.id)
+        .run()
+        .catch(() => {});
+    }
+
+    const primaryUser: any = await env.DB.prepare(
+      'SELECT id, password_salt, role FROM users WHERE email = ?'
+    )
+      .bind('user@gmail.com')
+      .first()
+      .catch(() => null);
+
+    if (!primaryUser || primaryUser.password_salt === 'neuro_salt_2026' || primaryUser.role !== 'patient') {
+      const { hash, salt } = await hashPassword('pass@123');
+      await env.DB.prepare(`
+        INSERT INTO users (id, email, password_hash, password_salt, role, full_name)
+        VALUES (8, 'user@gmail.com', ?, ?, 'patient', 'Người dùng NeuroScan')
+        ON CONFLICT(email) DO UPDATE SET
+          password_hash = excluded.password_hash,
+          password_salt = excluded.password_salt,
+          role = 'patient',
+          full_name = excluded.full_name
+      `)
+        .bind(hash, salt)
+        .run()
+        .catch(() => {});
+    }
+
+    const primaryUserRow: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind('user@gmail.com')
+      .first()
+      .catch(() => ({ id: 8 }));
+    if (primaryUserRow?.id) {
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO patients (user_id, date_of_birth, phone, gender, address, medical_history, emergency_contact)
+        VALUES (?, '1995-01-15', '0901 234 567', 'Nam', 'TP. Hồ Chí Minh', 'Tài khoản người dùng kiểm thử tính năng hệ thống NeuroScan AI.', '0909 111 222')
+      `)
+        .bind(primaryUserRow.id)
+        .run()
+        .catch(() => {});
+    }
+
+    const primaryDoctor: any = await env.DB.prepare(
+      'SELECT id, password_salt, role FROM users WHERE email = ?'
+    )
+      .bind('doctor@gmail.com')
+      .first()
+      .catch(() => null);
+
+    if (!primaryDoctor || primaryDoctor.password_salt === 'neuro_salt_2026' || primaryDoctor.role !== 'doctor') {
+      const { hash, salt } = await hashPassword('pass@123');
+      await env.DB.prepare(`
+        INSERT INTO users (id, email, password_hash, password_salt, role, full_name)
+        VALUES (9, 'doctor@gmail.com', ?, ?, 'doctor', 'BS.CKII Nguyễn Minh Khôi')
+        ON CONFLICT(email) DO UPDATE SET
+          password_hash = excluded.password_hash,
+          password_salt = excluded.password_salt,
+          role = 'doctor',
+          full_name = excluded.full_name
+      `)
+        .bind(hash, salt)
+        .run()
+        .catch(() => {});
+    }
+
+    const primaryDoctorRow: any = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind('doctor@gmail.com')
+      .first()
+      .catch(() => ({ id: 9 }));
+    if (primaryDoctorRow?.id) {
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO doctors (user_id, specialty, license_no, organization, phone)
+        VALUES (?, 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)', 'CCHN-2026-NEURO-7709', 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh', '0909 777 888')
+      `)
+        .bind(primaryDoctorRow.id)
         .run()
         .catch(() => {});
     }

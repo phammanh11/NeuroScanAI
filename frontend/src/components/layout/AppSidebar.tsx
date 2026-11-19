@@ -18,6 +18,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import type { UserRole } from '@/types/domain';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 interface NavItem {
   label: string;
@@ -103,7 +104,22 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   mobileOpen,
   onCloseMobile,
 }) => {
-  const navItems = role === 'DOCTOR' ? DOCTOR_NAV_ITEMS : USER_NAV_ITEMS;
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'admin';
+  const navItems: NavItem[] =
+    role === 'DOCTOR'
+      ? isAdmin
+        ? [
+            ...DOCTOR_NAV_ITEMS,
+            {
+              label: 'Quản trị Hệ thống',
+              to: '/admin',
+              icon: <ShieldCheck className="w-4 h-4 shrink-0" />,
+              badge: 'ADMIN',
+            },
+          ]
+        : DOCTOR_NAV_ITEMS
+      : USER_NAV_ITEMS;
   const mobileDialogRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const onCloseMobileRef = useRef(onCloseMobile);

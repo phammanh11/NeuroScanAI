@@ -13,12 +13,29 @@ export const API_ENDPOINTS = {
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
+    PROFILE: '/auth/profile',
+    CHANGE_PASSWORD: '/auth/change-password',
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    RESET_PASSWORD: '/auth/reset-password',
+  },
+  ADMIN: {
+    DOCTORS: '/admin/doctors',
+    DOCTOR_STATUS: (id: string | number) => `/admin/doctors/${id}/status`,
+    AUDIT_LOGS: '/audit-logs',
+    TELEMETRY: '/admin/telemetry',
+  },
+  TELEMETRY: {
+    ERROR: '/telemetry/error',
+  },
+  RAG: {
+    INDEX: '/rag/index',
   },
   MRI: {
     UPLOAD: '/scans',
     PREDICT: '/predict',
     PREDICTIONS: '/predictions',
     PREDICTION_DETAIL: (id: string | number) => `/predictions/${id}`,
+    REQUEST_REVIEW: (id: string | number) => `/predictions/${id}/request-review`,
     REVIEW: '/reviews',
   },
   CHAT: {

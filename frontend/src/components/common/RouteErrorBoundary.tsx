@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { reportClientError } from '@/services/telemetry/errorReporter';
 
 interface RouteErrorBoundaryState {
   hasError: boolean;
@@ -21,6 +22,15 @@ export class RouteErrorBoundary extends React.Component<
       hasError: true,
       errorMessage: 'Trang này gặp sự cố. Bạn có thể tải lại để thử lại.',
     };
+  }
+
+  override componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    reportClientError({
+      source: 'react_boundary',
+      level: 'error',
+      message: error.message || 'React ErrorBoundary caught error',
+      stack: `${error.stack || ''}\n${info.componentStack || ''}`,
+    });
   }
 
   override render() {

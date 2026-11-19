@@ -31,8 +31,9 @@ const ROUTE_LABELS: Record<string, string> = {
   doctor: 'Cổng Bác sĩ',
   patients: 'Danh sách Bệnh nhân',
   'vision-analysis': 'Computer Vision MRI',
-  cases: 'Danh sách ca MRI được chia sẻ',
-  reviews: 'Đánh giá & Nhận xét chuyên môn',
+  cases: 'Danh sách ca MRI',
+  reviews: 'Đánh giá chuyên môn',
+  admin: 'Quản trị Hệ thống',
 };
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
@@ -197,7 +198,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         {user && (
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
             <Link
-              to={user.role === 'DOCTOR' ? '/doctor/profile' : '/profile'}
+              to={
+                user.role === 'DOCTOR' ||
+                user.role === 'doctor' ||
+                user.role === 'ADMIN' ||
+                user.role === 'admin'
+                  ? '/doctor/profile'
+                  : '/profile'
+              }
               className="flex items-center gap-2 text-left group"
             >
               <div className="w-8 h-8 rounded-xl bg-navy-800 dark:bg-teal-600 text-white text-xs font-bold flex items-center justify-center overflow-hidden shrink-0 border border-slate-200/50 dark:border-slate-700/50">
@@ -207,8 +215,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                     alt={user.fullName}
                     className="w-full h-full object-cover"
                   />
+                ) : user.role === 'ADMIN' || user.role === 'admin' ? (
+                  'QT'
+                ) : user.role === 'DOCTOR' || user.role === 'doctor' ? (
+                  'BS'
                 ) : (
-                  user.role === 'DOCTOR' ? 'BS' : 'ND'
+                  'ND'
                 )}
               </div>
               <div className="hidden xl:block max-w-[150px]">
@@ -216,7 +228,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                   {user.fullName}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  {user.role === 'DOCTOR' ? 'Bác sĩ Chuyên khoa' : 'Người dùng'}
+                  {user.role === 'ADMIN' || user.role === 'admin'
+                    ? 'Quản trị viên (ADMIN)'
+                    : user.role === 'DOCTOR' || user.role === 'doctor'
+                      ? 'Bác sĩ Chuyên khoa'
+                      : 'Người dùng'}
                 </p>
               </div>
             </Link>

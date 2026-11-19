@@ -219,7 +219,8 @@ class InMemoryMockStore {
   // PATIENT / CUSTOMER MANAGEMENT (FOR DOCTOR)
   // ==========================================
 
-  public getDoctorPatients(_doctorId?: string): PatientRecord[] {
+  public getDoctorPatients(doctorId?: string): PatientRecord[] {
+    void doctorId;
     return structuredClone(
       this.patients.sort(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
@@ -362,6 +363,7 @@ class InMemoryMockStore {
       inferenceTimeMs: number;
       gradcamUrl?: string | null;
       preprocessedImageUrl?: string | null;
+      qualityWarning?: string;
     },
   ): MRIAnalysisRecord {
     if (!payload.consentAccepted) {
@@ -377,7 +379,7 @@ class InMemoryMockStore {
       payload.file.type === 'image/svg+xml' || ext === 'SVG'
         ? 'SVG'
         : ext === 'JPG' || ext === 'JPEG'
-          ? (ext as any)
+          ? ext
           : 'PNG';
 
     const highestSessionNumber = this.analyses.reduce((max, item) => {
@@ -400,10 +402,10 @@ class InMemoryMockStore {
     const confidenceScore = aiResult ? aiResult.confidence : preset.confidenceScore;
     const probabilities: ClassProbabilities = aiResult
       ? {
-          Glioma: (aiResult.probabilities as any).Glioma ?? 0,
-          Meningioma: (aiResult.probabilities as any).Meningioma ?? 0,
-          Pituitary: (aiResult.probabilities as any).Pituitary ?? 0,
-          'No Tumor': (aiResult.probabilities as any)['No Tumor'] ?? 0,
+          Glioma: aiResult.probabilities.Glioma ?? 0,
+          Meningioma: aiResult.probabilities.Meningioma ?? 0,
+          Pituitary: aiResult.probabilities.Pituitary ?? 0,
+          'No Tumor': aiResult.probabilities['No Tumor'] ?? 0,
         }
       : structuredClone(preset.probabilities);
     const modelVersion = aiResult ? aiResult.modelVersion : 'brain_mri_student_v1_onnx';
@@ -448,6 +450,7 @@ class InMemoryMockStore {
           'ONNX Runtime Web Inference Engine',
         ],
         inferenceTimeMs,
+        qualityWarning: aiResult?.qualityWarning,
       },
       patientSharedConsent: isDoctor ? true : false,
       patientSymptomNote: payload.symptomNote?.trim() || undefined,

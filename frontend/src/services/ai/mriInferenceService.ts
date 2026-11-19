@@ -14,6 +14,8 @@ export interface MRIInferenceResult {
   modelVersion: string;
   gradcamUrl?: string | null;
   preprocessedImageUrl?: string | null;
+  camSource?: 'ONNX_CNN_CAM' | 'CANVAS_SALIENCY';
+  qualityWarning?: string;
 }
 
 interface PreprocessOutput {
@@ -30,7 +32,9 @@ try {
   };
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-} catch {}
+} catch {
+  // Ignore WASM environment configuration errors in restricted runtimes
+}
 
 async function getInferenceSession(): Promise<ort.InferenceSession> {
   if (!sessionPromise) {
@@ -370,27 +374,205 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<Prep
 }
 
 /**
- * Thực thi suy luận bằng mô hình ONNX student thật kết hợp tạo bản đồ nhiệt Grad-CAM
+ * Kiểm tra nhẹ (OOD Guard) xem ảnh đầu vào có phải ảnh màu thông thường (không giống lát cắt MRI mức xám) hay không.
+ * Lát cắt MRI chuẩn chủ yếu có kênh R ≈ G ≈ B; ảnh chụp thường/selfie có tỷ lệ điểm ảnh bão hòa màu cao.
+ */
+export function detectLikelyNonMriImage(canvas256: HTMLCanvasElement): string | undefined {
+  const ctx = canvas256.getContext('2d');
+  if (!ctx) return undefined;
+
+  const { width, height } = canvas256;
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  const totalPixels = width * height;
+  let colorfulPixels = 0;
+
+  for (let i = 0; i < totalPixels; i++) {
+    const idx = i * 4;
+    const r = pixels[idx];
+    const g = pixels[idx + 1];
+    const b = pixels[idx + 2];
+    const spread = Math.max(r, g, b) - Math.min(r, g, b);
+    if (spread > 35) {
+      colorfulPixels++;
+    }
+  }
+
+  const colorfulRatio = colorfulPixels / totalPixels;
+  if (colorfulRatio > 0.35) {
+    return 'Ảnh tải lên có độ bão hòa màu cao, có thể không phải lát cắt MRI sọ não tiêu chuẩn. Kết quả phân loại chỉ mang tính tham khảo.';
+  }
+  return undefined;
+}
+
+/**
+ * Dựng bản đồ nhiệt Grad-CAM / CAM THỰC từ tensor cam_maps [1, 5, H_f, W_f] xuất bởi mô hình ONNX.
+ * Thực hiện ReLU -> chuẩn hóa min-max -> nội suy song tuyến (bilinear) lên 256x256 -> phủ bảng màu y khoa JET.
+ */
+export function renderRealOnnxCamOverlay(
+  canvas256: HTMLCanvasElement,
+  camTensor: ort.Tensor,
+  predictedLabel: TumorLabel,
+  alpha: number = 0.45
+): { gradcamDataUrl: string; preprocessedDataUrl: string } | null {
+  const dims = camTensor.dims;
+  if (dims.length !== 4 || dims[1] < 4 || dims[2] < 2 || dims[3] < 2) {
+    return null;
+  }
+
+  const camH = dims[2];
+  const camW = dims[3];
+  const planeSize = camH * camW;
+  const raw = camTensor.data as Float32Array;
+
+  // Ánh xạ lớp dự đoán về chỉ số kênh CAM tương ứng trong 5 logits
+  const channelIdx =
+    predictedLabel === 'Glioma'
+      ? 0
+      : predictedLabel === 'Meningioma'
+        ? 1
+        : predictedLabel === 'Pituitary'
+          ? 3
+          : 2;
+
+  const camGrid = new Float32Array(planeSize);
+  let maxVal = 0;
+  for (let i = 0; i < planeSize; i++) {
+    const v =
+      predictedLabel === 'No Tumor' && dims[1] >= 5
+        ? Math.max(0, raw[2 * planeSize + i], raw[4 * planeSize + i])
+        : Math.max(0, raw[channelIdx * planeSize + i]);
+    camGrid[i] = v;
+    if (v > maxVal) maxVal = v;
+  }
+
+  if (maxVal <= 1e-6) {
+    return null;
+  }
+
+  for (let i = 0; i < planeSize; i++) {
+    camGrid[i] /= maxVal;
+  }
+
+  const width = canvas256.width;
+  const height = canvas256.height;
+  const preprocessedDataUrl = canvas256.toDataURL('image/jpeg', 0.92);
+
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = width;
+  outputCanvas.height = height;
+  const outCtx = outputCanvas.getContext('2d');
+  if (!outCtx) return null;
+
+  outCtx.drawImage(canvas256, 0, 0);
+  const imgData = outCtx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+
+  // Nội suy song tuyến (bilinear upsampling) từ camGrid (8x8) lên 256x256 + bảng màu JET
+  for (let y = 0; y < height; y++) {
+    const gy = ((y + 0.5) * camH) / height - 0.5;
+    const y0 = Math.max(0, Math.min(camH - 1, Math.floor(gy)));
+    const y1 = Math.max(0, Math.min(camH - 1, y0 + 1));
+    const wy = Math.max(0, Math.min(1, gy - y0));
+
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const lum = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+      if (lum <= 18) continue;
+
+      const gx = ((x + 0.5) * camW) / width - 0.5;
+      const x0 = Math.max(0, Math.min(camW - 1, Math.floor(gx)));
+      const x1 = Math.max(0, Math.min(camW - 1, x0 + 1));
+      const wx = Math.max(0, Math.min(1, gx - x0));
+
+      const v00 = camGrid[y0 * camW + x0];
+      const v10 = camGrid[y0 * camW + x1];
+      const v01 = camGrid[y1 * camW + x0];
+      const v11 = camGrid[y1 * camW + x1];
+      const heat =
+        v00 * (1 - wx) * (1 - wy) +
+        v10 * wx * (1 - wy) +
+        v01 * (1 - wx) * wy +
+        v11 * wx * wy;
+
+      if (heat < 0.14) continue;
+
+      // Bảng màu y khoa JET (Xanh dương -> Lục lam -> Vàng -> Đỏ)
+      const rJet = Math.round(255 * Math.max(0, Math.min(1, 1.5 - Math.abs(4 * heat - 3))));
+      const gJet = Math.round(255 * Math.max(0, Math.min(1, 1.5 - Math.abs(4 * heat - 2))));
+      const bJet = Math.round(255 * Math.max(0, Math.min(1, 1.5 - Math.abs(4 * heat - 1))));
+
+      const blend = alpha * Math.min(1, heat * 1.25);
+      pixels[idx] = Math.round(pixels[idx] * (1 - blend) + rJet * blend);
+      pixels[idx + 1] = Math.round(pixels[idx + 1] * (1 - blend) + gJet * blend);
+      pixels[idx + 2] = Math.round(pixels[idx + 2] * (1 - blend) + bJet * blend);
+    }
+  }
+
+  outCtx.putImageData(imgData, 0, 0);
+  return {
+    gradcamDataUrl: outputCanvas.toDataURL('image/jpeg', 0.92),
+    preprocessedDataUrl,
+  };
+}
+
+function createHorizontalFlippedTensor(tensor: ort.Tensor): ort.Tensor {
+  const [n, c, h, w] = tensor.dims;
+  const src = tensor.data as Float32Array;
+  const dst = new Float32Array(src.length);
+  for (let bi = 0; bi < n; bi++) {
+    for (let ci = 0; ci < c; ci++) {
+      const planeOffset = (bi * c + ci) * h * w;
+      for (let y = 0; y < h; y++) {
+        const rowOffset = planeOffset + y * w;
+        for (let x = 0; x < w; x++) {
+          dst[rowOffset + x] = src[rowOffset + (w - 1 - x)];
+        }
+      }
+    }
+  }
+  return new ort.Tensor('float32', dst, [n, c, h, w]);
+}
+
+function softmaxFromLogits(logits: number[]): number[] {
+  const maxLogit = Math.max(...logits);
+  const exps = logits.map((l) => Math.exp(l - maxLogit));
+  const sumExps = exps.reduce((a, b) => a + b, 0);
+  return exps.map((e) => e / sumExps);
+}
+
+/**
+ * Thực thi suy luận bằng mô hình ONNX student thật với 2-View Horizontal-Flip TTA
+ * kết hợp tạo bản đồ nhiệt Real CNN CAM & cảnh báo vùng giao thoa lâm sàng Glioma ↔ Meningioma.
  */
 export async function runMriOnnxInference(
   imageSource: string | File,
-  _fallbackHint?: string
+  fallbackHint?: string
 ): Promise<MRIInferenceResult> {
+  void fallbackHint;
   const startTime = performance.now();
 
   const session = await getInferenceSession();
   const preprocessResult = await preprocessImageToTensor(imageSource);
+  const oodWarning = detectLikelyNonMriImage(preprocessResult.canvas);
 
-  const feeds: Record<string, ort.Tensor> = { image: preprocessResult.tensor };
-  const results = await session.run(feeds);
+  // View 1: Ảnh gốc
+  const results = await session.run({ image: preprocessResult.tensor });
   const logitsTensor = results.logits || Object.values(results)[0];
-  const logits = Array.from(logitsTensor.data as Float32Array);
+  const probsOrig = softmaxFromLogits(Array.from(logitsTensor.data as Float32Array));
 
-  // Tính Softmax trên 5 logits của mô hình student
-  const maxLogit = Math.max(...logits);
-  const exps = logits.map((l) => Math.exp(l - maxLogit));
-  const sumExps = exps.reduce((a, b) => a + b, 0);
-  const rawProbs = exps.map((e) => e / sumExps);
+  // View 2: Horizontal-Flip TTA (tận dụng tính đối xứng giải phẫu hai bán cầu não)
+  let rawProbs = probsOrig;
+  try {
+    const flippedTensor = createHorizontalFlippedTensor(preprocessResult.tensor);
+    const flippedResults = await session.run({ image: flippedTensor });
+    const flippedLogits = flippedResults.logits || Object.values(flippedResults)[0];
+    const probsFlip = softmaxFromLogits(Array.from(flippedLogits.data as Float32Array));
+    if (probsFlip.length === probsOrig.length) {
+      rawProbs = probsOrig.map((p, idx) => 0.55 * p + 0.45 * probsFlip[idx]);
+    }
+  } catch {
+    // Giữ kết quả View 1 nếu môi trường WebAssembly hạn chế bộ nhớ
+  }
 
   // Ánh xạ 5 logits của mô hình sang 4 lớp WHO CNS5:
   // Index 0: Glioma (U thần kinh đệm)
@@ -410,7 +592,7 @@ export async function runMriOnnxInference(
     'No Tumor': Number((pNoTumor / total).toFixed(4)),
   };
 
-  // Tìm nhãn có xác suất cao nhất từ kết quả suy luận thật
+  // Tìm nhãn có xác suất cao nhất từ kết quả suy luận thật (2-View TTA)
   let topLabel: TumorLabel = 'No Tumor';
   let maxP = -1;
   for (const [key, val] of Object.entries(normProb)) {
@@ -420,12 +602,22 @@ export async function runMriOnnxInference(
     }
   }
 
-  // Tạo bản đồ nhiệt Grad-CAM trực tiếp từ canvas tiền xử lý
-  const { gradcamDataUrl, preprocessedDataUrl } = generateClientGradCAMHeatmap(
-    preprocessResult.canvas,
-    topLabel,
-    0.45
-  );
+  // Cảnh báo vùng giao thoa lâm sàng Glioma ↔ Meningioma để giảm nguy cơ bỏ sót Glioma
+  const clinicalOverlapWarning =
+    topLabel === 'Meningioma' && normProb.Glioma >= 0.15
+      ? `Lưu ý lâm sàng: Mô hình ghi nhận xác suất đồng thời của Glioma (${(normProb.Glioma * 100).toFixed(1)}%). Khuyến nghị bác sĩ đối chiếu thêm chuỗi xung T2-FLAIR và T1-Gd đa lát cắt để loại trừ tổn thương nội trục.`
+      : undefined;
+
+  const qualityWarning = [oodWarning, clinicalOverlapWarning].filter(Boolean).join(' ') || undefined;
+
+  // Ưu tiên dựng bản đồ nhiệt Real CNN CAM từ đầu ra cam_maps của ONNX; tự fallback về Canvas Saliency nếu dùng model cũ
+  const realCamResult = results.cam_maps
+    ? renderRealOnnxCamOverlay(preprocessResult.canvas, results.cam_maps, topLabel, 0.45)
+    : null;
+
+  const { gradcamDataUrl, preprocessedDataUrl } = realCamResult
+    ? realCamResult
+    : generateClientGradCAMHeatmap(preprocessResult.canvas, topLabel, 0.45);
 
   const inferenceTimeMs = Math.max(1, Math.round(performance.now() - startTime));
 
@@ -434,8 +626,10 @@ export async function runMriOnnxInference(
     confidence: maxP,
     probabilities: normProb,
     inferenceTimeMs,
-    modelVersion: 'brain_mri_student_v1_onnx',
+    modelVersion: realCamResult ? 'brain_mri_student_v2_tta_cam_onnx' : 'brain_mri_student_v1_onnx',
     gradcamUrl: gradcamDataUrl,
     preprocessedImageUrl: preprocessedDataUrl,
+    camSource: realCamResult ? 'ONNX_CNN_CAM' : 'CANVAS_SALIENCY',
+    qualityWarning,
   };
 }

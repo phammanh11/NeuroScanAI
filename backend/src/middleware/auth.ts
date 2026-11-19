@@ -2,25 +2,57 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import type { WorkerEnv } from '../db/init';
 import type { User } from '../../shared/types';
-import { sha256Hex } from '../utils/crypto';
+import { sha256Hex, verifySessionToken } from '../utils/crypto';
 import { fail } from '../utils/response';
 
 export const SESSION_COOKIE_NAME = 'neuroscan_session';
 
+export function getSessionSecret(env: WorkerEnv): string {
+  return env.SESSION_SECRET || 'neuroscan-edge-hmac-v1-signing-secret-2026';
+}
+
+export function extractSessionToken(
+  c: Context<{ Bindings: WorkerEnv; Variables: any }>
+): string | null {
+  return (
+    c.req.header('Authorization')?.replace(/^Bearer\s+/i, '').trim() ||
+    c.req.header('X-Session-Token')?.trim() ||
+    getCookie(c, SESSION_COOKIE_NAME) ||
+    null
+  );
+}
+
 export async function getAuthenticatedUser(
   c: Context<{ Bindings: WorkerEnv; Variables: any }>
 ): Promise<User | null> {
-  const token =
-    c.req.header('Authorization')?.replace(/^Bearer\s+/i, '') ||
-    c.req.header('X-Session-Token') ||
-    getCookie(c, SESSION_COOKIE_NAME);
-
+  const token = extractSessionToken(c);
   if (!token) return null;
 
   try {
     const tokenHash = await sha256Hex(token);
 
-    // 1. Kiểm tra nhanh qua Cloudflare KV (Ưu tiên theo thiết kế Mục 1.8.5 & 1.8.9)
+    // 1. Kiểm tra nhanh qua Cloudflare KV nếu đã cấu hình
+    // 1. Xác thực chữ ký số HMAC-SHA256 & hạn sử dụng của phiên (chặn hoàn toàn token giả mạo)
+    const verified = await verifySessionToken(token, getSessionSecret(c.env));
+    if (!verified) {
+      return null;
+    }
+
+    // 2. Kiểm tra trạng thái thu hồi phiên trong bảng user_sessions trên D1 (logout / khóa tài khoản)
+    try {
+      const revokedRow: any = await c.env.DB.prepare(
+        'SELECT revoked FROM user_sessions WHERE token_hash = ?'
+      )
+        .bind(tokenHash)
+        .first();
+      if (revokedRow && Number(revokedRow.revoked) === 1) {
+        return null;
+      }
+    } catch {
+      // Bảng user_sessions có thể chưa tồn tại ở lần khởi tạo đầu
+    }
+
+    // 3. Tra cứu nhanh thông tin user từ Cloudflare KV (chỉ khi token chưa bị thu hồi)
     if (c.env.SESSION_KV) {
       try {
         const kvData = await c.env.SESSION_KV.get(`session:${tokenHash}`);
@@ -35,28 +67,8 @@ export async function getAuthenticatedUser(
       }
     }
 
-    // 2. Tra cứu đối chiếu từ Cloudflare D1 (hỗ trợ cả token định danh user-<id>-<role>-<hex> và mock token)
-    let targetUserId = 2; // Mặc định Patient
-    if (token.startsWith('user-')) {
-      const parts = token.split('-');
-      const parsedId = Number(parts[1]);
-      if (!isNaN(parsedId) && parsedId > 0) {
-        targetUserId = parsedId;
-      } else if (parts[2] === 'doctor') {
-        targetUserId = 1;
-      } else if (parts[2] === 'admin') {
-        targetUserId = 3;
-      }
-    } else if (token.includes('doctor')) {
-      targetUserId = 1;
-    } else if (token.includes('admin')) {
-      targetUserId = 3;
-    } else if (token.includes('user') || token.includes('patient')) {
-      targetUserId = 2;
-    }
-
     const user: any = await c.env.DB.prepare(`
-      SELECT u.id, u.email, u.full_name, u.role, u.created_at,
+      SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at,
              d.specialty, d.license_no, d.organization, d.phone as doctor_phone,
              p.phone as patient_phone, p.date_of_birth
       FROM users u
@@ -64,17 +76,17 @@ export async function getAuthenticatedUser(
       LEFT JOIN patients p ON p.user_id = u.id
       WHERE u.id = ?
     `)
-      .bind(targetUserId)
+      .bind(verified.uid)
       .first()
       .catch(async () => {
         return await c.env.DB.prepare(
-          'SELECT id, email, full_name, role, created_at FROM users WHERE id = ?'
+          'SELECT id, email, full_name, role, is_active, created_at FROM users WHERE id = ?'
         )
-          .bind(targetUserId)
+          .bind(verified.uid)
           .first();
       });
 
-    if (!user) return null;
+    if (!user || user.is_active === 0) return null;
 
     return {
       id: user.id,

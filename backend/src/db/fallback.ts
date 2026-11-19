@@ -12,6 +12,10 @@ export interface MemoryStore {
   chat_messages: any[];
   faq_documents: any[];
   rag_chunks: any[];
+  user_sessions: Array<{ token_hash: string; user_id: number; revoked: number; expires_at: string }>;
+  password_reset_tokens: Array<{ token_hash: string; user_id: number; expires_at: string; used: number; created_at: string }>;
+  audit_logs: any[];
+  error_logs: any[];
   kv: Map<string, { value: string; expiresAt?: number }>;
   r2_objects: Map<string, { data: Uint8Array; contentType: string; metadata?: any }>;
 }
@@ -72,6 +76,33 @@ export const memoryStore: MemoryStore = {
       role: 'patient',
       created_at: '2026-10-10 14:20:00',
     },
+    {
+      id: 7,
+      email: 'admin@gmail.com',
+      full_name: 'Quản trị viên NeuroScan',
+      password_hash: 'bootstrap_pending',
+      password_salt: 'neuro_salt_2026',
+      role: 'admin',
+      created_at: '2026-11-19 00:00:00',
+    },
+    {
+      id: 8,
+      email: 'user@gmail.com',
+      full_name: 'Người dùng NeuroScan',
+      password_hash: 'bootstrap_pending',
+      password_salt: 'neuro_salt_2026',
+      role: 'patient',
+      created_at: '2026-11-19 00:00:00',
+    },
+    {
+      id: 9,
+      email: 'doctor@gmail.com',
+      full_name: 'BS.CKII Nguyễn Minh Khôi',
+      password_hash: 'bootstrap_pending',
+      password_salt: 'neuro_salt_2026',
+      role: 'doctor',
+      created_at: '2026-11-19 00:00:00',
+    },
   ],
   doctors: [
     {
@@ -81,6 +112,22 @@ export const memoryStore: MemoryStore = {
       organization: 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh',
       phone: '0909 000 222',
       created_at: '2026-08-01 08:00:00',
+    },
+    {
+      user_id: 7,
+      specialty: 'Quản trị & Chẩn đoán hình ảnh Thần kinh',
+      license_no: 'ADMIN-NEURO-2026',
+      organization: 'NeuroScan AI Medical Platform',
+      phone: '0909 000 111',
+      created_at: '2026-11-19 00:00:00',
+    },
+    {
+      user_id: 9,
+      specialty: 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)',
+      license_no: 'CCHN-2026-NEURO-7709',
+      organization: 'Khoa Chẩn đoán Hình ảnh & Ngoại Thần kinh',
+      phone: '0909 777 888',
+      created_at: '2026-11-19 00:00:00',
     },
   ],
   patients: [
@@ -123,6 +170,16 @@ export const memoryStore: MemoryStore = {
       medical_history: 'Khám sức khỏe tổng quát định kỳ, đôi khi căng thẳng đau đầu nhẹ do làm việc máy tính.',
       emergency_contact: '0989 666 777',
       created_at: '2026-10-10 14:20:00',
+    },
+    {
+      user_id: 8,
+      date_of_birth: '1995-01-15',
+      phone: '0901 234 567',
+      gender: 'Nam',
+      address: 'TP. Hồ Chí Minh',
+      medical_history: 'Tài khoản người dùng kiểm thử tính năng hệ thống NeuroScan AI.',
+      emergency_contact: '0909 111 222',
+      created_at: '2026-11-19 00:00:00',
     },
   ],
   mri_scans: [
@@ -306,6 +363,10 @@ export const memoryStore: MemoryStore = {
     },
   ],
   rag_chunks: [],
+  user_sessions: [],
+  password_reset_tokens: [],
+  audit_logs: [],
+  error_logs: [],
   kv: new Map(),
   r2_objects: new Map(),
 };
@@ -339,6 +400,10 @@ export function createFallbackD1(): D1Database {
           if (sql.includes('count(*) as count') || sql.includes('count(*) as cnt')) {
             let count = 0;
             if (sql.includes('from mri_scans')) count = memoryStore.mri_scans.length;
+            else if (sql.includes('from predictions') && sql.includes('where scan_id = ?')) {
+              const sid = Number(boundParams[0]);
+              count = memoryStore.predictions.filter((p) => p.scan_id === sid).length;
+            }
             else if (sql.includes('from predictions')) count = memoryStore.predictions.length;
             else if (sql.includes('from doctor_reviews')) count = memoryStore.doctor_reviews.length;
             else if (sql.includes('from patients')) count = memoryStore.patients.length;
@@ -346,6 +411,35 @@ export function createFallbackD1(): D1Database {
             else if (sql.includes('from rag_chunks')) count = memoryStore.rag_chunks.length;
             else count = memoryStore.users.length;
             return { results: [{ count, cnt: count }] as unknown as T[], success: true, meta: {} as any };
+          }
+
+          // 0b. SELECT user_sessions
+          if (sql.includes('from user_sessions')) {
+            const tokenHash = String(boundParams[0] || '');
+            const rows = memoryStore.user_sessions.filter((s) => s.token_hash === tokenHash);
+            return { results: rows as unknown as T[], success: true, meta: {} as any };
+          }
+
+          // 0b2. SELECT password_reset_tokens
+          if (sql.includes('from password_reset_tokens')) {
+            const tokenHash = String(boundParams[0] || '');
+            const userId = boundParams[1] !== undefined ? Number(boundParams[1]) : undefined;
+            const rows = memoryStore.password_reset_tokens.filter(
+              (t) => t.token_hash === tokenHash && (userId === undefined || t.user_id === userId)
+            );
+            return { results: rows as unknown as T[], success: true, meta: {} as any };
+          }
+
+          // 0c. SELECT audit_logs
+          if (sql.includes('from audit_logs')) {
+            const rows = [...memoryStore.audit_logs].reverse().slice(0, 100);
+            return { results: rows as unknown as T[], success: true, meta: {} as any };
+          }
+
+          // 0d. SELECT error_logs
+          if (sql.includes('from error_logs')) {
+            const rows = [...memoryStore.error_logs].reverse().slice(0, 100);
+            return { results: rows as unknown as T[], success: true, meta: {} as any };
           }
 
           // 1. SELECT rag_chunks
@@ -356,20 +450,25 @@ export function createFallbackD1(): D1Database {
           // 2. SELECT users
           if (sql.includes('from users')) {
             let res = [...memoryStore.users];
-            if (sql.includes('where email = ?')) {
+            if (sql.includes('where email = ?') || sql.includes('where u.email = ?')) {
               const email = String(boundParams[0]).toLowerCase();
               res = res.filter((u) => u.email.toLowerCase() === email);
-            } else if (sql.includes('where id = ?')) {
+            } else if (sql.includes('where id = ?') || sql.includes('where u.id = ?')) {
               res = res.filter((u) => u.id === Number(boundParams[0]));
+            } else if (sql.includes("role in ('doctor', 'admin')") || sql.includes("role in ('doctor','admin')")) {
+              res = res.filter((u) => u.role === 'doctor' || u.role === 'admin');
             }
             const enriched = res.map((u) => {
               const doc = memoryStore.doctors.find((d) => d.user_id === u.id);
               const pat = memoryStore.patients.find((p) => p.user_id === u.id);
               return {
                 ...u,
+                is_active: u.is_active !== undefined ? u.is_active : 1,
                 specialty: doc?.specialty,
                 license_no: doc?.license_no,
                 organization: doc?.organization,
+                doctor_phone: doc?.phone,
+                patient_phone: pat?.phone,
                 phone: doc?.phone || pat?.phone,
                 date_of_birth: pat?.date_of_birth,
               };
@@ -778,11 +877,185 @@ export function createFallbackD1(): D1Database {
             return { success: true, meta: {} as any };
           }
 
+          // INSERT INTO audit_logs
+          if (sql.includes('into audit_logs')) {
+            const entry = {
+              id: memoryStore.audit_logs.length + 1,
+              actor_user_id: boundParams[0] ?? null,
+              actor_email: boundParams[1] || '',
+              actor_role: boundParams[2] || 'guest',
+              action: boundParams[3] || '',
+              resource_type: boundParams[4] || '',
+              resource_id: String(boundParams[5] ?? ''),
+              details: String(boundParams[6] ?? ''),
+              ip_address: String(boundParams[7] ?? ''),
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.audit_logs.push(entry);
+            return { success: true, meta: { last_row_id: entry.id } as any };
+          }
+
+          // INSERT INTO error_logs
+          if (sql.includes('into error_logs')) {
+            const entry = {
+              id: memoryStore.error_logs.length + 1,
+              source: String(boundParams[0] || 'frontend'),
+              level: String(boundParams[1] || 'error'),
+              message: String(boundParams[2] || ''),
+              stack: String(boundParams[3] || ''),
+              route: String(boundParams[4] || ''),
+              user_agent: String(boundParams[5] || ''),
+              ip_address: String(boundParams[6] || ''),
+              created_at: new Date().toISOString(),
+            };
+            memoryStore.error_logs.push(entry);
+            return { success: true, meta: { last_row_id: entry.id } as any };
+          }
+
+          // INSERT OR REPLACE INTO user_sessions
+          if (sql.includes('into user_sessions')) {
+            const tokenHash = String(boundParams[0]);
+            const userId = Number(boundParams[1]);
+            const expiresAt = String(boundParams[2] || new Date(Date.now() + 7 * 86400_000).toISOString());
+            const existing = memoryStore.user_sessions.find((s) => s.token_hash === tokenHash);
+            if (existing) {
+              existing.user_id = userId;
+              existing.revoked = 0;
+              existing.expires_at = expiresAt;
+            } else {
+              memoryStore.user_sessions.push({
+                token_hash: tokenHash,
+                user_id: userId,
+                revoked: 0,
+                expires_at: expiresAt,
+              });
+            }
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE user_sessions (revoke by token_hash or user_id)
+          if (sql.includes('update user_sessions')) {
+            if (sql.includes('where user_id = ?')) {
+              const targetUserId = Number(boundParams[0]);
+              for (const s of memoryStore.user_sessions) {
+                if (s.user_id === targetUserId) s.revoked = 1;
+              }
+            } else {
+              const tokenHash = String(boundParams[0]);
+              const existing = memoryStore.user_sessions.find((s) => s.token_hash === tokenHash);
+              if (existing) existing.revoked = 1;
+              else memoryStore.user_sessions.push({ token_hash: tokenHash, user_id: 0, revoked: 1, expires_at: new Date().toISOString() });
+            }
+            return { success: true, meta: {} as any };
+          }
+
+          // INSERT OR REPLACE INTO password_reset_tokens
+          if (sql.includes('into password_reset_tokens')) {
+            const tokenHash = String(boundParams[0]);
+            const userId = Number(boundParams[1]);
+            const expiresAt = String(boundParams[2]);
+            const existing = memoryStore.password_reset_tokens.find((t) => t.token_hash === tokenHash);
+            if (existing) {
+              existing.user_id = userId;
+              existing.expires_at = expiresAt;
+              existing.used = 0;
+            } else {
+              memoryStore.password_reset_tokens.push({
+                token_hash: tokenHash,
+                user_id: userId,
+                expires_at: expiresAt,
+                used: 0,
+                created_at: new Date().toISOString(),
+              });
+            }
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE password_reset_tokens
+          if (sql.includes('update password_reset_tokens')) {
+            const tokenHash = String(boundParams[0]);
+            const existing = memoryStore.password_reset_tokens.find((t) => t.token_hash === tokenHash);
+            if (existing) existing.used = 1;
+            return { success: true, meta: {} as any };
+          }
+
+          // DELETE FROM mri_scans
+          if (sql.includes('delete from mri_scans')) {
+            const scanId = Number(boundParams[0]);
+            const idx = memoryStore.mri_scans.findIndex((s) => s.id === scanId);
+            if (idx >= 0) memoryStore.mri_scans.splice(idx, 1);
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE doctor_reviews
+          if (sql.includes('update doctor_reviews')) {
+            const predId = Number(boundParams[boundParams.length - 1]);
+            const existing = memoryStore.doctor_reviews.find((r) => r.prediction_id === predId);
+            if (existing) {
+              existing.doctor_id = Number(boundParams[0]);
+              existing.confirmed_label = boundParams[1];
+              existing.note = boundParams[2] || '';
+              existing.ai_assessment = boundParams[3] || 'CONCORDANT';
+              existing.recommended_step = boundParams[4] || '';
+              existing.updated_at = new Date().toISOString();
+            }
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE predictions (request-review)
+          if (sql.includes('update predictions')) {
+            const predId = Number(boundParams[boundParams.length - 1]);
+            const pred = memoryStore.predictions.find((p) => p.id === predId);
+            if (pred) {
+              pred.shared_with_doctor = Number(boundParams[0] ?? 1);
+              pred.symptom_note = String(boundParams[1] ?? '');
+              pred.shared_at = new Date().toISOString();
+            }
+            return { success: true, meta: {} as any };
+          }
+
+          // UPDATE doctors
+          if (sql.includes('update doctors')) {
+            const userId = Number(boundParams[boundParams.length - 1]);
+            const doc = memoryStore.doctors.find((d) => d.user_id === userId);
+            if (doc) {
+              if (boundParams[0] !== null && boundParams[0] !== undefined) doc.phone = boundParams[0];
+              if (boundParams[1] !== null && boundParams[1] !== undefined) doc.organization = boundParams[1];
+              if (boundParams[2] !== null && boundParams[2] !== undefined) doc.specialty = boundParams[2];
+            }
+            return { success: true, meta: {} as any };
+          }
+
           // UPDATE users
           if (sql.includes('update users')) {
-            const userId = Number(boundParams[1]);
-            const user = memoryStore.users.find((u) => u.id === userId);
-            if (user && boundParams[0]) user.full_name = boundParams[0];
+            if (sql.includes('is_active = ?')) {
+              const isActive = Number(boundParams[0]);
+              const userId = Number(boundParams[1]);
+              const user = memoryStore.users.find((u) => u.id === userId);
+              if (user) user.is_active = isActive;
+            } else if (sql.includes('password_hash = ?') && sql.includes('where email = ?')) {
+              const email = String(boundParams[boundParams.length - 1]).toLowerCase();
+              const user = memoryStore.users.find((u) => u.email.toLowerCase() === email);
+              if (user) {
+                user.password_hash = boundParams[0];
+                user.password_salt = boundParams[1];
+                if (boundParams.length >= 5) {
+                  user.role = boundParams[2];
+                  user.full_name = boundParams[3];
+                }
+              }
+            } else if (sql.includes('password_hash = ?')) {
+              const userId = Number(boundParams[2]);
+              const user = memoryStore.users.find((u) => u.id === userId);
+              if (user) {
+                user.password_hash = boundParams[0];
+                user.password_salt = boundParams[1];
+              }
+            } else {
+              const userId = Number(boundParams[1]);
+              const user = memoryStore.users.find((u) => u.id === userId);
+              if (user && boundParams[0]) user.full_name = boundParams[0];
+            }
             return { success: true, meta: {} as any };
           }
 

@@ -46,10 +46,18 @@ export const PublicHeader: React.FC = () => {
     };
   }, [mobileMenuOpen]);
 
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'admin';
   const isDoctor = user?.role === 'DOCTOR' || user?.role === 'doctor';
-  const dashboardPath = isDoctor ? '/doctor/dashboard' : '/dashboard';
-  const mriAnalysisPath = isDoctor ? '/doctor/vision-analysis' : '/mri-analysis';
-  const aiAssistantPath = isDoctor ? '/doctor/ai-assistant' : '/ai-assistant';
+  const isDoctorOrAdmin = isDoctor || isAdmin;
+  const roleShortLabel = isAdmin ? 'Quản trị viên' : isDoctor ? 'Bác sĩ' : 'Người dùng';
+  const roleFullLabel = isAdmin
+    ? 'Quản trị viên Hệ thống'
+    : isDoctor
+      ? 'Bác sĩ Chuyên khoa'
+      : 'Người sử dụng';
+  const dashboardPath = isDoctorOrAdmin ? '/doctor/dashboard' : '/dashboard';
+  const mriAnalysisPath = isDoctorOrAdmin ? '/doctor/vision-analysis' : '/mri-analysis';
+  const aiAssistantPath = isDoctorOrAdmin ? '/doctor/ai-assistant' : '/ai-assistant';
 
   const handleConfirmLogout = () => {
     setIsLogoutConfirmOpen(false);
@@ -64,15 +72,18 @@ export const PublicHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-navy-800 dark:bg-teal-600 text-white flex items-center justify-center shadow-xs">
-            <Brain className="w-5 h-5" />
+    <header className="sticky top-0 z-40 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-teal-600 text-white flex items-center justify-center">
+            <Brain className="w-4 h-4" />
           </div>
-          <div>
-            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-              NeuroScan <span className="text-teal-600 dark:text-teal-400">AI</span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-white">
+              NeuroScan
+            </span>
+            <span className="text-[11px] font-mono uppercase tracking-wider text-teal-700 dark:text-teal-400">
+              Clinical AI
             </span>
           </div>
         </Link>
@@ -143,7 +154,7 @@ export const PublicHeader: React.FC = () => {
                 to={dashboardPath}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
               >
-                <span>Vào Bảng điều khiển ({isDoctor ? 'Bác sĩ' : 'Người dùng'})</span>
+                <span>Vào Bảng điều khiển ({roleShortLabel})</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <button
@@ -159,7 +170,7 @@ export const PublicHeader: React.FC = () => {
           ) : (
             <Link
               to="/login"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-slate-900 hover:bg-slate-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors"
             >
               <span>Đăng nhập</span>
               <ArrowRight className="w-4 h-4" />
@@ -230,7 +241,7 @@ export const PublicHeader: React.FC = () => {
       <ConfirmDialog
         open={isLogoutConfirmOpen}
         title="Xác nhận đăng xuất khỏi hệ thống?"
-        description={`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản "${user?.fullName || 'hiện tại'}" (${isDoctor ? 'Bác sĩ Chuyên khoa' : 'Người sử dụng'}) không?`}
+        description={`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản "${user?.fullName || 'hiện tại'}" (${roleFullLabel}) không?`}
         confirmLabel="Đăng xuất ngay"
         cancelLabel="Ở lại trang"
         variant="danger"

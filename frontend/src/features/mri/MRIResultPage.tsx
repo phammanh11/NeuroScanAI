@@ -33,6 +33,7 @@ import {
 } from '@/constants/medicalLabels';
 import { GUEST_OWNER_ID, neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 import { formatBytes, formatDateTimeVN, formatPercent } from '@/utils/formatters';
+import { exportClinicalPdfReport } from '@/utils/pdfReport';
 import type { MRIAnalysisRecord } from '@/types/domain';
 
 export const MRIResultPage: React.FC = () => {
@@ -311,11 +312,11 @@ export const MRIResultPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+              onClick={() => exportClinicalPdfReport(record)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
             >
               <Printer className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>In phiếu kết quả</span>
+              <span>Xuất / In PDF A4</span>
             </button>
           </>
         }

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /doctor/
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /settings

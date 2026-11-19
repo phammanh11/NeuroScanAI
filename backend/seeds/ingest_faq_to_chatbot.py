@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Script đẩy bộ FAQ đã làm sạch (faq_cleaned_192.json) vào Chatbot NeuroScan AI:
-1. Chế độ API (Cloudflare Workers / FastAPI):
-   python ingest_faq_to_chatbot.py --api-url http://127.0.0.1:8000 --reindex
-   (hoặc trỏ tới https://neuroscan.pages.dev nếu đã cấu hình auth/admin)
-2. Chế độ SQLite trực tiếp (backend_fastapi/neuroscan_local.db):
-   python ingest_faq_to_chatbot.py --sqlite ../../backend_fastapi/neuroscan_local.db
+1. Chế độ API (Cloudflare Pages / Workers Production hoặc Local Vite Hono):
+   python ingest_faq_to_chatbot.py --api-url https://neuroscan.pages.dev --token <ADMIN_BEARER_TOKEN> --reindex
+2. Chế độ SQLite / Cloudflare D1 cục bộ:
+   wrangler d1 execute neuroscan-db --remote --file=backend/seeds/seed_faq_192.sql
+   hoặc python ingest_faq_to_chatbot.py --sqlite <path_to_sqlite.db>
 """
 import argparse
 import json

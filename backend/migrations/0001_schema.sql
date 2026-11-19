@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_salt TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'patient', -- 'patient', 'doctor', 'admin'
   full_name TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -70,6 +71,9 @@ CREATE TABLE IF NOT EXISTS predictions (
   probabilities TEXT NOT NULL, -- JSON string: {"Glioma": 0.89, "Meningioma": 0.05, "Pituitary": 0.03, "No Tumor": 0.03}
   model_version TEXT NOT NULL DEFAULT 'brain_mri_student_v1_onnx',
   inference_time_ms INTEGER DEFAULT 0,
+  shared_with_doctor INTEGER NOT NULL DEFAULT 1,
+  symptom_note TEXT DEFAULT '',
+  shared_at TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (scan_id) REFERENCES mri_scans(id) ON DELETE CASCADE
 );
@@ -146,3 +150,53 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
   embedding_json TEXT NOT NULL,
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+-- 11. Bảng Phiên đăng nhập & Thu hồi Token (user_sessions)
+CREATE TABLE IF NOT EXISTS user_sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  revoked INTEGER NOT NULL DEFAULT 0,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 12. Bảng Mã đặt lại Mật khẩu có thời hạn (password_reset_tokens)
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 13. Bảng Giám sát Lỗi Vận hành 24/7 (error_logs)
+CREATE TABLE IF NOT EXISTS error_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL DEFAULT 'frontend',
+  level TEXT NOT NULL DEFAULT 'error',
+  message TEXT NOT NULL,
+  stack TEXT DEFAULT '',
+  route TEXT DEFAULT '',
+  user_agent TEXT DEFAULT '',
+  ip_address TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- 12. Bảng Nhật ký Kiểm toán Bảo mật Y tế (audit_logs)
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_user_id INTEGER DEFAULT NULL,
+  actor_email TEXT DEFAULT '',
+  actor_role TEXT DEFAULT 'guest',
+  action TEXT NOT NULL,
+  resource_type TEXT NOT NULL,
+  resource_id TEXT DEFAULT '',
+  details TEXT DEFAULT '',
+  ip_address TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);

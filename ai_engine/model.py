@@ -31,5 +31,29 @@ class BrainMriStudentModel(nn.Module):
         logits = self.classifier(x)
         return logits
 
+
+class BrainMriStudentCamWrapper(nn.Module):
+    """
+    Wrapper xuất đồng thời:
+      - logits   : [B, num_classes]
+      - cam_maps : [B, num_classes, H_f, W_f] (Class Activation Map thực từ tầng Conv cuối)
+    """
+
+    def __init__(self, base_model: BrainMriStudentModel):
+        super().__init__()
+        self.base_model = base_model
+
+    def forward(self, x: torch.Tensor):
+        feat = self.base_model.features(x)
+        pooled = self.base_model.pool(feat)
+        flat = torch.flatten(pooled, 1)
+        logits = self.base_model.classifier(flat)
+
+        linear_layer = self.base_model.classifier[-1]
+        cam_weight = linear_layer.weight.unsqueeze(-1).unsqueeze(-1)
+        cam_maps = torch.nn.functional.conv2d(feat, cam_weight)
+        return logits, cam_maps
+
+
 def get_student_model(num_classes: int = 5) -> nn.Module:
     return BrainMriStudentModel(num_classes=num_classes)

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { SYNTHETIC_MRI_SLICES } from '@/assets/mriIllustrations';
 import { formatBytes, sanitizeMedicalFileName } from '@/utils/formatters';
+import { parseDicomFileToPng } from '@/utils/dicomParser';
 import type { TumorLabel } from '@/types/domain';
 
 export interface MRIUploaderHandle {
@@ -86,10 +87,29 @@ export const MRIUploader = forwardRef<MRIUploaderHandle, MRIUploaderProps>(({
 
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
     if (ext === 'dcm' || ext === 'dicom') {
-      onValidationError(
-        'Định dạng DICOM (.dcm) yêu cầu bộ đọc chuyên dụng (DICOM Parser) và dịch vụ PACS Backend. Trong phiên bản hiện tại, vui lòng sử dụng ảnh lát cắt PNG, JPG hoặc JPEG.',
-      );
-      if (requestId === validationRequestRef.current) setValidationState(false);
+      if (file.size === 0 || file.size > MAX_SIZE_BYTES) {
+        onValidationError('Tệp DICOM phải lớn hơn 0 byte và không vượt quá 15 MB.');
+        if (requestId === validationRequestRef.current) setValidationState(false);
+        return;
+      }
+      try {
+        const parsed = await parseDicomFileToPng(file);
+        if (requestId !== validationRequestRef.current) {
+          URL.revokeObjectURL(parsed.previewUrl);
+          return;
+        }
+        onSelectFile(parsed.pngFile, parsed.previewUrl);
+      } catch (err) {
+        if (requestId === validationRequestRef.current) {
+          onValidationError(
+            err instanceof Error
+              ? err.message
+              : 'Không thể giải mã tệp DICOM. Vui lòng thử ảnh DICOM không nén hoặc PNG/JPG.',
+          );
+        }
+      } finally {
+        if (requestId === validationRequestRef.current) setValidationState(false);
+      }
       return;
     }
 
@@ -200,7 +220,7 @@ export const MRIUploader = forwardRef<MRIUploaderHandle, MRIUploaderProps>(({
           ref={inputRef}
           type="file"
           disabled={disabled || isValidatingFile}
-          accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+          accept=".png,.jpg,.jpeg,.dcm,.dicom,image/png,image/jpeg,application/dicom"
           onChange={handleFileChange}
           className="sr-only"
           aria-label="Chọn file ảnh MRI"

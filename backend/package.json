@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:eval": "tsx tests/chatbot_eval.ts"
+    "test:eval": "tsx tests/chatbot_eval.ts",
+    "test:security": "tsx tests/security_api.test.ts"
   },
   "dependencies": {
     "hono": "^4.13.17"

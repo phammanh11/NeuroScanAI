@@ -327,9 +327,11 @@ export const ProfileAndSettingsPage: React.FC = () => {
       <PageHeader
         badgeText={`Hồ sơ & Cài đặt • Vai trò ${user.role}`}
         title={
-          user.role === 'DOCTOR'
-            ? 'Hồ sơ Chuyên môn Bác sĩ & Cài đặt Hệ thống'
-            : 'Hồ sơ Cá nhân & Cài đặt Quyền riêng tư'
+          user.role === 'ADMIN' || user.role === 'admin'
+            ? 'Hồ sơ Quản trị viên & Cài đặt Hệ thống'
+            : user.role === 'DOCTOR' || user.role === 'doctor'
+              ? 'Hồ sơ Chuyên môn Bác sĩ & Cài đặt Hệ thống'
+              : 'Hồ sơ Cá nhân & Cài đặt Quyền riêng tư'
         }
         description="Quản lý thông tin tài khoản, ảnh đại diện, bảo mật mật khẩu, giao diện Sáng/Tối và quyền kiểm soát dữ liệu phân tích MRI."
       />
@@ -348,7 +350,7 @@ export const ProfileAndSettingsPage: React.FC = () => {
                       alt={user.fullName}
                       className="w-full h-full object-cover"
                     />
-                  ) : user.role === 'DOCTOR' ? (
+                  ) : user.role === 'DOCTOR' || user.role === 'doctor' || user.role === 'ADMIN' || user.role === 'admin' ? (
                     <Stethoscope className="w-12 h-12 text-teal-300" />
                   ) : (
                     <UserCircle className="w-12 h-12 text-slate-200" />

@@ -36,7 +36,13 @@ export const KnowledgeBasePage: React.FC = () => {
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
 
   // Quản trị viên quản lý bộ câu hỏi đáp FAQ (FR08)
-  const [faqDocs, setFaqDocs] = useState<any[]>([]);
+  const [faqDocs, setFaqDocs] = useState<Array<{
+    id: number;
+    title: string;
+    content: string;
+    source: string;
+    category: string;
+  }>>([]);
   const [isLoadingFaq, setIsLoadingFaq] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -126,7 +132,7 @@ export const KnowledgeBasePage: React.FC = () => {
         title: 'Đã xóa tài liệu FAQ',
       });
       await loadFaqDocs();
-    } catch (err) {
+    } catch {
       showToast({
         variant: 'error',
         title: 'Xóa thất bại',
@@ -447,7 +453,7 @@ export const KnowledgeBasePage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {faqDocs.map((doc: any) => (
+              {faqDocs.map((doc) => (
                 <div
                   key={doc.id}
                   className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card flex flex-col justify-between gap-3 hover:border-sky-500/50 transition-all"

@@ -1,9 +1,9 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Bot, Sparkles } from 'lucide-react';
 
-function cn(...inputs: any[]) {
+function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -118,7 +118,6 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
   rows = 5,
   cols = 5,
   className,
-  title: _title,
 }) => {
   return (
     <div

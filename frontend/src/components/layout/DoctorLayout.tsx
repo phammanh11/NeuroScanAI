@@ -31,7 +31,16 @@ export const DoctorLayout: React.FC = () => {
           }
         >
           <RouteErrorBoundary>
-            <Outlet />
+            <div
+              key={pathname}
+              className={
+                isChatbotRoute
+                  ? 'motion-page-enter flex-1 min-h-0 flex flex-col'
+                  : 'motion-page-enter'
+              }
+            >
+              <Outlet />
+            </div>
           </RouteErrorBoundary>
         </main>
       </div>

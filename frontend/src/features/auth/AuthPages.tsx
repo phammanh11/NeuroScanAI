@@ -9,17 +9,14 @@ import {
   EyeOff,
   Loader2,
   Stethoscope,
-  User,
   ShieldCheck,
   ArrowLeft,
   CheckCircle2,
-  Sparkles,
   ScanLine,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
-import { DEMO_USERS } from '@/data/mockFixtures';
 import { neuroscanAdapter } from '@/services/api/neuroscanAdapter';
 
 const loginSchema = z.object({
@@ -30,7 +27,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export const LoginPage: React.FC = () => {
-  const { loginWithCredentials, loginAsDemoRole, isLoading } = useAuth();
+  const { loginWithCredentials, isLoading } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,13 +37,12 @@ export const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'demo.doctor@neuroscan.vn',
-      password: 'Doctor@123',
+      email: '',
+      password: '',
     },
   });
 
@@ -75,7 +71,7 @@ export const LoginPage: React.FC = () => {
       const profile = await loginWithCredentials(values.email, values.password);
       showToast({
         variant: 'success',
-        title: `Đăng nhập thành công (${profile.role})`,
+        title: `Đăng nhập thành công`,
         description: `Xin chào ${profile.fullName}`,
       });
       const from = (location.state as { from?: string } | null)?.from;
@@ -84,40 +80,6 @@ export const LoginPage: React.FC = () => {
       });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Đăng nhập thất bại.');
-    }
-  };
-
-  const handleQuickDemoLogin = async (role: 'DOCTOR' | 'USER') => {
-    setFormError(null);
-    try {
-      const from = (location.state as { from?: string } | null)?.from;
-      if (role === 'DOCTOR') {
-        setValue('email', 'demo.doctor@neuroscan.vn');
-        setValue('password', 'Doctor@123');
-        const profile = await loginAsDemoRole('DOCTOR');
-        showToast({
-          variant: 'success',
-          title: `Đã đăng nhập vai trò Bác sĩ (DOCTOR)`,
-          description: profile.fullName,
-        });
-        navigate(resolveRouteForRole(profile.role, from), {
-          replace: true,
-        });
-      } else {
-        setValue('email', 'demo.user@neuroscan.vn');
-        setValue('password', 'User@123');
-        const profile = await loginAsDemoRole('USER');
-        showToast({
-          variant: 'success',
-          title: `Đã đăng nhập vai trò Người dùng (USER)`,
-          description: profile.fullName,
-        });
-        navigate(resolveRouteForRole(profile.role, from), {
-          replace: true,
-        });
-      }
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Không thể đăng nhập tài khoản kiểm thử.');
     }
   };
 
@@ -142,40 +104,35 @@ export const LoginPage: React.FC = () => {
 
         {/* Showcase Content */}
         <div className="relative z-10 max-w-lg space-y-6 my-auto py-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/25">
-            <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-            <span>Nền tảng Trợ lý AI Chẩn đoán Hình ảnh Y tế</span>
-          </div>
-
-          <h1 className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight leading-snug">
-            Phân tích MRI u não đa chuỗi xung & Hỗ trợ quyết định lâm sàng
-          </h1>
-
-          <p className="text-xs xl:text-sm text-slate-300 leading-relaxed">
-            Hệ thống phân quyền RBAC đa cấp độ: Bác sĩ chuyên khoa quản lý hồ sơ, hội chẩn và duyệt kết quả; Người bệnh tra cứu và nhận tư vấn tham vấn y tế an toàn.
+          <p className="text-xs uppercase tracking-[0.12em] text-teal-400 font-semibold">
+            Neuroradiology Platform • RBAC
           </p>
 
-          <div className="space-y-3 pt-2">
-            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-800/70 border border-slate-700/60 backdrop-blur-xs">
-              <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 shrink-0 mt-0.5">
-                <ScanLine className="w-4 h-4" />
-              </div>
+          <h1 className="text-2xl xl:text-3xl font-bold text-white tracking-tight leading-[1.2]">
+            Hệ thống hỗ trợ phân tích MRI sọ não & hội chẩn lâm sàng
+          </h1>
+
+          <p className="text-xs xl:text-sm text-slate-400 leading-relaxed">
+            Phân quyền tách biệt cho Người dùng, Bác sĩ chuyên khoa (xác minh CCHN) và Quản trị viên bệnh viện.
+          </p>
+
+          <div className="space-y-4 pt-4 border-t border-slate-800">
+            <div className="flex items-start gap-3">
+              <ScanLine className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <h4 className="text-xs font-bold text-white">Phân loại 4 nhóm theo WHO CNS5</h4>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Nhận diện Glioma, Meningioma, U tuyến yên (Pituitary) và Não không u kèm bản đồ nhiệt Grad-CAM.
+                <h4 className="text-xs font-semibold text-white">Phân loại 4 nhóm WHO CNS5 & Real CNN CAM</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Hỗ trợ Glioma, Meningioma, Pituitary, No Tumor cùng tệp DICOM (.dcm) và xuất PDF A4.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-800/70 border border-slate-700/60 backdrop-blur-xs">
-              <div className="p-2 rounded-xl bg-sky-500/20 text-sky-300 shrink-0 mt-0.5">
-                <Stethoscope className="w-4 h-4" />
-              </div>
+            <div className="flex items-start gap-3">
+              <Stethoscope className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <h4 className="text-xs font-bold text-white">Hội đồng Y tế & Trợ lý RAG Edge</h4>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Hỏi đáp chuyên sâu dựa trên tài liệu thẩm định từ NCI/WHO, vận hành trên Cloudflare Edge an toàn.
+                <h4 className="text-xs font-semibold text-white">Trợ lý Y khoa RAG & Giám sát Kiểm toán</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Tra cứu 198 tài liệu chuẩn WHO/ACR/NCI, cảnh báo cờ đỏ cấp cứu 115 và nhật ký kiểm toán đầy đủ.
                 </p>
               </div>
             </div>
@@ -216,64 +173,8 @@ export const LoginPage: React.FC = () => {
               Đăng nhập NeuroScan AI
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Hệ thống RBAC: tự động điều hướng theo vai trò <strong>USER</strong> hoặc <strong>DOCTOR</strong>.
+              Hệ thống tự động điều hướng theo vai trò tài khoản được cấp phép trên máy chủ.
             </p>
-          </div>
-
-          {/* Quick Login Test Roles */}
-          <div className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Đăng nhập nhanh kiểm thử
-              </span>
-              <span className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 font-mono">
-                1-Click Fast Login
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {/* Doctor Quick Login */}
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleQuickDemoLogin('DOCTOR')}
-                className="group p-2.5 rounded-xl border border-teal-500/30 bg-teal-50/80 hover:bg-teal-600 hover:text-white dark:bg-teal-950/40 dark:hover:bg-teal-600 text-left transition-all flex flex-col justify-between shadow-2xs hover:shadow-xs active:scale-98"
-              >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-teal-500/20 text-teal-800 dark:text-teal-200 group-hover:bg-white/20 group-hover:text-white">
-                    ROLE: DOCTOR
-                  </span>
-                  <Stethoscope className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:text-white" />
-                </div>
-                <div className="font-semibold text-xs text-slate-900 dark:text-white group-hover:text-white truncate">
-                  BS. Trần Quốc Bảo
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 group-hover:text-teal-100 truncate">
-                  demo.doctor@neuroscan.vn
-                </div>
-              </button>
-
-              {/* User Quick Login */}
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleQuickDemoLogin('USER')}
-                className="group p-2.5 rounded-xl border border-sky-500/30 bg-sky-50/80 hover:bg-sky-600 hover:text-white dark:bg-sky-950/40 dark:hover:bg-sky-600 text-left transition-all flex flex-col justify-between shadow-2xs hover:shadow-xs active:scale-98"
-              >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-800 dark:text-sky-200 group-hover:bg-white/20 group-hover:text-white">
-                    ROLE: USER
-                  </span>
-                  <User className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 group-hover:text-white" />
-                </div>
-                <div className="font-semibold text-xs text-slate-900 dark:text-white group-hover:text-white truncate">
-                  Nguyễn Minh An
-                </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 group-hover:text-sky-100 truncate">
-                  demo.user@neuroscan.vn
-                </div>
-              </button>
-            </div>
           </div>
 
           {formError && (
@@ -300,7 +201,7 @@ export const LoginPage: React.FC = () => {
                 autoComplete="username"
                 {...register('email')}
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="demo.doctor@neuroscan.vn"
+                placeholder="email@domain.com"
               />
               {errors.email && (
                 <p className="text-[11px] text-rose-600 dark:text-rose-400">{errors.email.message}</p>
@@ -405,7 +306,6 @@ export const RegisterPage: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'USER' | 'DOCTOR'>('USER');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const {
@@ -426,13 +326,13 @@ export const RegisterPage: React.FC = () => {
   const onSubmit = async (values: RegisterFormValues) => {
     setErrorMsg(null);
     try {
-      await registerAccount(values.fullName, values.email, values.password, selectedRole);
+      await registerAccount(values.fullName, values.email, values.password, 'USER');
       showToast({
         variant: 'success',
-        title: `Đăng ký tài khoản ${selectedRole === 'DOCTOR' ? 'Bác sĩ chuyên khoa' : 'Bệnh nhân'} thành công`,
-        description: selectedRole === 'DOCTOR' ? 'Hệ thống đã chuyển bạn tới Bảng điều khiển Bác sĩ.' : 'Hệ thống đã chuyển bạn tới Bảng điều khiển Bệnh nhân.',
+        title: 'Đăng ký tài khoản thành công',
+        description: 'Hệ thống đã chuyển bạn tới Bảng điều khiển cá nhân.',
       });
-      navigate(selectedRole === 'DOCTOR' ? '/doctor/dashboard' : '/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Đăng ký thất bại.');
     }
@@ -474,51 +374,18 @@ export const RegisterPage: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            {/* Chọn vai trò đăng ký theo Mục 1.8.10 */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Vai trò tài khoản (Chọn quyền truy cập)
-              </label>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole('USER')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    selectedRole === 'USER'
-                      ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 text-teal-900 dark:text-teal-200 ring-2 ring-teal-500/30'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                  }`}
-                >
-                  <p className="text-xs font-bold">Bệnh nhân (Patient)</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Tải ảnh MRI, hỏi đáp chatbot</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole('DOCTOR')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    selectedRole === 'DOCTOR'
-                      ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/30 text-sky-900 dark:text-sky-200 ring-2 ring-sky-500/30'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                  }`}
-                >
-                  <p className="text-xs font-bold">Bác sĩ (Doctor)</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Xác nhận nhãn, ghi chú</p>
-                </button>
-              </div>
-            </div>
-
             <div className="space-y-1">
               <label
                 htmlFor="reg-fullname"
                 className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
               >
-                Họ và tên (Khuyến nghị dùng tên giả lập khi demo)
+                Họ và tên
               </label>
               <input
                 id="reg-fullname"
                 type="text"
                 {...register('fullName')}
-                placeholder="Ví dụ: Lê Hoàng Nam"
+                placeholder="Ví dụ: Nguyễn Văn A"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               {errors.fullName && (
@@ -539,7 +406,7 @@ export const RegisterPage: React.FC = () => {
                 id="reg-email"
                 type="email"
                 {...register('email')}
-                placeholder="user.demo@neuroscan.vn"
+                placeholder="nguyenvana@gmail.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               {errors.email && (
@@ -624,7 +491,7 @@ export const RegisterPage: React.FC = () => {
               className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white flex items-center justify-center gap-2 transition-colors"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>Tạo tài khoản USER (Giả lập)</span>
+              <span>Tạo tài khoản</span>
             </button>
           </form>
 
@@ -647,7 +514,15 @@ const forgotSchema = z.object({
 type ForgotFormValues = z.infer<typeof forgotSchema>;
 
 export const ForgotPasswordPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [step, setStep] = useState<'request' | 'reset'>('request');
+  const [targetEmail, setTargetEmail] = useState('');
   const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
+  const [devResetCode, setDevResetCode] = useState<string | null>(null);
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -657,17 +532,59 @@ export const ForgotPasswordPage: React.FC = () => {
     formState: { errors },
   } = useForm<ForgotFormValues>({
     resolver: zodResolver(forgotSchema),
-    defaultValues: { email: DEMO_USERS.USER.email },
+    defaultValues: { email: '' },
   });
 
-  const onSubmit = async (values: ForgotFormValues) => {
+  const onRequestSubmit = async (values: ForgotFormValues) => {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
       const res = await neuroscanAdapter.requestPasswordReset(values.email);
+      setTargetEmail(values.email.trim().toLowerCase());
       setSubmittedMessage(res.message);
+      setDevResetCode(res.devResetCode ?? null);
+      if (res.devResetCode) {
+        setResetCode(res.devResetCode);
+      }
+      setStep('reset');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Gửi yêu cầu thất bại.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    if (!resetCode.trim()) {
+      setErrorMsg('Vui lòng nhập mã xác nhận 6 chữ số.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setErrorMsg('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setErrorMsg('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await neuroscanAdapter.confirmPasswordReset(
+        targetEmail,
+        resetCode.trim(),
+        newPassword
+      );
+      showToast({
+        variant: 'success',
+        title: 'Đặt lại mật khẩu thành công',
+        description: res.message,
+      });
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Đặt lại mật khẩu thất bại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -693,35 +610,23 @@ export const ForgotPasswordPage: React.FC = () => {
               Khôi phục mật khẩu
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Nhập email tài khoản để nhận hướng dẫn đặt lại mật khẩu.
+              {step === 'request'
+                ? 'Nhập email tài khoản để nhận mã xác nhận đặt lại mật khẩu (hiệu lực 15 phút).'
+                : `Nhập mã xác nhận đã gửi tới ${targetEmail} cùng mật khẩu mới.`}
             </p>
           </div>
 
-          {submittedMessage ? (
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 space-y-3">
-              <div className="flex items-center gap-2 font-bold">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>Đã ghi nhận yêu cầu</span>
-              </div>
-              <p className="leading-relaxed">{submittedMessage}</p>
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-1.5 font-semibold text-teal-700 dark:text-teal-300 underline"
-              >
-                Quay lại màn hình đăng nhập
-              </Link>
+          {errorMsg && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300"
+            >
+              {errorMsg}
             </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-              {errorMsg && (
-                <div
-                  role="alert"
-                  className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300"
-                >
-                  {errorMsg}
-                </div>
-              )}
+          )}
 
+          {step === 'request' ? (
+            <form onSubmit={handleSubmit(onRequestSubmit)} className="space-y-4" noValidate>
               <div className="space-y-1.5">
                 <label
                   htmlFor="forgot-email"
@@ -732,6 +637,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 <input
                   id="forgot-email"
                   type="email"
+                  placeholder="email@domain.com"
                   {...register('email')}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
@@ -743,10 +649,78 @@ export const ForgotPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white flex items-center justify-center gap-2 transition-colors"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-navy-800 hover:bg-navy-900 dark:bg-teal-600 dark:hover:bg-teal-500 text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>Gửi yêu cầu khôi phục</span>
+                <span>Gửi mã xác nhận</span>
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={onResetSubmit} className="space-y-4" noValidate>
+              {submittedMessage && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-900 dark:text-emerald-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Đã khởi tạo mã xác nhận</span>
+                  </div>
+                  <p>{submittedMessage}</p>
+                  {devResetCode && (
+                    <p className="font-mono text-xs pt-1 text-teal-800 dark:text-teal-300">
+                      Mã kiểm thử môi trường nội bộ: <strong>{devResetCode}</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label htmlFor="reset-code" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Mã xác nhận (6 chữ số)
+                </label>
+                <input
+                  id="reset-code"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  placeholder="123456"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="reset-new-password" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Mật khẩu mới (tối thiểu 6 ký tự)
+                </label>
+                <input
+                  id="reset-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="reset-confirm-password" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Xác nhận mật khẩu mới
+                </label>
+                <input
+                  id="reset-confirm-password"
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>Xác nhận đặt lại mật khẩu</span>
               </button>
             </form>
           )}
