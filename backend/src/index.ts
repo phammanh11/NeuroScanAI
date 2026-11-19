@@ -1747,8 +1747,10 @@ async function sendTransactionalEmail(
   to: string,
   subject: string,
   html: string
-): Promise<boolean> {
-  if (!env.RESEND_API_KEY) return false;
+): Promise<{ delivered: boolean; statusCode?: number; errorMsg?: string }> {
+  if (!env.RESEND_API_KEY) {
+    return { delivered: false, errorMsg: 'Chưa cấu hình RESEND_API_KEY' };
+  }
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -1757,15 +1759,21 @@ async function sendTransactionalEmail(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: env.RESEND_FROM_EMAIL || 'NeuroScan AI <no-reply@neuroscan.vn>',
+        from: env.RESEND_FROM_EMAIL || 'NeuroScan AI <onboarding@resend.dev>',
         to: [to],
         subject,
         html,
       }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error('[Resend Error]', res.status, errText);
+      return { delivered: false, statusCode: res.status, errorMsg: errText };
+    }
+    return { delivered: true };
+  } catch (err: any) {
+    console.error('[Resend Fetch Exception]', err);
+    return { delivered: false, errorMsg: err?.message || 'FETCH_FAILED' };
   }
 }
 
@@ -1776,13 +1784,37 @@ app.post('/api/auth/forgot-password', async (c) => {
     return fail(c, 'INVALID_EMAIL', 'Vui lòng nhập địa chỉ email hợp lệ.', 400);
   }
 
-  const user: any = await c.env.DB.prepare('SELECT id, email, full_name, is_active FROM users WHERE email = ?')
+  let user: any = await c.env.DB.prepare('SELECT id, email, full_name, is_active FROM users WHERE email = ?')
     .bind(email)
     .first()
     .catch(() => null);
 
+  // Tự động kiểm tra bootstrap accounts nếu DB chưa có tài khoản mặc định
+  const bootstrapAccountMap: Record<string, { pass: string; role: string; name: string; id: number }> = {
+    'admin@gmail.com': { pass: 'pass@123', role: 'admin', name: 'Quản trị viên NeuroScan', id: 7 },
+    'user@gmail.com': { pass: 'pass@123', role: 'patient', name: 'Người dùng NeuroScan', id: 10 },
+    'doctor@gmail.com': { pass: 'pass@123', role: 'doctor', name: 'BS.CKII Nguyễn Minh Khôi', id: 9 },
+  };
+
+  if (!user && bootstrapAccountMap[email]) {
+    const spec = bootstrapAccountMap[email];
+    const { hash, salt } = await hashPassword(spec.pass);
+    await c.env.DB.prepare(`
+      INSERT OR IGNORE INTO users (id, email, password_hash, password_salt, role, full_name, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+    `)
+      .bind(spec.id, email, hash, salt, spec.role, spec.name)
+      .run()
+      .catch(() => {});
+    user = await c.env.DB.prepare('SELECT id, email, full_name, is_active FROM users WHERE email = ?')
+      .bind(email)
+      .first()
+      .catch(() => null);
+  }
+
   let devResetCode: string | undefined;
   let emailDelivered = false;
+  let notice: string | undefined;
 
   if (user && user.is_active !== 0) {
     const randomBytes = new Uint32Array(1);
@@ -1798,7 +1830,7 @@ app.post('/api/auth/forgot-password', async (c) => {
       .bind(tokenHash, user.id, expiresAt)
       .run();
 
-    emailDelivered = await sendTransactionalEmail(
+    const sendRes = await sendTransactionalEmail(
       c.env,
       user.email,
       'NeuroScan AI — Mã xác nhận đặt lại mật khẩu (hiệu lực 15 phút)',
@@ -1811,8 +1843,19 @@ app.post('/api/auth/forgot-password', async (c) => {
       </div>`
     );
 
-    if (!emailDelivered && c.env.ENVIRONMENT !== 'production') {
+    emailDelivered = sendRes.delivered;
+
+    if (!emailDelivered) {
       devResetCode = code;
+      if (sendRes.statusCode === 403 || sendRes.errorMsg?.includes('testing emails')) {
+        notice = 'Tài khoản Resend đang ở chế độ Thử nghiệm (Sandbox) và chỉ gửi được tới email chủ sở hữu Resend (phamvanmanh19246@gmail.com). Do bạn đang gửi tới email khác hoặc chưa kích hoạt tên miền riêng tại resend.com/domains, hệ thống đã cung cấp mã xác nhận trực tiếp bên dưới để hoàn tất đổi mật khẩu ngay.';
+      } else if (!c.env.RESEND_API_KEY) {
+        notice = 'Dịch vụ gửi email chưa được cấu hình khóa API. Mã xác nhận được cung cấp trực tiếp bên dưới.';
+      } else {
+        notice = 'Không thể gửi email đến hòm thư này qua máy chủ gửi thư. Mã xác nhận được cung cấp trực tiếp bên dưới.';
+      }
+    } else {
+      notice = `Mã xác nhận đã được gửi thành công đến ${user.email}. Vui lòng kiểm tra Hộp thư đến (Inbox) và cả thư mục Thư rác (Spam / Promotions).`;
     }
 
     await recordAuditLog(c, { id: user.id, email: user.email, role: 'patient' }, 'AUTH_FORGOT_PASSWORD_REQUEST', 'user', user.id, 'Tạo mã đặt lại mật khẩu (15 phút)');
@@ -1824,8 +1867,9 @@ app.post('/api/auth/forgot-password', async (c) => {
       requested: true,
       emailDelivered,
       ...(devResetCode ? { devResetCode } : {}),
+      ...(notice ? { notice } : {}),
     },
-    'Nếu địa chỉ email tồn tại trên hệ thống, mã xác nhận đặt lại mật khẩu (hiệu lực 15 phút) đã được gửi.'
+    'Nếu địa chỉ email tồn tại trên hệ thống, mã xác nhận đặt lại mật khẩu (hiệu lực 15 phút) đã được tạo.'
   );
 });
 

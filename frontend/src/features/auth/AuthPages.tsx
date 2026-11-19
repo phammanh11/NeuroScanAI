@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ArrowLeft,
   CheckCircle2,
+  AlertCircle,
   ScanLine,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -520,6 +521,8 @@ export const ForgotPasswordPage: React.FC = () => {
   const [targetEmail, setTargetEmail] = useState('');
   const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
   const [devResetCode, setDevResetCode] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [emailDelivered, setEmailDelivered] = useState<boolean | null>(null);
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -543,6 +546,8 @@ export const ForgotPasswordPage: React.FC = () => {
       setTargetEmail(values.email.trim().toLowerCase());
       setSubmittedMessage(res.message);
       setDevResetCode(res.devResetCode ?? null);
+      setNotice(res.notice ?? null);
+      setEmailDelivered(res.emailDelivered ?? false);
       if (res.devResetCode) {
         setResetCode(res.devResetCode);
       }
@@ -657,18 +662,53 @@ export const ForgotPasswordPage: React.FC = () => {
             </form>
           ) : (
             <form onSubmit={onResetSubmit} className="space-y-4" noValidate>
-              {submittedMessage && (
+              {notice ? (
+                <div
+                  className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                    emailDelivered
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-amber-50 dark:bg-amber-950/30 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    {emailDelivered ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    )}
+                    <span>{emailDelivered ? 'Đã phát email thành công' : 'Chế độ Thử nghiệm Resend / Khẩn cấp'}</span>
+                  </div>
+                  <p className="leading-relaxed">{notice}</p>
+                  {emailDelivered && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                      💡 Mẹo: Nếu không thấy trong Hộp thư chính, vui lòng kiểm tra mục <strong>Thư rác (Spam)</strong> hoặc tab <strong>Quảng cáo (Promotions)</strong> của Gmail.
+                    </p>
+                  )}
+                  {devResetCode && (
+                    <div className="pt-1 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                      <div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">Mã xác nhận cấp trực tiếp:</div>
+                        <div className="font-mono font-bold text-base text-amber-600 dark:text-amber-400 tracking-wider">
+                          {devResetCode}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setResetCode(devResetCode)}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors cursor-pointer"
+                      >
+                        Điền mã ngay
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : submittedMessage && (
                 <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-900 dark:text-emerald-200 space-y-1.5">
                   <div className="flex items-center gap-1.5 font-bold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span>Đã khởi tạo mã xác nhận</span>
                   </div>
                   <p>{submittedMessage}</p>
-                  {devResetCode && (
-                    <p className="font-mono text-xs pt-1 text-teal-800 dark:text-teal-300">
-                      Mã kiểm thử môi trường nội bộ: <strong>{devResetCode}</strong>
-                    </p>
-                  )}
                 </div>
               )}
 

@@ -460,7 +460,7 @@ export const neuroscanAdapter = {
 
   async requestPasswordReset(
     email: string
-  ): Promise<{ message: string; devResetCode?: string; emailDelivered?: boolean }> {
+  ): Promise<{ message: string; devResetCode?: string; emailDelivered?: boolean; notice?: string }> {
     try {
       const { data } = await httpClient.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
         email: email.trim().toLowerCase(),
@@ -471,6 +471,7 @@ export const neuroscanAdapter = {
           'Nếu địa chỉ email tồn tại trên hệ thống, mã xác nhận đặt lại mật khẩu đã được gửi.',
         devResetCode: data?.data?.devResetCode,
         emailDelivered: data?.data?.emailDelivered,
+        notice: data?.data?.notice,
       };
     } catch (rawErr: unknown) {
       const err = asApiError(rawErr);
