@@ -586,7 +586,81 @@ async function runTests() {
     assert.equal(docAdminTelemetry.status, 403, 'doctor@gmail.com must be blocked from /api/admin/telemetry');
   });
 
-  console.log(`\n=== KẾT QUẢ SECURITY & DATA LIFECYCLE TESTS: ${passed}/18 PASS ===`);
+  await test('19. Lưu bền vững Email, Ảnh đại diện, Đơn vị & Cài đặt sau khi đăng xuất/đăng nhập lại', async () => {
+    const reg = await req(env, '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: 'Trần Văn Persist',
+        email: 'persist.old@example.com',
+        password: 'PersistPass@123',
+      }),
+    });
+    assert.equal(reg.status, 201);
+    const token1 = reg.json.data.token as string;
+
+    const tinyAvatar = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/';
+    const upd = await req(env, '/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token1}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fullName: 'Trần Văn Đã Lưu',
+        email: 'persist.new@example.com',
+        phone: '0911222333',
+        organizationOrUnit: 'Bệnh viện Bạch Mai',
+        avatarUrl: tinyAvatar,
+        preferences: {
+          emailNotifications: false,
+          doctorReviewAlerts: true,
+          saveHistoryConsent: true,
+          anonymizeExports: false,
+        },
+      }),
+    });
+    assert.equal(upd.status, 200);
+    assert.equal(upd.json.data.user.email, 'persist.new@example.com');
+    assert.equal(upd.json.data.user.avatar_url, tinyAvatar);
+    assert.equal(upd.json.data.user.organization, 'Bệnh viện Bạch Mai');
+
+    // Chặn đổi email trùng với tài khoản khác
+    const dupEmail = await req(env, '/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token1}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fullName: 'Trần Văn Đã Lưu',
+        email: 'admin@gmail.com',
+      }),
+    });
+    assert.equal(dupEmail.status, 409, 'Duplicate email must be rejected with 409');
+
+    // Đăng xuất rồi đăng nhập lại bằng EMAIL MỚI -> phải còn nguyên avatar, organization, preferences
+    await req(env, '/api/auth/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+
+    const relogin = await req(env, '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'persist.new@example.com',
+        password: 'PersistPass@123',
+      }),
+    });
+    assert.equal(relogin.status, 200, 'Must login successfully with updated email');
+    assert.equal(relogin.json.data.user.full_name, 'Trần Văn Đã Lưu');
+    assert.equal(relogin.json.data.user.avatar_url, tinyAvatar);
+    assert.equal(relogin.json.data.user.organization, 'Bệnh viện Bạch Mai');
+    assert.ok(String(relogin.json.data.user.preferences_json).includes('"emailNotifications":false'));
+  });
+
+  console.log(`\n=== KẾT QUẢ SECURITY & DATA LIFECYCLE TESTS: ${passed}/19 PASS ===`);
 }
 
 runTests().catch((err) => {

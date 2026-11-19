@@ -223,7 +223,11 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   NeuroScan <span className="text-teal-600 dark:text-teal-400">AI</span>
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                  {role === 'DOCTOR' ? 'Cổng Chuyên môn Bác sĩ' : 'Hỗ trợ Phân tích MRI'}
+                  {isAdmin
+                    ? 'Cổng Quản trị & Lâm sàng'
+                    : role === 'DOCTOR'
+                      ? 'Cổng Chuyên môn Bác sĩ'
+                      : 'Hỗ trợ Phân tích MRI'}
                 </div>
               </div>
             </NavLink>
@@ -245,11 +249,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       {collapsed ? (
         <div className="px-2 pt-3 flex justify-center">
           <div
-            title={`Vai trò: ${role === 'DOCTOR' ? 'DOCTOR (Bác sĩ chuyên khoa)' : 'USER (Người sử dụng)'}`}
+            title={`Vai trò: ${isAdmin ? 'ADMIN (Quản trị viên)' : role === 'DOCTOR' ? 'DOCTOR (Bác sĩ chuyên khoa)' : 'USER (Người sử dụng)'}`}
             className={`w-10 h-10 rounded-xl border flex items-center justify-center cursor-default ${
-              role === 'DOCTOR'
-                ? 'bg-sky-500/10 border-sky-500/25 text-sky-700 dark:text-sky-300'
-                : 'bg-teal-500/10 border-teal-500/25 text-teal-700 dark:text-teal-300'
+              isAdmin
+                ? 'bg-violet-500/10 border-violet-500/25 text-violet-700 dark:text-violet-300'
+                : role === 'DOCTOR'
+                  ? 'bg-sky-500/10 border-sky-500/25 text-sky-700 dark:text-sky-300'
+                  : 'bg-teal-500/10 border-teal-500/25 text-teal-700 dark:text-teal-300'
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
@@ -259,15 +265,23 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         <div className="px-4 pt-4">
           <div
             className={`px-3 py-2 rounded-xl border text-xs flex items-center gap-2 ${
-              role === 'DOCTOR'
-                ? 'bg-sky-500/10 border-sky-500/25 text-sky-900 dark:text-sky-200'
-                : 'bg-teal-500/10 border-teal-500/25 text-teal-900 dark:text-teal-200'
+              isAdmin
+                ? 'bg-violet-500/10 border-violet-500/25 text-violet-900 dark:text-violet-200'
+                : role === 'DOCTOR'
+                  ? 'bg-sky-500/10 border-sky-500/25 text-sky-900 dark:text-sky-200'
+                  : 'bg-teal-500/10 border-teal-500/25 text-teal-900 dark:text-teal-200'
             }`}
           >
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <div className="truncate">
               <span className="font-semibold">Vai trò: </span>
-              <span>{role === 'DOCTOR' ? 'DOCTOR (Bác sĩ)' : 'USER (Người sử dụng)'}</span>
+              <span>
+                {isAdmin
+                  ? 'ADMIN (Quản trị viên)'
+                  : role === 'DOCTOR'
+                    ? 'DOCTOR (Bác sĩ)'
+                    : 'USER (Người sử dụng)'}
+              </span>
             </div>
           </div>
         </div>

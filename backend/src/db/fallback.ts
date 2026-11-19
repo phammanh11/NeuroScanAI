@@ -450,7 +450,11 @@ export function createFallbackD1(): D1Database {
           // 2. SELECT users
           if (sql.includes('from users')) {
             let res = [...memoryStore.users];
-            if (sql.includes('where email = ?') || sql.includes('where u.email = ?')) {
+            if (sql.includes('where email = ? and id != ?')) {
+              const email = String(boundParams[0]).toLowerCase();
+              const excludeId = Number(boundParams[1]);
+              res = res.filter((u) => u.email.toLowerCase() === email && u.id !== excludeId);
+            } else if (sql.includes('where email = ?') || sql.includes('where u.email = ?')) {
               const email = String(boundParams[0]).toLowerCase();
               res = res.filter((u) => u.email.toLowerCase() === email);
             } else if (sql.includes('where id = ?') || sql.includes('where u.id = ?')) {
@@ -464,9 +468,13 @@ export function createFallbackD1(): D1Database {
               return {
                 ...u,
                 is_active: u.is_active !== undefined ? u.is_active : 1,
+                avatar_url: u.avatar_url || '',
+                user_organization: u.organization || '',
+                preferences_json: u.preferences_json || '',
                 specialty: doc?.specialty,
                 license_no: doc?.license_no,
-                organization: doc?.organization,
+                doctor_organization: doc?.organization,
+                organization: doc?.organization || u.organization || '',
                 doctor_phone: doc?.phone,
                 patient_phone: pat?.phone,
                 phone: doc?.phone || pat?.phone,
@@ -1033,6 +1041,16 @@ export function createFallbackD1(): D1Database {
               const userId = Number(boundParams[1]);
               const user = memoryStore.users.find((u) => u.id === userId);
               if (user) user.is_active = isActive;
+            } else if (sql.includes('avatar_url = ?') && sql.includes('preferences_json = ?')) {
+              const userId = Number(boundParams[boundParams.length - 1]);
+              const user = memoryStore.users.find((u) => u.id === userId);
+              if (user) {
+                user.full_name = boundParams[0];
+                user.email = boundParams[1];
+                user.avatar_url = boundParams[2];
+                user.organization = boundParams[3];
+                user.preferences_json = boundParams[4];
+              }
             } else if (sql.includes('password_hash = ?') && sql.includes('where email = ?')) {
               const email = String(boundParams[boundParams.length - 1]).toLowerCase();
               const user = memoryStore.users.find((u) => u.email.toLowerCase() === email);

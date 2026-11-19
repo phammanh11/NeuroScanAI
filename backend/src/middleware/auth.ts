@@ -68,8 +68,8 @@ export async function getAuthenticatedUser(
     }
 
     const user: any = await c.env.DB.prepare(`
-      SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.created_at,
-             d.specialty, d.license_no, d.organization, d.phone as doctor_phone,
+      SELECT u.id, u.email, u.full_name, u.role, u.is_active, u.avatar_url, u.organization as user_organization, u.preferences_json, u.created_at,
+             d.specialty, d.license_no, d.organization as doctor_organization, d.phone as doctor_phone,
              p.phone as patient_phone, p.date_of_birth
       FROM users u
       LEFT JOIN doctors d ON d.user_id = u.id
@@ -95,9 +95,11 @@ export async function getAuthenticatedUser(
       role: (user.role as 'patient' | 'doctor' | 'admin') || 'patient',
       specialty: user.specialty,
       license_no: user.license_no,
-      organization: user.organization,
+      organization: user.doctor_organization || user.user_organization || user.organization || '',
       phone: user.doctor_phone || user.patient_phone || '',
       date_of_birth: user.date_of_birth,
+      avatar_url: user.avatar_url || '',
+      preferences_json: user.preferences_json || '',
       created_at: user.created_at,
     };
   } catch (err) {

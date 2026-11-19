@@ -27,6 +27,9 @@ const SCHEMA_STATEMENTS = [
     role TEXT NOT NULL DEFAULT 'patient',
     full_name TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
+    avatar_url TEXT DEFAULT '',
+    organization TEXT DEFAULT '',
+    preferences_json TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
@@ -215,6 +218,9 @@ export async function ensureDatabaseInitialized(env: WorkerEnv): Promise<void> {
 
     for (const colStmt of [
       `ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`,
+      `ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''`,
+      `ALTER TABLE users ADD COLUMN organization TEXT DEFAULT ''`,
+      `ALTER TABLE users ADD COLUMN preferences_json TEXT DEFAULT ''`,
       `ALTER TABLE patients ADD COLUMN gender TEXT DEFAULT 'Nam'`,
       `ALTER TABLE patients ADD COLUMN address TEXT DEFAULT ''`,
       `ALTER TABLE patients ADD COLUMN medical_history TEXT DEFAULT ''`,

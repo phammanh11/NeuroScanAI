@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL DEFAULT 'patient', -- 'patient', 'doctor', 'admin'
   full_name TEXT NOT NULL,
   is_active INTEGER NOT NULL DEFAULT 1,
+  avatar_url TEXT DEFAULT '',
+  organization TEXT DEFAULT '',
+  preferences_json TEXT DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

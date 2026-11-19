@@ -13,6 +13,8 @@ export interface User {
   organization?: string;
   phone?: string;
   date_of_birth?: string;
+  avatar_url?: string;
+  preferences_json?: string;
 }
 
 export interface PatientProfile {

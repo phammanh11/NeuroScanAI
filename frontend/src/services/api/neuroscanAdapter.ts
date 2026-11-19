@@ -273,6 +273,66 @@ function mapPredictionToAnalysisRecord(item: BackendPredictionRow, owner?: UserP
   };
 }
 
+interface BackendUserRow {
+  id: number | string;
+  email: string;
+  full_name: string;
+  role: string;
+  specialty?: string;
+  organization?: string;
+  phone?: string;
+  avatar_url?: string;
+  preferences_json?: string;
+  created_at?: string;
+}
+
+function mapBackendUserToProfile(u: BackendUserRow, fallbackRole?: UserRole): UserProfile {
+  const mappedRole: UserRole =
+    u.role === 'doctor' || u.role === 'DOCTOR'
+      ? 'DOCTOR'
+      : u.role === 'admin' || u.role === 'ADMIN'
+        ? 'ADMIN'
+        : fallbackRole || 'USER';
+
+  const defaultPreferences = {
+    emailNotifications: true,
+    doctorReviewAlerts: true,
+    saveHistoryConsent: true,
+    anonymizeExports: true,
+  };
+
+  let parsedPreferences = defaultPreferences;
+  if (u.preferences_json) {
+    try {
+      const parsed = JSON.parse(u.preferences_json) as Partial<UserProfile['preferences']>;
+      if (parsed && typeof parsed === 'object') {
+        parsedPreferences = {
+          emailNotifications: parsed.emailNotifications ?? true,
+          doctorReviewAlerts: parsed.doctorReviewAlerts ?? true,
+          saveHistoryConsent: parsed.saveHistoryConsent ?? true,
+          anonymizeExports: parsed.anonymizeExports ?? true,
+        };
+      }
+    } catch {
+      parsedPreferences = defaultPreferences;
+    }
+  }
+
+  return {
+    id: String(u.id),
+    email: u.email,
+    fullName: u.full_name,
+    role: mappedRole,
+    specialty: u.specialty,
+    organizationOrUnit: u.organization || '',
+    phone: u.phone || '',
+    avatarUrl: u.avatar_url || undefined,
+    isDemoAccount: false,
+    joinedAt: u.created_at || new Date().toISOString(),
+    preferences: parsedPreferences,
+  };
+}
+
 export const neuroscanAdapter = {
   isMockMode(): boolean {
     return ENV_CONFIG.MOCK_MODE;
@@ -294,34 +354,11 @@ export const neuroscanAdapter = {
     try {
       const { data } = await httpClient.get(API_ENDPOINTS.AUTH.ME);
       if (data?.success && data?.data?.user) {
-        const u = data.data.user;
+        const u = data.data.user as BackendUserRow;
         setCookieAuthActive(true);
 
-        const mappedRole: UserRole =
-          u.role === 'doctor' || u.role === 'DOCTOR'
-            ? 'DOCTOR'
-            : u.role === 'admin' || u.role === 'ADMIN'
-              ? 'ADMIN'
-              : 'USER';
-
         const authSession: AuthSession = {
-          user: {
-            id: String(u.id),
-            email: u.email,
-            fullName: u.full_name,
-            role: mappedRole,
-            specialty: u.specialty,
-            organizationOrUnit: u.organization,
-            phone: u.phone,
-            isDemoAccount: false,
-            joinedAt: u.created_at || new Date().toISOString(),
-            preferences: {
-              emailNotifications: true,
-              doctorReviewAlerts: true,
-              saveHistoryConsent: true,
-              anonymizeExports: true,
-            },
-          },
+          user: mapBackendUserToProfile(u),
           accessTokenDemo: '',
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         };
@@ -357,35 +394,12 @@ export const neuroscanAdapter = {
       });
 
       if (data?.success && data?.data) {
-        const u = data.data.user;
+        const u = data.data.user as BackendUserRow;
         const token = data.data.token;
         setHttpAuthToken(token);
 
-        const mappedRole: UserRole =
-          u.role === 'doctor' || u.role === 'DOCTOR'
-            ? 'DOCTOR'
-            : u.role === 'admin' || u.role === 'ADMIN'
-              ? 'ADMIN'
-              : 'USER';
-
         const authSession: AuthSession = {
-          user: {
-            id: String(u.id),
-            email: u.email,
-            fullName: u.full_name,
-            role: mappedRole,
-            specialty: u.specialty,
-            organizationOrUnit: u.organization,
-            phone: u.phone,
-            isDemoAccount: false,
-            joinedAt: u.created_at || new Date().toISOString(),
-            preferences: {
-              emailNotifications: true,
-              doctorReviewAlerts: true,
-              saveHistoryConsent: true,
-              anonymizeExports: true,
-            },
-          },
+          user: mapBackendUserToProfile(u),
           accessTokenDemo: token,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         };
@@ -420,35 +434,12 @@ export const neuroscanAdapter = {
       });
 
       if (data?.success && data?.data) {
-        const u = data.data.user;
+        const u = data.data.user as BackendUserRow;
         const token = data.data.token;
         setHttpAuthToken(token);
 
-        const mappedRole: UserRole =
-          u.role === 'doctor' || u.role === 'DOCTOR'
-            ? 'DOCTOR'
-            : u.role === 'admin' || u.role === 'ADMIN'
-              ? 'ADMIN'
-              : 'USER';
-
         const authSession: AuthSession = {
-          user: {
-            id: String(u.id),
-            email: u.email,
-            fullName: u.full_name,
-            role: mappedRole,
-            specialty: u.specialty,
-            organizationOrUnit: u.organization,
-            phone: u.phone,
-            isDemoAccount: false,
-            joinedAt: u.created_at || new Date().toISOString(),
-            preferences: {
-              emailNotifications: true,
-              doctorReviewAlerts: true,
-              saveHistoryConsent: true,
-              anonymizeExports: true,
-            },
-          },
+          user: mapBackendUserToProfile(u),
           accessTokenDemo: token,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         };
@@ -1204,37 +1195,35 @@ export const neuroscanAdapter = {
     role: UserRole,
     patch: Partial<UserProfile>
   ): Promise<UserProfile> {
-    if (hasHttpAuthToken() && userId !== GUEST_OWNER_ID) {
-      try {
-        const { data } = await httpClient.put(API_ENDPOINTS.AUTH.PROFILE, {
-          fullName: patch.fullName,
-          phone: patch.phone,
-          organizationOrUnit: patch.organizationOrUnit,
-          specialty: patch.specialty,
-        });
-        if (data?.success && data?.data?.user) {
-          const u = data.data.user;
-          const synced = mockStore.updateProfile(userId, {
-            ...patch,
-            fullName: u.full_name || patch.fullName,
-            phone: u.phone ?? patch.phone,
-            organizationOrUnit: u.organization ?? patch.organizationOrUnit,
-            specialty: u.specialty ?? patch.specialty,
-          });
-          return {
-            ...synced,
-            role: synced.role || role,
-          };
-        }
-      } catch (rawErr: unknown) {
-        const err = asApiError(rawErr);
-        if (err.response?.status === 400 || err.response?.status === 401) {
-          throw new Error(err.response?.data?.error?.message || 'Không thể cập nhật hồ sơ.');
-        }
-        console.warn('[Profile Update API Warning]:', err.message);
-      }
+    if (ENV_CONFIG.MOCK_MODE || userId === GUEST_OWNER_ID) {
+      return mockStore.updateProfile(userId, patch);
     }
-    return mockStore.updateProfile(userId, patch);
+
+    try {
+      const { data } = await httpClient.put(API_ENDPOINTS.AUTH.PROFILE, {
+        fullName: patch.fullName,
+        email: patch.email,
+        phone: patch.phone,
+        organizationOrUnit: patch.organizationOrUnit,
+        specialty: patch.specialty,
+        avatarUrl: patch.avatarUrl,
+        preferences: patch.preferences,
+      });
+      if (data?.success && data?.data?.user) {
+        const mapped = mapBackendUserToProfile(data.data.user as BackendUserRow, role);
+        mockStore.updateProfile(userId, mapped);
+        return mapped;
+      }
+      throw new Error(data?.error?.message || 'Không thể lưu thay đổi hồ sơ lên máy chủ.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi lưu thông tin hồ sơ lên máy chủ.'
+      );
+    }
   },
 
   async changePassword(
@@ -1242,24 +1231,27 @@ export const neuroscanAdapter = {
     currentPass: string,
     newPass: string
   ): Promise<boolean> {
-    if (hasHttpAuthToken() && userId !== GUEST_OWNER_ID) {
-      try {
-        const { data } = await httpClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
-          currentPassword: currentPass,
-          newPassword: newPass,
-        });
-        if (data?.success) {
-          return true;
-        }
-        return false;
-      } catch (rawErr: unknown) {
-        const err = asApiError(rawErr);
-        if (err.response?.status === 400 || err.response?.status === 401) {
-          return false;
-        }
-        console.warn('[Change Password API Warning]:', err.message);
-      }
+    if (ENV_CONFIG.MOCK_MODE || userId === GUEST_OWNER_ID) {
+      return mockStore.changePassword(userId, currentPass, newPass);
     }
-    return mockStore.changePassword(userId, currentPass, newPass);
+
+    try {
+      const { data } = await httpClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+        currentPassword: currentPass,
+        newPassword: newPass,
+      });
+      if (data?.success) {
+        return true;
+      }
+      throw new Error(data?.error?.message || 'Đổi mật khẩu không thành công.');
+    } catch (rawErr: unknown) {
+      const err = asApiError(rawErr);
+      throw new Error(
+        err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.message ||
+          'Mật khẩu hiện tại không chính xác hoặc máy chủ gặp lỗi.'
+      );
+    }
   },
 };

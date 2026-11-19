@@ -476,9 +476,11 @@ const handleLogin = async (c: any) => {
     role: user.role,
     specialty: doctor?.specialty,
     license_no: doctor?.license_no,
-    organization: doctor?.organization,
+    organization: doctor?.organization || user.organization || '',
     phone: doctor?.phone || patient?.phone,
     date_of_birth: patient?.date_of_birth,
+    avatar_url: user.avatar_url || '',
+    preferences_json: user.preferences_json || '',
     created_at: user.created_at,
   };
 
@@ -547,7 +549,7 @@ const handleLogout = async (c: any) => {
 app.post('/api/auth/logout', handleLogout);
 app.post('/api/v1/auth/logout', handleLogout);
 
-// Cập nhật hồ sơ người dùng hiện tại (đồng bộ D1)
+// Cập nhật hồ sơ người dùng hiện tại (đồng bộ đầy đủ full_name, email, avatar_url, organization, preferences_json, phone xuống D1)
 const handleUpdateProfile = async (c: any) => {
   const user = await getAuthenticatedUser(c);
   if (!user) {
@@ -556,6 +558,8 @@ const handleUpdateProfile = async (c: any) => {
 
   const body = await c.req.json().catch(() => ({}));
   const fullName = String(body.fullName || body.full_name || user.full_name || '').trim();
+  const nextEmail =
+    body.email !== undefined ? String(body.email).trim().toLowerCase() : user.email;
   const phone = body.phone !== undefined ? String(body.phone).trim() : user.phone || '';
   const organization =
     body.organizationOrUnit !== undefined || body.organization !== undefined
@@ -563,13 +567,61 @@ const handleUpdateProfile = async (c: any) => {
       : user.organization || '';
   const specialty =
     body.specialty !== undefined ? String(body.specialty).trim() : user.specialty || '';
+  const avatarUrl =
+    body.avatarUrl !== undefined || body.avatar_url !== undefined
+      ? String(body.avatarUrl ?? body.avatar_url ?? '').trim()
+      : user.avatar_url || '';
+
+  let preferencesJson = user.preferences_json || '';
+  if (body.preferences && typeof body.preferences === 'object') {
+    try {
+      preferencesJson = JSON.stringify(body.preferences);
+    } catch {
+      // Giữ preferencesJson hiện tại nếu không serialize được
+    }
+  } else if (typeof body.preferences_json === 'string') {
+    preferencesJson = body.preferences_json;
+  }
 
   if (fullName.length < 2) {
     return fail(c, 'INVALID_INPUT', 'Họ và tên phải có ít nhất 2 ký tự.', 400);
   }
 
-  await c.env.DB.prepare('UPDATE users SET full_name = ? WHERE id = ?')
-    .bind(fullName, user.id)
+  if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+    return fail(c, 'INVALID_EMAIL', 'Địa chỉ email không hợp lệ.', 400);
+  }
+
+  if (nextEmail !== user.email.toLowerCase()) {
+    const emailConflict = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE email = ? AND id != ?'
+    )
+      .bind(nextEmail, user.id)
+      .first()
+      .catch(() => null);
+    if (emailConflict) {
+      return fail(c, 'EMAIL_EXISTS', 'Địa chỉ email này đã được sử dụng bởi tài khoản khác.', 409);
+    }
+  }
+
+  if (avatarUrl) {
+    const isSafeAvatar =
+      avatarUrl.startsWith('data:image/') ||
+      avatarUrl.startsWith('https://') ||
+      avatarUrl.startsWith('/');
+    if (!isSafeAvatar || avatarUrl.length > 250_000) {
+      return fail(
+        c,
+        'INVALID_AVATAR',
+        'Ảnh đại diện không hợp lệ hoặc vượt quá dung lượng cho phép.',
+        400
+      );
+    }
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE users SET full_name = ?, email = ?, avatar_url = ?, organization = ?, preferences_json = ? WHERE id = ?'
+  )
+    .bind(fullName, nextEmail, avatarUrl, organization, preferencesJson, user.id)
     .run();
 
   if (user.role === 'doctor' || user.role === 'admin') {
@@ -590,10 +642,13 @@ const handleUpdateProfile = async (c: any) => {
 
   const updatedUser: User = {
     ...user,
+    email: nextEmail,
     full_name: fullName,
     phone,
-    organization: user.role === 'doctor' || user.role === 'admin' ? organization : user.organization,
+    organization,
     specialty: user.role === 'doctor' || user.role === 'admin' ? specialty : user.specialty,
+    avatar_url: avatarUrl,
+    preferences_json: preferencesJson,
   };
 
   const token = extractSessionToken(c);
@@ -606,6 +661,7 @@ const handleUpdateProfile = async (c: any) => {
     } catch {}
   }
 
+  await recordAuditLog(c, updatedUser, 'AUTH_UPDATE_PROFILE', 'user', updatedUser.id, 'Cập nhật hồ sơ, email hoặc ảnh đại diện');
   return ok(c, { user: updatedUser }, 'Đã cập nhật hồ sơ thành công');
 };
 
