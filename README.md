@@ -22,13 +22,14 @@ Nền tảng hỗ trợ phân tích hình ảnh Cộng hưởng từ (MRI) sọ 
 - **Xuất báo cáo lâm sàng:** Hỗ trợ xuất phiếu kết quả dạng văn bản và **In / Xuất PDF chuẩn A4**.
 
 ### 1.2. Luồng Hội chẩn Bác sĩ (`DOCTOR`) & Phiếu Kết quả Bệnh nhân (`USER`)
-- **Trạm Đánh giá Lâm sàng chuẩn RIS/PACS (`/doctor/cases/:id`):**
-  - Chọn xác nhận/hiệu chỉnh nhãn bệnh học, đánh giá độ phù hợp AI và trạng thái ca bằng **thẻ bấm 1-Click** (tự động đồng bộ trạng thái đối chiếu khi bác sĩ hiệu chỉnh nhãn khác AI).
+- **Trạm Đánh giá Lâm sàng chuẩn RIS/PACS (`/doctor/cases/:id` & `/doctor/vision-analysis`):**
+  - Chọn xác nhận/hiệu chỉnh nhãn bệnh học, đánh giá độ phù hợp AI và trạng thái ca bằng **thẻ bấm 1-Click** đồng bộ trên cả trang chi tiết ca bệnh lẫn Computer Vision Lab.
   - **Mẫu câu lâm sàng nhanh (Clinical Macros)** & gợi ý hướng xử trí 1-Click giúp rút ngắn thời gian lập phiếu.
   - **Chế độ Xem trước góc nhìn Bệnh nhân (Live Preview)** trước khi ký duyệt.
   - **Tách biệt Ghi chú kỹ thuật nội bộ** (có khóa bảo vệ, ẩn hoàn toàn với Bệnh nhân).
 - **Phiếu Nhận xét Lâm sàng cho Bệnh nhân (`/mri-results/:id`):** Hiển thị thanh ký duyệt Bác sĩ, lưới đối chiếu 2 cột (Kết luận Bác sĩ vs Gợi ý AI), nhận xét chi tiết và khối Khuyến nghị bước tiếp theo rõ ràng.
-- **Quản lý Hồ sơ Bệnh nhân (`/doctor/patients`) & Computer Vision Lab (`/doctor/vision`):** Cho phép bác sĩ tra cứu hồ sơ bệnh nhân và phân tích trực tiếp lát cắt MRI gắn với từng ca bệnh.
+- **Quản lý Hồ sơ Bệnh nhân (`/doctor/patients`) & Computer Vision Lab (`/doctor/vision-analysis`):** Cho phép bác sĩ tra cứu hồ sơ bệnh nhân, phân tích trực tiếp lát cắt MRI và ký duyệt đồng bộ ngay vào hồ sơ bệnh nhân.
+- **Chuẩn giao diện Lâm sàng Tối giản (Clinical Editorial UI):** Bảng màu y khoa `Slate + Teal` chuẩn tương phản WCAG 2.2 AA, hỗ trợ đầy đủ giao diện Sáng / Tối (`Light / Dark Mode`) và tương thích đa thiết bị.
 
 ### 1.3. Trợ lý AI Y tế Vector RAG (198 Tài liệu Chuẩn hóa)
 - Tìm kiếm ngữ nghĩa kết hợp **Cloudflare Vectorize** (`@cf/baai/bge-m3`, 1024 chiều) + **Cloudflare Workers AI** (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) trên kho tri thức 198 tài liệu chuẩn hóa từ WHO CNS5, ACR, NCI, NHS.
