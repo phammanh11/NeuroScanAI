@@ -15,6 +15,11 @@ import {
   Users,
   ScanLine,
   MessageSquareHeart,
+  Lock,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
@@ -24,6 +29,7 @@ import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { MRIViewer } from '@/components/medical/MRIViewer';
 import { PredictionCard } from '@/components/medical/PredictionCard';
+import { ClinicalReviewReportCard } from '@/components/medical/ClinicalReviewReportCard';
 import { ProbabilityChart } from '@/components/charts/ProbabilityChart';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
 import {
@@ -502,6 +508,98 @@ export const DoctorCasesListPage: React.FC = () => {
   );
 };
 
+const CLINICAL_TUMOR_OPTIONS: {
+  value: TumorLabel;
+  shortVi: string;
+}[] = [
+  { value: 'Glioma', shortVi: 'U thần kinh đệm' },
+  { value: 'Meningioma', shortVi: 'U màng não' },
+  { value: 'Pituitary', shortVi: 'U tuyến yên' },
+  { value: 'No Tumor', shortVi: 'Không phát hiện u' },
+];
+
+const CLINICAL_AI_VERDICT_OPTIONS: {
+  value: AIAssessmentVerdict;
+  shortLabel: string;
+  activeClass: string;
+}[] = [
+  {
+    value: 'CONCORDANT',
+    shortLabel: 'Phù hợp quan sát',
+    activeClass:
+      'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-1 ring-emerald-500/30',
+  },
+  {
+    value: 'PARTIAL_CONCORDANCE',
+    shortLabel: 'Cần thêm chuỗi xung',
+    activeClass:
+      'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 ring-1 ring-amber-500/30',
+  },
+  {
+    value: 'DISCORDANT',
+    shortLabel: 'Không đồng thuận AI',
+    activeClass:
+      'border-rose-500 bg-rose-50/80 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 ring-1 ring-rose-500/30',
+  },
+  {
+    value: 'INCONCLUSIVE_IMAGE',
+    shortLabel: 'Ảnh chưa đủ kết luận',
+    activeClass:
+      'border-slate-500 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 ring-1 ring-slate-500/30',
+  },
+];
+
+const CLINICAL_STATUS_OPTIONS: {
+  value: Exclude<DoctorReviewStatus, 'NONE'>;
+  shortLabel: string;
+  activeClass: string;
+}[] = [
+  {
+    value: 'IN_REVIEW',
+    shortLabel: 'Đang xem xét',
+    activeClass:
+      'border-sky-500 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200',
+  },
+  {
+    value: 'REVIEWED',
+    shortLabel: 'Hoàn tất phản hồi',
+    activeClass:
+      'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200',
+  },
+  {
+    value: 'NEEDS_MORE_INFO',
+    shortLabel: 'Cần bổ sung',
+    activeClass:
+      'border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200',
+  },
+];
+
+const CLINICAL_NOTE_MACROS: { title: string; text: string }[] = [
+  {
+    title: 'Cần thêm T1+C / FLAIR',
+    text: 'Đã xem lát cắt MRI và đối chiếu với vùng gợi ý của AI. Hình ảnh đơn lát cắt chưa đủ cơ sở khẳng định bản chất tổn thương; khuyến nghị bổ sung đầy đủ chuỗi xung (T1, T1+C, T2, FLAIR) để đánh giá toàn diện.',
+  },
+  {
+    title: 'Đồng thuận hình thái gợi ý',
+    text: 'Quan sát hình thái trên lát cắt MRI phù hợp với phân loại gợi ý sơ bộ. Đề nghị người bệnh mang đầy đủ bộ phim gốc/file DICOM đến khám trực tiếp bác sĩ chuyên khoa để lập kế hoạch theo dõi hoặc xử trí phù hợp.',
+  },
+  {
+    title: 'Chưa thấy khối bất thường rõ',
+    text: 'Trên lát cắt MRI cung cấp hiện chưa ghi nhận hình ảnh khối choán chỗ bất thường rõ rệt. Tuy nhiên một lát cắt đơn lẻ không thể loại trừ hoàn toàn tổn thương nhỏ hoặc ở mặt cắt khác; cần đối chiếu thêm triệu chứng lâm sàng.',
+  },
+  {
+    title: 'Chất lượng ảnh hạn chế',
+    text: 'Lát cắt MRI tải lên có độ phân giải thấp hoặc nhiễu chuyển động, hạn chế khả năng quan sát ranh giới giải phẫu. Đề nghị cung cấp bản chụp gốc định dạng DICOM hoặc ảnh rõ nét hơn.',
+  },
+];
+
+const RECOMMENDED_STEP_CHIPS: string[] = [
+  'Khám trực tiếp chuyên khoa Ngoại Thần kinh / Chẩn đoán hình ảnh kèm file DICOM gốc.',
+  'Chụp bổ sung MRI sọ não có tiêm thuốc đối quang từ (T1+C, T2, FLAIR).',
+  'Khám chuyên khoa Nội tiết & đo thị trường (đối với tổn thương vùng hố yên).',
+  'Theo dõi triệu chứng lâm sàng và tái khám định kỳ sau 6 tháng.',
+];
+
 /**
  * 3. DOCTOR CASE DETAIL & CLINICAL REVIEW WORKSTATION — /doctor/cases/:id
  */
@@ -515,13 +613,15 @@ export const DoctorCaseDetailPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [status, setStatus] =
-    useState<Exclude<DoctorReviewStatus, 'NONE'>>('IN_REVIEW');
+    useState<Exclude<DoctorReviewStatus, 'NONE'>>('REVIEWED');
   const [confirmedLabel, setConfirmedLabel] = useState<TumorLabel>('Glioma');
   const [aiAssessment, setAiAssessment] =
     useState<AIAssessmentVerdict>('PARTIAL_CONCORDANCE');
   const [clinicalNote, setClinicalNote] = useState('');
   const [internalNote, setInternalNote] = useState('');
   const [recommendedStep, setRecommendedStep] = useState('');
+  const [formMode, setFormMode] = useState<'edit' | 'preview'>('edit');
+  const [showInternalNote, setShowInternalNote] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const loadRequestRef = useRef(0);
 
@@ -540,14 +640,16 @@ export const DoctorCaseDetailPage: React.FC = () => {
         setAiAssessment(data.doctorReview.aiAssessment);
         setClinicalNote(data.doctorReview.clinicalNoteForPatient);
         setInternalNote(data.doctorReview.internalTechnicalNote || '');
+        setShowInternalNote(Boolean(data.doctorReview.internalTechnicalNote));
         setRecommendedStep(data.doctorReview.recommendedNextStep);
       } else {
-        setStatus(data.reviewStatus === 'NEEDS_MORE_INFO' ? 'NEEDS_MORE_INFO' : 'IN_REVIEW');
-        setClinicalNote(
-          '[Nhận xét minh họa] Đã xem lát cắt MRI và đối chiếu với nhãn gợi ý của mô hình AI. Khuyến nghị mang đầy đủ chuỗi xung DICOM để đánh giá toàn diện.',
-        );
+        setStatus(data.reviewStatus === 'NEEDS_MORE_INFO' ? 'NEEDS_MORE_INFO' : 'REVIEWED');
+        setAiAssessment('PARTIAL_CONCORDANCE');
+        setClinicalNote('');
+        setInternalNote('');
+        setShowInternalNote(false);
         setRecommendedStep(
-          'Khám trực tiếp chuyên khoa Ngoại Thần kinh / Chẩn đoán hình ảnh.',
+          'Khám trực tiếp chuyên khoa Ngoại Thần kinh / Chẩn đoán hình ảnh kèm file DICOM gốc.',
         );
       }
     } catch (err) {
@@ -557,6 +659,16 @@ export const DoctorCaseDetailPage: React.FC = () => {
       if (requestId === loadRequestRef.current) setIsLoading(false);
     }
   }, [id]);
+
+  const handleSelectConfirmedLabel = (nextLabel: TumorLabel) => {
+    setConfirmedLabel(nextLabel);
+    if (!record) return;
+    if (nextLabel !== record.predictedLabel && aiAssessment === 'CONCORDANT') {
+      setAiAssessment('DISCORDANT');
+    } else if (nextLabel === record.predictedLabel && aiAssessment === 'DISCORDANT') {
+      setAiAssessment('CONCORDANT');
+    }
+  };
 
   useEffect(() => {
     void loadCaseDetail();
@@ -670,158 +782,346 @@ export const DoctorCaseDetailPage: React.FC = () => {
           />
         </div>
 
-        {/* Right: Doctor Review Form + AI Prediction Summary (5 cols) */}
+        {/* Right: Structured Doctor Clinical Review Workstation (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Doctor Clinical Review Form */}
           <form
             onSubmit={handleSaveReview}
-            className="rounded-2xl border-2 border-sky-500/35 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4"
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card overflow-hidden"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Stethoscope className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Phiếu Nhận xét Chuyên môn của Bác sĩ
-                </h2>
+            {/* Form Header + Edit/Preview Toggle */}
+            <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                      Phiếu Đánh Giá Lâm Sàng
+                    </h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Kết luận chuyên môn độc lập của Bác sĩ
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mode Switcher: Edit vs Patient Preview */}
+                <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5 text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setFormMode('edit')}
+                    className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                      formMode === 'edit'
+                        ? 'bg-slate-900 text-white dark:bg-teal-600'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Soạn phiếu
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormMode('preview')}
+                    className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 ${
+                      formMode === 'preview'
+                        ? 'bg-slate-900 text-white dark:bg-teal-600'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Xem trước</span>
+                  </button>
+                </div>
               </div>
-              <span className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
-                Độc lập với AI
-              </span>
+
+              {/* Compact AI Reference Strip */}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
+                <span className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span>Gợi ý từ AI:</span>
+                </span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  {record.predictedLabel}{' '}
+                  <span className="font-mono text-teal-600 dark:text-teal-400">
+                    ({formatPercent(record.confidenceScore)})
+                  </span>
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-1.5 p-3 rounded-xl bg-sky-50/60 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800">
-              <label
-                htmlFor="confirmed-label-select"
-                className="block text-xs font-bold text-sky-900 dark:text-sky-200"
-              >
-                1. Xác nhận hoặc Hiệu chỉnh Nhãn Bệnh học (UC02, FR05)
-              </label>
-              <select
-                id="confirmed-label-select"
-                value={confirmedLabel}
-                onChange={(e) => setConfirmedLabel(e.target.value as TumorLabel)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-bold text-sky-950 dark:text-sky-100"
-              >
-                <option value="Glioma">Glioma (U tế bào thần kinh đệm)</option>
-                <option value="Meningioma">Meningioma (U màng não)</option>
-                <option value="Pituitary">Pituitary (U tuyến yên)</option>
-                <option value="No Tumor">No Tumor (Không phát hiện u / Bình thường)</option>
-              </select>
-              <p className="text-[11px] text-sky-700 dark:text-sky-400">
-                Bác sĩ có thể đồng thuận nhãn AI hoặc hiệu chỉnh sang phân loại chính xác dựa trên kinh nghiệm lâm sàng.
-              </p>
-            </div>
+            {formMode === 'preview' ? (
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Đây là giao diện chính xác mà bệnh nhân sẽ nhìn thấy sau khi bạn bấm lưu:
+                </p>
+                <ClinicalReviewReportCard
+                  review={{
+                    doctorName: user?.fullName || 'Bác sĩ chuyên khoa',
+                    doctorSpecialty:
+                      user?.specialty || 'Chẩn đoán hình ảnh Thần kinh (Neuroradiology)',
+                    confirmedLabel,
+                    aiAssessment,
+                    clinicalNoteForPatient:
+                      clinicalNote.trim() || '(Chưa nhập nhận xét chuyên môn)',
+                    recommendedNextStep:
+                      recommendedStep.trim() ||
+                      'Khám chuyên khoa kèm dữ liệu DICOM gốc.',
+                    updatedAt: new Date().toISOString(),
+                  }}
+                  aiPredictedLabel={record.predictedLabel}
+                  reviewStatus={status}
+                  isPreview
+                />
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormMode('edit')}
+                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    Quay lại chỉnh sửa
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    <span>Ký duyệt & Lưu</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 space-y-5">
+                {/* Step 1: 1-Click Visual Tumor Label Selector */}
+                <fieldset className="space-y-2.5">
+                  <legend className="flex items-center justify-between w-full text-xs font-bold text-slate-900 dark:text-slate-100">
+                    <span>1. Xác nhận / Hiệu chỉnh Kết luận Hình ảnh</span>
+                    {confirmedLabel !== record.predictedLabel && (
+                      <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                        Đã hiệu chỉnh so với AI
+                      </span>
+                    )}
+                  </legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CLINICAL_TUMOR_OPTIONS.map((opt) => {
+                      const isSelected = confirmedLabel === opt.value;
+                      const isAiSuggested = record.predictedLabel === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => handleSelectConfirmedLabel(opt.value)}
+                          className={`text-left p-3 rounded-xl border transition-all duration-150 cursor-pointer relative ${
+                            isSelected
+                              ? 'border-teal-600 dark:border-teal-400 bg-teal-50/70 dark:bg-teal-950/35 ring-1 ring-teal-500/30'
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span
+                              className={`text-xs sm:text-sm font-bold ${
+                                isSelected
+                                  ? 'text-teal-900 dark:text-teal-200'
+                                  : 'text-slate-800 dark:text-slate-200'
+                              }`}
+                            >
+                              {opt.value}
+                            </span>
+                            {isAiSuggested && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                AI gợi ý
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                            {opt.shortVi}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="review-status-select"
-                className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                2. Cập nhật trạng thái ca bệnh
-              </label>
-              <select
-                id="review-status-select"
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value as Exclude<DoctorReviewStatus, 'NONE'>)
-                }
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm font-semibold"
-              >
-                <option value="IN_REVIEW">Đang xem xét (In Review)</option>
-                <option value="REVIEWED">Đã xem xét — Hoàn tất phản hồi (Reviewed)</option>
-                <option value="NEEDS_MORE_INFO">
-                  Cần bổ sung thông tin / Chuỗi xung (Needs More Info)
-                </option>
-              </select>
-            </div>
+                {/* Step 2: 1-Click AI Concordance Verdict */}
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    2. Đánh giá độ phù hợp của AI ({record.predictedLabel})
+                  </legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CLINICAL_AI_VERDICT_OPTIONS.map((opt) => {
+                      const isSelected = aiAssessment === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setAiAssessment(opt.value)}
+                          className={`px-3 py-2 rounded-xl border text-xs font-semibold text-left transition-all duration-150 cursor-pointer ${
+                            isSelected
+                              ? opt.activeClass
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                        >
+                          {opt.shortLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {AI_ASSESSMENT_VERDICT_META[aiAssessment].description}
+                  </p>
+                </fieldset>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="ai-verdict-select"
-                className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                2. Đánh giá kết quả phân loại tự động của AI ({record.predictedLabel})
-              </label>
-              <select
-                id="ai-verdict-select"
-                value={aiAssessment}
-                onChange={(e) => setAiAssessment(e.target.value as AIAssessmentVerdict)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm"
-              >
-                {Object.entries(AI_ASSESSMENT_VERDICT_META).map(([key, meta]) => (
-                  <option key={key} value={key}>
-                    {meta.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {/* Step 3: Patient-Facing Clinical Findings & Next Steps + Quick Macros */}
+                <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="clinical-note-patient"
+                        className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                        <span>3. Nhận xét lâm sàng gửi Bệnh nhân</span>
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {clinicalNote.length}/4000
+                      </span>
+                    </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="clinical-note-patient"
-                className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                3. Ghi chú chuyên môn chia sẻ cho người sử dụng
-              </label>
-              <textarea
-                id="clinical-note-patient"
-                rows={4}
-                maxLength={4000}
-                value={clinicalNote}
-                onChange={(e) => setClinicalNote(e.target.value)}
-                placeholder="Nhập nhận xét chuyên môn rõ ràng, phân biệt với nhãn tự động của AI..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm leading-relaxed"
-              />
-            </div>
+                    {/* 1-Click Clinical Macros */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {CLINICAL_NOTE_MACROS.map((macro) => (
+                        <button
+                          key={macro.title}
+                          type="button"
+                          onClick={() => setClinicalNote(macro.text)}
+                          className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:border-teal-500/50 hover:text-teal-700 dark:hover:text-teal-300 text-[11px] font-medium text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        >
+                          + {macro.title}
+                        </button>
+                      ))}
+                    </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="recommended-step"
-                className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                4. Khuyến nghị bước tiếp theo cho người bệnh
-              </label>
-              <input
-                id="recommended-step"
-                type="text"
-                value={recommendedStep}
-                maxLength={1000}
-                onChange={(e) => setRecommendedStep(e.target.value)}
-                placeholder="Ví dụ: Mang đĩa DICOM khám chuyên khoa Ngoại Thần kinh..."
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm"
-              />
-            </div>
+                    <textarea
+                      id="clinical-note-patient"
+                      rows={4}
+                      maxLength={4000}
+                      value={clinicalNote}
+                      onChange={(e) => setClinicalNote(e.target.value)}
+                      placeholder="Chọn mẫu câu nhanh phía trên hoặc nhập mô tả hình ảnh và nhận định chuyên môn dành cho người bệnh..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs sm:text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
+                    />
+                  </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="internal-tech-note"
-                className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                5. Ghi chú kỹ thuật nội bộ (Dành cho nhóm nghiên cứu AI & Bác sĩ)
-              </label>
-              <textarea
-                id="internal-tech-note"
-                rows={2}
-                maxLength={4000}
-                value={internalNote}
-                onChange={(e) => setInternalNote(e.target.value)}
-                placeholder="Ghi chú về chất lượng lát cắt, hiện tượng nhiễu viền hoặc domain shift..."
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs"
-              />
-            </div>
+                  {/* Recommended Next Step + Quick Chips */}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="recommended-step"
+                      className="block text-xs font-bold text-slate-900 dark:text-slate-100"
+                    >
+                      Khuyến nghị bước tiếp theo
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {RECOMMENDED_STEP_CHIPS.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setRecommendedStep(chip)}
+                          className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:border-teal-500/50 hover:text-teal-700 dark:hover:text-teal-300 text-[11px] font-medium text-slate-600 dark:text-slate-300 transition-colors cursor-pointer text-left"
+                        >
+                          + {chip.split('(')[0].trim().slice(0, 34)}
+                          {chip.length > 34 ? '…' : ''}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      id="recommended-step"
+                      type="text"
+                      value={recommendedStep}
+                      maxLength={1000}
+                      onChange={(e) => setRecommendedStep(e.target.value)}
+                      placeholder="Ví dụ: Khám trực tiếp chuyên khoa Ngoại Thần kinh kèm file DICOM gốc..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"
+                    />
+                  </div>
+                </div>
 
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white flex items-center justify-center gap-2 transition-colors shadow-xs"
-            >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>Lưu Nhận xét Chuyên môn & Cập nhật Trạng thái</span>
-            </button>
+                {/* Step 4: 1-Click Case Status Segmented Control */}
+                <fieldset className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                  <legend className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    4. Trạng thái xử lý ca bệnh
+                  </legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CLINICAL_STATUS_OPTIONS.map((opt) => {
+                      const isSelected = status === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setStatus(opt.value)}
+                          className={`px-2 py-2 rounded-xl border text-[11px] sm:text-xs font-semibold text-center transition-all duration-150 cursor-pointer ${
+                            isSelected
+                              ? opt.activeClass
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                        >
+                          {opt.shortLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                {/* Separate Collapsible Internal Technical Note (Hidden from Patient) */}
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowInternalNote((prev) => !prev)}
+                    className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-900/50 transition-colors cursor-pointer"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Ghi chú kỹ thuật nội bộ</span>
+                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                        (Ẩn với Bệnh nhân)
+                      </span>
+                    </span>
+                    {showInternalNote ? (
+                      <ChevronUp className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  {showInternalNote && (
+                    <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-200/70 dark:border-slate-800">
+                      <textarea
+                        id="internal-tech-note"
+                        rows={2}
+                        maxLength={4000}
+                        value={internalNote}
+                        onChange={(e) => setInternalNote(e.target.value)}
+                        placeholder="Ghi chú riêng cho Bác sĩ & nhóm phát triển AI về chất lượng ảnh, nhiễu viền hoặc domain shift..."
+                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary Save Action */}
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 active:scale-[0.99] text-white flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>Ký duyệt & Lưu Nhận xét Chuyên môn</span>
+                </button>
+              </div>
+            )}
           </form>
 
           <PredictionCard
@@ -901,48 +1201,79 @@ export const DoctorReviewsPage: React.FC = () => {
             const verdictMeta = AI_ASSESSMENT_VERDICT_META[rev.aiAssessment];
             const statusMeta = DOCTOR_REVIEW_STATUS_META[c.reviewStatus];
 
+            const confirmed = rev.confirmedLabel || c.predictedLabel;
+            const isOverridden = Boolean(rev.confirmedLabel) && rev.confirmedLabel !== c.predictedLabel;
+
             return (
               <div
                 key={c.id}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-3"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-card"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
+                <div className="px-5 py-3.5 bg-slate-50/80 dark:bg-slate-950/50 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">
                       {c.sessionCode}
                     </span>
-                    <span className="text-xs text-slate-500">• Nhãn AI: {c.predictedLabel}</span>
+                    <span className="text-xs text-slate-400">|</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-400">
+                      AI: <strong className="text-slate-800 dark:text-slate-200">{c.predictedLabel}</strong>
+                    </span>
+                    <span className="text-xs text-slate-400">→</span>
+                    <span
+                      className={`text-xs font-bold ${
+                        isOverridden
+                          ? 'text-amber-700 dark:text-amber-300'
+                          : 'text-teal-700 dark:text-teal-300'
+                      }`}
+                    >
+                      Bác sĩ: {confirmed}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${verdictMeta.badgeClass}`}
                     >
                       {verdictMeta.label}
                     </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusMeta.badgeClass}`}
+                    >
+                      {statusMeta.label}
+                    </span>
                   </div>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusMeta.badgeClass}`}
-                  >
-                    {statusMeta.label}
-                  </span>
                 </div>
 
-                <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
-                  <strong>Nhận xét gửi người bệnh:</strong> {rev.clinicalNoteForPatient}
-                </p>
+                <div className="p-5 space-y-3">
+                  <div className="pl-3.5 border-l-2 border-teal-500/60 dark:border-teal-400/50">
+                    <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-line">
+                      {rev.clinicalNoteForPatient}
+                    </p>
+                  </div>
 
-                {rev.internalTechnicalNote && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl">
-                    <strong>Ghi chú kỹ thuật nội bộ:</strong> {rev.internalTechnicalNote}
-                  </p>
-                )}
+                  {rev.recommendedNextStep && (
+                    <div className="text-xs text-teal-800 dark:text-teal-300 bg-teal-50/60 dark:bg-teal-950/25 border border-teal-200/70 dark:border-teal-800/50 px-3 py-2 rounded-xl">
+                      <strong>Khuyến nghị:</strong> {rev.recommendedNextStep}
+                    </div>
+                  )}
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
-                  <span>Cập nhật lúc: {formatDateTimeVN(rev.updatedAt)}</span>
-                  <Link
-                    to={`/doctor/cases/${c.id}`}
-                    className="font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-                  >
-                    Chỉnh sửa nhận xét →
-                  </Link>
+                  {rev.internalTechnicalNote && (
+                    <div className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                      <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+                      <span>
+                        <strong>Ghi chú nội bộ:</strong> {rev.internalTechnicalNote}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                    <span>Cập nhật lúc: {formatDateTimeVN(rev.updatedAt)}</span>
+                    <Link
+                      to={`/doctor/cases/${c.id}`}
+                      className="font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                    >
+                      Mở phiếu & chỉnh sửa →
+                    </Link>
+                  </div>
                 </div>
               </div>
             );

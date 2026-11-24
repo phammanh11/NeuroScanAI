@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS predictions (
   shared_with_doctor INTEGER NOT NULL DEFAULT 1,
   symptom_note TEXT DEFAULT '',
   shared_at TEXT DEFAULT NULL,
+  gradcam_url TEXT DEFAULT NULL,
+  preprocessed_image_url TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (scan_id) REFERENCES mri_scans(id) ON DELETE CASCADE
 );

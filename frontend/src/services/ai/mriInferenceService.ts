@@ -1,6 +1,107 @@
 import * as ort from 'onnxruntime-web/wasm';
 import type { TumorLabel } from '@/types/domain';
 
+export const UNIFIED_NON_MRI_ERROR_MESSAGE =
+  'Ảnh tải lên không phải lát cắt MRI sọ não hợp lệ. Hệ thống phát hiện ảnh đầu vào có đặc trưng của ảnh màu, ảnh chụp thông thường hoặc đồ họa thay vì lát cắt cộng hưởng từ (MRI) mức xám. Vui lòng chọn đúng ảnh chụp MRI sọ não (PNG, JPG hoặc DICOM .dcm) để phân tích.';
+
+export class NonMriImageError extends Error {
+  readonly code = 'NON_MRI_IMAGE';
+  constructor(message: string = UNIFIED_NON_MRI_ERROR_MESSAGE) {
+    super(message);
+    this.name = 'NonMriImageError';
+  }
+}
+
+/**
+ * Bộ lọc tiền kiểm đa đặc trưng (Brain MRI Gatekeeper) chạy trên ảnh GỐC
+ * trước mọi bước padding/làm tối để từ chối nhất quán mọi ảnh không phải lát cắt MRI sọ não
+ * (ảnh màu, ảnh meme/động vật, logo/cờ, ảnh chụp màn hình, tài liệu nền trắng).
+ */
+export function validateRawBrainMriImage(
+  srcPixels: Uint8ClampedArray,
+  srcW: number,
+  srcH: number
+): void {
+  const totalPixels = srcW * srcH;
+  if (totalPixels < 64) {
+    throw new NonMriImageError();
+  }
+
+  let spreadSum = 0;
+  let colorfulPixels = 0;
+  let vividPixels = 0;
+  let darkGlobalPixels = 0;
+  let veryBrightGlobalPixels = 0;
+  let nonBlackPixels = 0;
+  let flatNonBlackPixels = 0;
+
+  // Vùng 4 góc (10% mỗi cạnh) để kiểm tra nền tối đặc trưng của lát cắt MRI
+  const cornerW = Math.max(2, Math.floor(srcW * 0.1));
+  const cornerH = Math.max(2, Math.floor(srcH * 0.1));
+  let cornerTotal = 0;
+  let brightCornerPixels = 0;
+
+  let prevLum = -1;
+  for (let y = 0; y < srcH; y++) {
+    const inCornerY = y < cornerH || y >= srcH - cornerH;
+    prevLum = -1;
+    for (let x = 0; x < srcW; x++) {
+      const idx = (y * srcW + x) * 4;
+      const r = srcPixels[idx];
+      const g = srcPixels[idx + 1];
+      const b = srcPixels[idx + 2];
+
+      const maxC = Math.max(r, g, b);
+      const minC = Math.min(r, g, b);
+      const spread = maxC - minC;
+      spreadSum += spread;
+      if (spread > 20) colorfulPixels++;
+      if (spread > 38) vividPixels++;
+
+      const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      if (lum < 38) darkGlobalPixels++;
+      if (lum > 225) veryBrightGlobalPixels++;
+
+      if (lum > 18) {
+        nonBlackPixels++;
+        if (prevLum >= 0 && Math.abs(lum - prevLum) === 0) {
+          flatNonBlackPixels++;
+        }
+      }
+      prevLum = lum;
+
+      if (inCornerY && (x < cornerW || x >= srcW - cornerW)) {
+        cornerTotal++;
+        if (lum > 145) brightCornerPixels++;
+      }
+    }
+  }
+
+  const meanSpread = spreadSum / totalPixels;
+  const colorfulRatio = colorfulPixels / totalPixels;
+  const vividRatio = vividPixels / totalPixels;
+  const darkGlobalRatio = darkGlobalPixels / totalPixels;
+  const veryBrightGlobalRatio = veryBrightGlobalPixels / totalPixels;
+  const brightCornerRatio = cornerTotal > 0 ? brightCornerPixels / cornerTotal : 0;
+  const flatNonBlackRatio = nonBlackPixels > 0 ? flatNonBlackPixels / nonBlackPixels : 0;
+
+  // 1. Đặc trưng độ bão hòa màu (MRI chuẩn là ảnh mức xám R ≈ G ≈ B)
+  const isColorPhotoOrGraphic =
+    colorfulRatio > 0.12 || vividRatio > 0.04 || meanSpread > 9.5;
+
+  // 2. Đặc trưng nền sáng / 4 góc trắng (meme đen trắng, tài liệu, ảnh chụp thường)
+  const isBrightNonMriBackground =
+    (brightCornerRatio > 0.55 && darkGlobalRatio < 0.15) || veryBrightGlobalRatio > 0.45;
+
+  // 3. Đặc trưng đồ họa phẳng / logo vector (không có kết cấu nhiễu Rician sinh học của MRI)
+  const isSyntheticFlatGraphic =
+    nonBlackPixels > totalPixels * 0.15 && flatNonBlackRatio > 0.8;
+
+  if (isColorPhotoOrGraphic || isBrightNonMriBackground || isSyntheticFlatGraphic) {
+    throw new NonMriImageError();
+  }
+}
+
 export interface MRIInferenceResult {
   label: TumorLabel;
   confidence: number;
@@ -288,6 +389,13 @@ async function preprocessImageToTensor(imageSource: string | File): Promise<Prep
       const srcPixels = srcImageData.data;
       const totalPixels = srcW * srcH;
 
+      // Chạy Brain MRI Gatekeeper trên ảnh GỐC trước khi làm tối/padding
+      try {
+        validateRawBrainMriImage(srcPixels, srcW, srcH);
+      } catch (validationErr) {
+        return reject(validationErr);
+      }
+
       const hist = new Uint32Array(256);
       let darkPixelCount = 0;
 
@@ -553,7 +661,6 @@ export async function runMriOnnxInference(
 
   const session = await getInferenceSession();
   const preprocessResult = await preprocessImageToTensor(imageSource);
-  const oodWarning = detectLikelyNonMriImage(preprocessResult.canvas);
 
   // View 1: Ảnh gốc
   const results = await session.run({ image: preprocessResult.tensor });
@@ -608,7 +715,7 @@ export async function runMriOnnxInference(
       ? `Lưu ý lâm sàng: Mô hình ghi nhận xác suất đồng thời của Glioma (${(normProb.Glioma * 100).toFixed(1)}%). Khuyến nghị bác sĩ đối chiếu thêm chuỗi xung T2-FLAIR và T1-Gd đa lát cắt để loại trừ tổn thương nội trục.`
       : undefined;
 
-  const qualityWarning = [oodWarning, clinicalOverlapWarning].filter(Boolean).join(' ') || undefined;
+  const qualityWarning = clinicalOverlapWarning || undefined;
 
   // Ưu tiên dựng bản đồ nhiệt Real CNN CAM từ đầu ra cam_maps của ONNX; tự fallback về Canvas Saliency nếu dùng model cũ
   const realCamResult = results.cam_maps

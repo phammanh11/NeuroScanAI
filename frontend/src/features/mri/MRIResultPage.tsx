@@ -6,7 +6,6 @@ import {
   History,
   Download,
   Stethoscope,
-  CheckCircle2,
   Clock,
   FileText,
   Send,
@@ -23,6 +22,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import { ErrorState } from '@/components/common/ErrorState';
 import { MRIViewer } from '@/components/medical/MRIViewer';
 import { PredictionCard } from '@/components/medical/PredictionCard';
+import { ClinicalReviewReportCard } from '@/components/medical/ClinicalReviewReportCard';
 import { ProbabilityChart } from '@/components/charts/ProbabilityChart';
 import { MedicalDisclaimer } from '@/components/medical/MedicalDisclaimer';
 import {
@@ -428,79 +428,39 @@ export const MRIResultPage: React.FC = () => {
             isDeletingImage={isDeleting}
           />
 
-          {/* Doctor Review Workflow Section (Separating Clinical Review from AI Output) */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-3">
+          {/* Doctor Review Workflow Section — Structured Clinical Report */}
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <div className="flex items-center gap-2">
-                <Stethoscope className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Nhận xét chuyên môn của Bác sĩ (Tách biệt với kết quả AI)
-                </h3>
+                <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                    Phiếu Nhận Xét Lâm Sàng của Bác Sĩ
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Đánh giá chuyên môn độc lập từ bác sĩ phụ trách ca chụp MRI
+                  </p>
+                </div>
               </div>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${reviewStatusMeta.badgeClass}`}
-              >
-                {reviewStatusMeta.label}
-              </span>
+              {!(record.doctorReview && record.reviewStatus !== 'PENDING_REVIEW') && (
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${reviewStatusMeta.badgeClass}`}
+                >
+                  {reviewStatusMeta.label}
+                </span>
+              )}
             </div>
 
             {record.doctorReview && record.reviewStatus !== 'PENDING_REVIEW' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-sky-50/70 dark:bg-sky-950/25 border border-sky-500/30 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="font-bold text-sky-950 dark:text-sky-200">
-                      Bác sĩ phản hồi: {record.doctorReview.doctorName} (
-                      {record.doctorReview.doctorSpecialty})
-                    </span>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      Cập nhật: {formatDateTimeVN(record.doctorReview.updatedAt)}
-                    </span>
-                  </div>
-
-                  {record.doctorReview.confirmedLabel && (
-                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-teal-500/15 dark:bg-teal-950/40 border border-teal-500/30">
-                      <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-                      <span className="text-xs font-semibold text-teal-900 dark:text-teal-100">
-                        Nhãn Bác sĩ xác nhận: <strong className="text-sm font-bold text-teal-700 dark:text-teal-300">{record.doctorReview.confirmedLabel}</strong>
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Đánh giá của Bác sĩ đối với nhãn AI:
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full font-semibold border ${
-                        AI_ASSESSMENT_VERDICT_META[record.doctorReview.aiAssessment].badgeClass
-                      }`}
-                    >
-                      {AI_ASSESSMENT_VERDICT_META[record.doctorReview.aiAssessment].label}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Ghi chú lâm sàng gửi người sử dụng:
-                    </div>
-                    <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
-                      {record.doctorReview.clinicalNoteForPatient}
-                    </p>
-                  </div>
-
-                  <div className="flex items-start gap-2 text-xs text-sky-900 dark:text-sky-200 pt-1">
-                    <CheckCircle2 className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Khuyến nghị bước tiếp theo:</strong>{' '}
-                      {record.doctorReview.recommendedNextStep}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <ClinicalReviewReportCard
+                review={record.doctorReview}
+                aiPredictedLabel={record.predictedLabel}
+                reviewStatus={record.reviewStatus}
+              />
             )}
 
             {!user ? (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3 text-xs sm:text-sm">
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-3 text-xs sm:text-sm">
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
                   Bạn đang ở chế độ <strong>Khách chưa đăng nhập</strong>. Để bảo mật dữ liệu y tế và
                   tránh gửi nhầm hồ sơ, chỉ tài khoản đã đăng nhập mới có thể lưu lịch sử và gửi yêu
@@ -515,7 +475,7 @@ export const MRIResultPage: React.FC = () => {
                 </Link>
               </div>
             ) : record.reviewStatus === 'PENDING_REVIEW' ? (
-              <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-500/30 space-y-2 text-xs sm:text-sm">
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/20 p-5 space-y-2 text-xs sm:text-sm">
                 <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-300">
                   <Clock className="w-4 h-4" />
                   <span>Đã gửi yêu cầu xem xét tới {record.assignedDoctorName}</span>
@@ -526,7 +486,10 @@ export const MRIResultPage: React.FC = () => {
                 </p>
               </div>
             ) : !record.doctorReview || record.reviewStatus === 'NEEDS_MORE_INFO' ? (
-              <form onSubmit={handleRequestDoctorReview} className="space-y-4">
+              <form
+                onSubmit={handleRequestDoctorReview}
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4"
+              >
                 <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   {record.reviewStatus === 'NEEDS_MORE_INFO'
                     ? 'Bác sĩ cần thêm thông tin. Hãy cập nhật mô tả triệu chứng hoặc thông tin bổ sung rồi xác nhận gửi lại ca để tiếp tục xem xét.'
@@ -568,7 +531,7 @@ export const MRIResultPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingShare}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white transition-colors cursor-pointer"
                 >
                   <Send className="w-4 h-4" />
                   <span>
@@ -581,7 +544,7 @@ export const MRIResultPage: React.FC = () => {
                 </button>
               </form>
             ) : null}
-          </div>
+          </section>
         </div>
 
         {/* Right: Prediction Card & 4-Class Probability Distribution (5 cols) */}

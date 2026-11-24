@@ -788,6 +788,7 @@ export const neuroscanAdapter = {
       if (!scan?.id) throw new Error('Không thể tải ảnh lên Cloudflare R2');
 
       // 3. Ghi bản ghi dự đoán vào bảng predictions của D1 qua POST /api/predict
+      //    (kèm ảnh tiền xử lý ROI/CLAHE & bản đồ nhiệt Grad-CAM để lưu lên R2)
       const predictRes = await httpClient.post(API_ENDPOINTS.MRI.PREDICT, {
         scan_id: scan.id,
         label: aiResult.label,
@@ -795,6 +796,8 @@ export const neuroscanAdapter = {
         probabilities: aiResult.probabilities,
         model_version: aiResult.modelVersion,
         inference_time_ms: aiResult.inferenceTimeMs,
+        preprocessed_image_url: aiResult.preprocessedImageUrl || null,
+        gradcam_url: aiResult.gradcamUrl || null,
       });
 
       if (predictRes.data?.data?.prediction) {

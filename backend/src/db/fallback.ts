@@ -756,6 +756,8 @@ export function createFallbackD1(): D1Database {
                     : JSON.stringify(boundParams[offset + 3]),
                 model_version: boundParams[offset + 4] || 'brain_mri_student_v1_onnx',
                 inference_time_ms: Number(boundParams[offset + 5]) || 40,
+                gradcam_url: boundParams[offset + 6] || null,
+                preprocessed_image_url: boundParams[offset + 7] || null,
                 created_at: new Date().toISOString(),
               });
             }

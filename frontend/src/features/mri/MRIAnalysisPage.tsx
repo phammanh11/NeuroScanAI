@@ -214,9 +214,18 @@ export const MRIAnalysisPage: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       if (abortController.signal.aborted) return;
-      setApiError(
-        err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải ảnh MRI lên máy chủ.',
-      );
+      const errMessage =
+        err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải ảnh MRI lên máy chủ.';
+      setApiError(errMessage);
+      setCurrentStep(0);
+      showToast({
+        variant: 'error',
+        title:
+          err instanceof Error && err.name === 'NonMriImageError'
+            ? 'Ảnh không phải lát cắt MRI sọ não hợp lệ'
+            : 'Không thể phân tích ảnh MRI',
+        description: errMessage,
+      });
     } finally {
       if (runId === analysisRunRef.current) {
         setIsAnalyzing(false);

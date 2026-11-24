@@ -806,6 +806,43 @@ app.post('/api/v1/mri/upload', handleUploadScan);
 // AI PREDICTION APIs (Mục 1.8.7: POST /api/predict, GET /api/predictions)
 // ============================================================================
 
+// Lưu ảnh base64 (tiền xử lý ROI/CLAHE hoặc Grad-CAM) lên Cloudflare R2 và trả về đường dẫn nhẹ /api/files/...
+async function persistDataUrlImageToR2(
+  env: WorkerEnv,
+  rawInput: unknown,
+  r2KeyWithoutExt: string
+): Promise<string | null> {
+  if (typeof rawInput !== 'string' || !rawInput.trim()) return null;
+  const trimmed = rawInput.trim();
+  if (trimmed.startsWith('/api/files/') || trimmed.startsWith('/sample_scans/')) {
+    return trimmed;
+  }
+  const match = /^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/i.exec(trimmed);
+  if (!match) return null;
+
+  const mimeType = match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase();
+  const base64Data = match[2];
+  // Giới hạn an toàn tối đa ~2.5MB base64 cho ảnh dẫn xuất 256x256
+  if (base64Data.length > 3_500_000) return null;
+
+  try {
+    const binaryStr = atob(base64Data);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const ext = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : 'png';
+    const r2Key = `${r2KeyWithoutExt}.${ext}`;
+    await env.BUCKET.put(r2Key, bytes, {
+      httpMetadata: { contentType: mimeType },
+    });
+    return `/api/files/${r2Key}`;
+  } catch (err) {
+    console.warn('[R2 Persist Derived Image Warning]:', err);
+    return null;
+  }
+}
+
 // Chạy và lưu kết quả phân loại AI (FR03, UC01 Bước 4, 5, 6)
 app.post('/api/predict', async (c) => {
   try {
@@ -821,6 +858,8 @@ app.post('/api/predict', async (c) => {
     let probabilities = body.probabilities;
     const modelVersion = body.model_version || 'brain_mri_student_v1_onnx';
     const inferenceTimeMs = Number(body.inference_time_ms || body.inferenceTimeMs || 42);
+    const rawPreprocessedUrl = body.preprocessed_image_url || body.preprocessedImageUrl || null;
+    const rawGradcamUrl = body.gradcam_url || body.gradcamUrl || null;
 
     if (!scanId) {
       return fail(c, 'SCAN_ID_REQUIRED', 'Thiếu scan_id cần dự đoán', 400);
@@ -862,13 +901,26 @@ app.post('/api/predict', async (c) => {
     }
 
     const probStr = typeof probabilities === 'string' ? probabilities : JSON.stringify(probabilities);
+    const derivedTs = Date.now();
+    const [savedPreprocessedUrl, savedGradcamUrl] = await Promise.all([
+      persistDataUrlImageToR2(
+        c.env,
+        rawPreprocessedUrl,
+        `scans/${scan.patient_id}/${scanId}_preprocessed_${derivedTs}`
+      ),
+      persistDataUrlImageToR2(
+        c.env,
+        rawGradcamUrl,
+        `scans/${scan.patient_id}/${scanId}_gradcam_${derivedTs}`
+      ),
+    ]);
 
-    // Ghi vào bảng predictions (Mục 1.8.6)
+    // Ghi vào bảng predictions (Mục 1.8.6) kèm ảnh tiền xử lý & bản đồ nhiệt Grad-CAM trên R2
     await c.env.DB.prepare(`
-      INSERT INTO predictions (scan_id, label, confidence, probabilities, model_version, inference_time_ms)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO predictions (scan_id, label, confidence, probabilities, model_version, inference_time_ms, gradcam_url, preprocessed_image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `)
-      .bind(scanId, label, confidence, probStr, modelVersion, inferenceTimeMs)
+      .bind(scanId, label, confidence, probStr, modelVersion, inferenceTimeMs, savedGradcamUrl, savedPreprocessedUrl)
       .run();
 
     const createdPred = await c.env.DB.prepare(`
@@ -918,7 +970,7 @@ const handleListPredictions = async (c: any) => {
 
   let query = `
     SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.created_at,
-           p.shared_with_doctor, p.symptom_note, p.shared_at,
+           p.shared_with_doctor, p.symptom_note, p.shared_at, p.gradcam_url, p.preprocessed_image_url,
            s.r2_key, s.file_name, s.file_size, s.slice_type, s.sequence_type, s.uploaded_at, s.patient_id,
            COALESCE(u.full_name, 'Người dùng') as patient_name,
            r.id as review_id, r.confirmed_label, r.note as doctor_note, r.ai_assessment, r.created_at as reviewed_at,
@@ -953,6 +1005,8 @@ const handleListPredictions = async (c: any) => {
     shared_with_doctor: row.shared_with_doctor ?? 1,
     symptom_note: row.symptom_note || '',
     shared_at: row.shared_at || row.created_at,
+    gradcam_url: row.gradcam_url || null,
+    preprocessed_image_url: row.preprocessed_image_url || null,
     patient_id: row.patient_id,
     patient_name: row.patient_name,
     scan: {
@@ -1004,7 +1058,7 @@ const handleGetPredictionDetail = async (c: any) => {
 
   const row: any = await c.env.DB.prepare(`
     SELECT p.id, p.scan_id, p.label, p.confidence, p.probabilities, p.model_version, p.inference_time_ms, p.created_at,
-           p.shared_with_doctor, p.symptom_note, p.shared_at,
+           p.shared_with_doctor, p.symptom_note, p.shared_at, p.gradcam_url, p.preprocessed_image_url,
            s.r2_key, s.file_name, s.file_size, s.slice_type, s.sequence_type, s.uploaded_at, s.patient_id,
            COALESCE(u.full_name, 'Người dùng') as patient_name,
            r.id as review_id, r.confirmed_label, r.note as doctor_note, r.ai_assessment, r.recommended_step, r.created_at as reviewed_at,
@@ -1039,6 +1093,8 @@ const handleGetPredictionDetail = async (c: any) => {
     shared_with_doctor: row.shared_with_doctor ?? 1,
     symptom_note: row.symptom_note || '',
     shared_at: row.shared_at || row.created_at,
+    gradcam_url: row.gradcam_url || null,
+    preprocessed_image_url: row.preprocessed_image_url || null,
     patient_id: row.patient_id,
     patient_name: row.patient_name,
     scan: {
@@ -1192,6 +1248,21 @@ app.delete('/api/scans/:id', async (c) => {
     try {
       await c.env.BUCKET.delete(scan.r2_key);
     } catch {}
+  }
+  const derivedPreds: any = await c.env.DB.prepare(
+    'SELECT gradcam_url, preprocessed_image_url FROM predictions WHERE scan_id = ?'
+  )
+    .bind(id)
+    .all()
+    .catch(() => ({ results: [] }));
+  for (const row of derivedPreds?.results || []) {
+    for (const url of [row.gradcam_url, row.preprocessed_image_url]) {
+      if (typeof url === 'string' && url.startsWith('/api/files/')) {
+        try {
+          await c.env.BUCKET.delete(url.replace(/^\/api\/files\//, ''));
+        } catch {}
+      }
+    }
   }
   await c.env.DB.prepare('DELETE FROM doctor_reviews WHERE prediction_id IN (SELECT id FROM predictions WHERE scan_id = ?)').bind(id).run();
   await c.env.DB.prepare('DELETE FROM predictions WHERE scan_id = ?').bind(id).run();
@@ -2228,6 +2299,11 @@ const handleServeFiles = async (c: any) => {
           .catch(() => null);
         if (scanOwner && Number(scanOwner.patient_id) !== Number(user.id)) {
           return fail(c, 'FORBIDDEN', 'Bạn không có quyền truy cập ảnh MRI của tài khoản khác.', 403);
+        }
+        // Bảo vệ cả ảnh dẫn xuất (preprocessed & Grad-CAM) theo cấu trúc khóa scans/{patientId}/...
+        const prefixMatch = /^scans\/(\d+)\//.exec(path);
+        if (prefixMatch && Number(prefixMatch[1]) !== Number(user.id)) {
+          return fail(c, 'FORBIDDEN', 'Bạn không có quyền truy cập ảnh phân tích của tài khoản khác.', 403);
         }
       }
     }
