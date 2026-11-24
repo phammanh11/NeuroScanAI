@@ -134,7 +134,7 @@ export const ModelOverviewPage: React.FC = () => {
       </div>
 
       {/* 1. Active Deployed ONNX Student Model */}
-      <div className="rounded-2xl border-2 border-teal-500/40 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Cpu className="w-5 h-5 text-teal-600 dark:text-teal-400" />

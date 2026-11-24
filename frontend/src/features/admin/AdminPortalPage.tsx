@@ -300,7 +300,7 @@ export const AdminPortalPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Cổng Quản trị Bệnh viện (ADMIN)"
+        badgeText="Cổng Quản Trị Hệ Thống Bệnh Viện"
         title="Quản trị Tài khoản Bác sĩ, Kiểm toán & Tri thức Y khoa"
         description="Cấp phát & quản lý tài khoản Bác sĩ có Chứng chỉ Hành nghề (CCHN), theo dõi Nhật ký Kiểm toán bảo mật và đồng bộ kho tri thức RAG."
       />

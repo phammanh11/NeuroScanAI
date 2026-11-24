@@ -22,12 +22,12 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({
     overview:
       'Ảnh chụp MRI đã được tải lên và lưu trữ bảo mật trên Cloudflare R2. Quá trình suy luận phân loại u não đang tạm hoãn chờ nạp bộ trọng số sau khi hoàn tất huấn luyện.',
     keyPoints: [
-      'Ảnh MRI nguyên bản được lưu trữ vĩnh viễn và bảo mật tại Cloudflare R2.',
-      'Không tạo kết quả ngẫu nhiên hay giả lập tỷ lệ phần trăm khi mô hình chưa hoàn tất.',
-      'Sẵn sàng nạp API suy luận PyTorch/TensorFlow ngay khi quá trình train hoàn thành.',
+      'Ảnh MRI nguyên bản được lưu trữ bảo mật tại Cloudflare R2.',
+      'Chỉ hiển thị phân bố xác suất khi mô hình suy luận hoàn tất.',
+      'Sẵn sàng đồng bộ kết quả phân tích trực tiếp vào hồ sơ ca chụp.',
     ],
     importantLimitation:
-      'Hệ thống tuân thủ nguyên tắc minh bạch y tế, không giả lập kết quả chẩn đoán.',
+      'Hệ thống tuân thủ nguyên tắc minh bạch y tế trong mọi kết quả phân tích.',
     badgeColorClass:
       'bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-500/30',
     chartColor: '#0d9488',
@@ -41,8 +41,8 @@ export const PredictionCard: React.FC<PredictionCardProps> = ({
           Nhãn phân loại từ mô hình (4 lớp)
         </span>
         {isDemoFixture && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-            Kết quả minh họa (Mock Fixture)
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+            Lát cắt mẫu tham chiếu
           </span>
         )}
       </div>

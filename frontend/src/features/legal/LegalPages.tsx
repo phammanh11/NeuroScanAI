@@ -21,7 +21,7 @@ const LegalShell: React.FC<{
         Quay về Trang chủ
       </Link>
 
-      <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-10 shadow-card space-y-6">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-10 shadow-card space-y-6">
         <div className="space-y-3 border-b border-slate-200 dark:border-slate-800 pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
             {icon}

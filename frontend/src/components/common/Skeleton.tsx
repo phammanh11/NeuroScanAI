@@ -1,7 +1,7 @@
 import React from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Loader2 } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -294,10 +294,9 @@ export const SkeletonTypingMessage: React.FC = () => {
       </div>
       <div className="p-4 rounded-2xl rounded-tl-xs bg-white dark:bg-slate-900 border border-teal-500/30 text-slate-700 dark:text-slate-200 shadow-soft flex-1 space-y-2.5">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
-          <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 animate-spin" style={{ animationDuration: '3s' }} />
+          <Loader2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 animate-spin" />
           <span className="text-xs font-semibold text-teal-700 dark:text-teal-300">
-            Trợ lý AI đang truy xuất RAG & suy luận câu trả lời...
+            Đang tra cứu tài liệu y khoa & tổng hợp phản hồi...
           </span>
         </div>
         <Skeleton className="h-3.5 w-11/12 rounded-md" />
@@ -314,8 +313,8 @@ export const SkeletonTypingMessage: React.FC = () => {
 export const SkeletonDashboard: React.FC<{ className?: string }> = ({ className }) => {
   return (
     <div className={cn('space-y-6', className)} role="status">
-      {/* Welcome Banner Skeleton */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-teal-500/10 via-sky-500/5 to-transparent border border-teal-500/20 flex flex-wrap items-center justify-between gap-4">
+      {/* Header Skeleton */}
+      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-2">
           <Skeleton className="h-6 w-64 rounded-lg" />
           <Skeleton className="h-4 w-96 rounded-md" />

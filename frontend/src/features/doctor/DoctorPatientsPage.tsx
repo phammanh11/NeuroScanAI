@@ -405,7 +405,7 @@ export const DoctorPatientsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Hồ sơ Bệnh nhân Lâm sàng • Vai trò DOCTOR"
+        badgeText="Quản lý Hồ Sơ Bệnh Nhân"
         title="Quản lý Danh sách Bệnh nhân & Khách hàng"
         description="Theo dõi hồ sơ bệnh án, quản lý triệu chứng lâm sàng, xem các ảnh MRI đã tải lên và cung cấp nhận định chuyên môn cho từng bệnh nhân."
         actions={

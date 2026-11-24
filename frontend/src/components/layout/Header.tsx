@@ -229,10 +229,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
                   {user.role === 'ADMIN' || user.role === 'admin'
-                    ? 'Quản trị viên (ADMIN)'
+                    ? 'Quản trị viên'
                     : user.role === 'DOCTOR' || user.role === 'doctor'
                       ? 'Bác sĩ Chuyên khoa'
-                      : 'Người dùng'}
+                      : 'Người bệnh'}
                 </p>
               </div>
             </Link>

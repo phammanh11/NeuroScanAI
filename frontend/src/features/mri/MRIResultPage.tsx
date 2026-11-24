@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ScanLine,
   MessageSquareHeart,
-  History,
   Download,
   Stethoscope,
   Clock,
@@ -11,7 +10,6 @@ import {
   Send,
   ShieldCheck,
   Printer,
-  Trash2,
   LogIn,
   ShieldAlert,
 } from 'lucide-react';
@@ -263,59 +261,41 @@ export const MRIResultPage: React.FC = () => {
         aria-label="Chọn ảnh MRI mới để thay thế và quét tiếp"
       />
       <PageHeader
-        badgeText={`Phiên phân tích ${record.sessionCode} • Đánh giá mô hình ONNX`}
-        title={`Kết quả phân tích MRI tham khảo: ${record.sessionCode}`}
-        description="Giao diện hỗ trợ đọc ảnh MRI, biểu đồ phân bố xác suất 4 lớp và kết nối nhận xét chuyên môn từ Bác sĩ."
+        badgeText={`Báo cáo hình ảnh MRI • ${record.sessionCode}`}
+        title={`Kết quả phân tích MRI: ${record.sessionCode}`}
+        description="Trạm đọc phim đa chế độ, phân bố xác suất 4 nhóm tham chiếu và phiếu nhận xét chuyên môn của Bác sĩ."
         actions={
           <>
             <Link
               to="/mri-analysis"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
             >
               <ScanLine className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>Thay / Phân tích ảnh mới</span>
+              <span>Phân tích ảnh mới</span>
             </Link>
-            {canDeleteCurrentRecord && (
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={handleDeleteCurrentResult}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-rose-500/35 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>{isDeleting ? 'Đang xóa...' : 'Xóa kết quả này'}</span>
-              </button>
-            )}
             <Link
               to={`/ai-assistant?analysisId=${record.id}&prompt=${encodeURIComponent(
                 `Hãy giải thích ý nghĩa nhãn ${record.predictedLabel} trong kết quả tham khảo`,
               )}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
             >
-              <MessageSquareHeart className="w-4 h-4" />
-              <span>Hỏi chatbot về nhãn {record.predictedLabel}</span>
-            </Link>
-            <Link
-              to="/history"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
-            >
-              <History className="w-4 h-4" />
-              <span>Xem lịch sử</span>
+              <MessageSquareHeart className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>Hỏi Trợ lý Y khoa</span>
             </Link>
             <button
               type="button"
               onClick={handleDownloadDemoReport}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-navy-800 hover:bg-navy-900 text-white"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>Xuất phiếu kết quả</span>
+              <span>Tải TXT</span>
             </button>
             <button
               type="button"
               onClick={() => exportClinicalPdfReport(record)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white transition-colors cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <Printer className="w-4 h-4" />
               <span>Xuất / In PDF A4</span>
             </button>
           </>
@@ -345,21 +325,21 @@ export const MRIResultPage: React.FC = () => {
 
       {/* Doctor Upload Indicator Banner */}
       {record.uploadedByRole === 'DOCTOR' && (
-        <div className="rounded-2xl border-2 border-purple-500/35 bg-purple-50/70 dark:bg-purple-950/25 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm">
+        <div className="rounded-2xl border border-teal-500/30 bg-teal-50/60 dark:bg-teal-950/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-700 dark:text-purple-300 shrink-0">
+            <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-700 dark:text-teal-300 shrink-0">
               <Stethoscope className="w-5 h-5" />
             </div>
             <div>
-              <div className="font-bold text-purple-950 dark:text-purple-200">
-                Ca phân tích do Bác sĩ {record.uploadedDoctorName || 'chuyên khoa'} tải lên qua Computer Vision Lab
+              <div className="font-bold text-slate-900 dark:text-slate-100">
+                Ca phân tích do Bác sĩ {record.uploadedDoctorName || 'chuyên khoa'} thực hiện và đồng bộ
               </div>
-              <p className="text-slate-600 dark:text-slate-300 text-xs mt-0.5">
-                Hình ảnh lát cắt và kết quả xử lý thị giác máy tính đã được đồng bộ trực tiếp vào hồ sơ theo dõi sức khỏe của bạn.
+              <p className="text-slate-600 dark:text-slate-400 text-xs mt-0.5">
+                Hình ảnh lát cắt và kết quả xử lý đã được gắn trực tiếp vào hồ sơ theo dõi sức khỏe của bạn.
               </p>
             </div>
           </div>
-          <span className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/40">
+          <span className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/15 text-teal-800 dark:text-teal-200 border border-teal-500/30">
             Hồ sơ Bác sĩ quản lý
           </span>
         </div>
@@ -392,10 +372,10 @@ export const MRIResultPage: React.FC = () => {
           </span>
         </div>
         <div>
-          <span className="text-slate-400 block">Trạng thái mô hình</span>
-          <span className="font-semibold text-amber-700 dark:text-amber-300 mt-0.5 block">
+          <span className="text-slate-400 block">Chế độ xử lý</span>
+          <span className="font-semibold text-teal-700 dark:text-teal-300 mt-0.5 block">
             {record.modelMetadata.pipelineMode === 'MOCK_FIXTURE'
-              ? 'Fixture Minh họa Cố định'
+              ? 'Lát cắt tham chiếu chuẩn'
               : record.modelMetadata.pipelineMode === 'CLIENT_ONNX_INFERENCE'
                 ? 'ONNX Runtime Web (Client)'
                 : 'ONNX Runtime + Cloudflare'}

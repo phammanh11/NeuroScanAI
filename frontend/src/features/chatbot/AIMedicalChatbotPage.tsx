@@ -10,7 +10,6 @@ import {
   RotateCcw,
   Send,
   ShieldAlert,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../app/providers/AuthProvider';
@@ -526,7 +525,7 @@ export const AIMedicalChatbotPage: React.FC = () => {
           <div className="shrink-0 px-4 py-2.5 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
               <span className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-500 shrink-0 inline-flex items-center gap-1 mr-1">
-                <Sparkles className="w-3 h-3 text-teal-500" />
+                <BookOpen className="w-3 h-3 text-teal-600 dark:text-teal-400" />
                 Gợi ý:
               </span>
               {suggestions.slice(0, 4).map((q, idx) => (

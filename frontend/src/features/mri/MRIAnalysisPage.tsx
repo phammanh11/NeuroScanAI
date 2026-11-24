@@ -413,7 +413,7 @@ export const MRIAnalysisPage: React.FC = () => {
                 <span className="leading-relaxed">
                   <strong>Đồng ý xử lý dữ liệu & Hiểu rõ giới hạn y tế:</strong> Tôi xác nhận ảnh tải
                   lên không chứa thông tin định danh cá nhân chưa được bảo vệ, và hiểu rằng kết quả
-                  phân loại của hệ thống chỉ mang tính chất <strong>tham khảo / minh họa</strong>,
+                  phân loại của hệ thống chỉ mang tính chất <strong>tham khảo chuyên môn</strong>,
                   không thay thế chẩn đoán lâm sàng của bác sĩ.
                 </span>
               </label>

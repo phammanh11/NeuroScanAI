@@ -325,7 +325,7 @@ export const ProfileAndSettingsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText={`Hồ sơ & Cài đặt • Vai trò ${user.role}`}
+        badgeText="Quản lý Tài khoản & Quyền riêng tư"
         title={
           user.role === 'ADMIN' || user.role === 'admin'
             ? 'Hồ sơ Quản trị viên & Cài đặt Hệ thống'
@@ -343,7 +343,7 @@ export const ProfileAndSettingsPage: React.FC = () => {
             {/* Avatar Section with Upload trigger */}
             <div className="flex flex-col items-center text-center space-y-3">
               <div className="relative group">
-                <div className="w-24 h-24 rounded-3xl bg-navy-800 dark:bg-teal-600 text-white flex items-center justify-center text-2xl font-bold shadow-md overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                <div className="w-24 h-24 rounded-2xl bg-slate-900 dark:bg-teal-600 text-white flex items-center justify-center text-2xl font-bold overflow-hidden border border-slate-200 dark:border-slate-700">
                   {user.avatarUrl ? (
                     <img
                       src={user.avatarUrl}
@@ -390,8 +390,12 @@ export const ProfileAndSettingsPage: React.FC = () => {
                   {user.email}
                 </p>
                 <div className="pt-1">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/15 text-teal-800 dark:text-teal-300 border border-teal-500/30">
-                    ROLE: {user.role} {user.isDemoAccount ? '(Tài khoản kiểm thử)' : ''}
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-500/15 text-teal-800 dark:text-teal-300 border border-teal-500/30">
+                    {user.role === 'ADMIN' || user.role === 'admin'
+                      ? 'Quản trị viên Bệnh viện'
+                      : user.role === 'DOCTOR' || user.role === 'doctor'
+                        ? 'Bác sĩ Chuyên khoa'
+                        : 'Tài khoản Người bệnh'}
                   </span>
                 </div>
               </div>
@@ -778,8 +782,8 @@ export const ProfileAndSettingsPage: React.FC = () => {
                 },
                 {
                   key: 'anonymizeExports' as const,
-                  title: 'Luôn ẩn danh tên file khi tải xuống báo cáo minh họa',
-                  desc: 'Thay thế tên file gốc bằng mã định danh ẩn danh trong file báo cáo.',
+                  title: 'Luôn ẩn danh tên file khi tải xuống phiếu báo cáo',
+                  desc: 'Thay thế tên file gốc bằng mã định danh ẩn danh trong tệp báo cáo xuất ra.',
                 },
               ].map((item) => (
                 <div

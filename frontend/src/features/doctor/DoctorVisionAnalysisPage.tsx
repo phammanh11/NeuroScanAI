@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   Cpu,
   Layers,
-  Sparkles,
   CheckCircle2,
   FileText,
   UserCheck,
@@ -233,7 +232,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
       setConfirmedLabel(record.predictedLabel);
       setCurrentStep('COMPLETED');
       setClinicalNote(
-        `[Đánh giá lâm sàng Bác sĩ] Lát cắt sọ não qua tiền xử lý ROI Contour & CLAHE cho thấy cấu trúc tổn thương vùng nhu mô não. Kết quả phân loại tham khảo của AI gợi ý nhãn ${record.predictedLabel} (độ tin cậy ${formatPercent(record.confidenceScore)}). Đề nghị phối hợp thêm dữ liệu chuỗi xung T1ce để đánh giá mức độ bắt thuốc viền.`
+        `Lát cắt sọ não qua tiền xử lý ROI & CLAHE ghi nhận đặc trưng hình thái vùng quan tâm. Phân loại tham khảo từ mô hình gợi ý nhóm ${record.predictedLabel} (${formatPercent(record.confidenceScore)}). Đề nghị đối chiếu bổ sung đầy đủ các chuỗi xung T1+C và T2-FLAIR để đánh giá toàn diện.`
       );
       showToast({
         variant: 'success',
@@ -295,7 +294,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Computer Vision MRI Workstation • Vai trò DOCTOR"
+        badgeText="Trạm Xử Lý Ảnh Cộng Hưởng Từ Sọ Não"
         title="Trạm Phân tích Thị giác Máy tính (Computer Vision MRI Lab)"
         description="Quy trình chuyên sâu dành cho Bác sĩ: Cắt vùng viền não Otsu ROI, Tăng tương phản CLAHE, Trích xuất đặc trưng Ensemble và Gán trực tiếp vào hồ sơ khách hàng/bệnh nhân."
         actions={
@@ -625,7 +624,7 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5" />
+                  <Cpu className="w-5 h-5" />
                   <span>Bắt đầu Phân tích Computer Vision MRI</span>
                 </>
               )}
@@ -735,116 +734,202 @@ export const DoctorVisionAnalysisPage: React.FC = () => {
               />
             </div>
 
-            {/* Right: Doctor Clinical Evaluation Form (5 cols) */}
+            {/* Right: Unified 1-Click Doctor Clinical Evaluation Form (5 cols) */}
             <div className="lg:col-span-5 space-y-6">
               <form
                 onSubmit={handleSaveAndSyncReview}
-                className="rounded-2xl border-2 border-teal-500/40 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-card space-y-4"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card overflow-hidden"
               >
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="px-5 py-4 bg-slate-50/90 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                      Phiếu Nhận xét Lâm sàng Bác sĩ
-                    </h3>
+                    <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                        Phiếu Đánh Giá Lâm Sàng
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Đồng bộ trực tiếp vào hồ sơ bệnh nhân
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
-                    Đồng bộ Bệnh nhân
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-teal-500/15 text-teal-800 dark:text-teal-300 border border-teal-500/25">
+                    AI: {analyzedRecord.predictedLabel}
                   </span>
                 </div>
 
-                <div className="space-y-1">
-                  <label htmlFor="cv-status-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Trạng thái ca bệnh
-                  </label>
-                  <select
-                    id="cv-status-select"
-                    value={reviewStatus}
-                    onChange={(e) => setReviewStatus(e.target.value as Exclude<DoctorReviewStatus, 'NONE'>)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm font-semibold"
+                <div className="p-5 space-y-5">
+                  {/* 1. 1-Click Confirmed Label Grid */}
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      1. Xác nhận / Hiệu chỉnh Kết luận Hình ảnh
+                    </legend>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          { value: 'Glioma', shortVi: 'U thần kinh đệm' },
+                          { value: 'Meningioma', shortVi: 'U màng não' },
+                          { value: 'Pituitary', shortVi: 'U tuyến yên' },
+                          { value: 'No Tumor', shortVi: 'Không phát hiện u' },
+                        ] as { value: TumorLabel; shortVi: string }[]
+                      ).map((opt) => {
+                        const active = confirmedLabel === opt.value;
+                        const isAi = analyzedRecord.predictedLabel === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setConfirmedLabel(opt.value);
+                              if (opt.value !== analyzedRecord.predictedLabel && aiVerdict === 'CONCORDANT') {
+                                setAiVerdict('DISCORDANT');
+                              } else if (opt.value === analyzedRecord.predictedLabel && aiVerdict === 'DISCORDANT') {
+                                setAiVerdict('CONCORDANT');
+                              }
+                            }}
+                            className={`text-left p-3 rounded-xl border transition-all duration-150 cursor-pointer ${
+                              active
+                                ? 'border-teal-600 dark:border-teal-400 bg-teal-50/70 dark:bg-teal-950/35 ring-1 ring-teal-500/30'
+                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span
+                                className={`text-xs sm:text-sm font-bold ${
+                                  active
+                                    ? 'text-teal-900 dark:text-teal-200'
+                                    : 'text-slate-800 dark:text-slate-200'
+                                }`}
+                              >
+                                {opt.value}
+                              </span>
+                              {isAi && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                  AI gợi ý
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                              {opt.shortVi}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+
+                  {/* 2. 1-Click AI Concordance */}
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      2. Đánh giá độ phù hợp của AI
+                    </legend>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          { value: 'CONCORDANT', shortLabel: 'Phù hợp quan sát' },
+                          { value: 'PARTIAL_CONCORDANCE', shortLabel: 'Cần thêm chuỗi xung' },
+                          { value: 'DISCORDANT', shortLabel: 'Không đồng thuận AI' },
+                          { value: 'INCONCLUSIVE_IMAGE', shortLabel: 'Ảnh chưa đủ kết luận' },
+                        ] as { value: AIAssessmentVerdict; shortLabel: string }[]
+                      ).map((opt) => {
+                        const active = aiVerdict === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setAiVerdict(opt.value)}
+                            className={`px-3 py-2 rounded-xl border text-xs font-semibold text-left transition-all duration-150 cursor-pointer ${
+                              active
+                                ? 'border-teal-600 dark:border-teal-400 bg-teal-50/70 dark:bg-teal-950/35 text-teal-900 dark:text-teal-200 ring-1 ring-teal-500/30'
+                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                          >
+                            {opt.shortLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      {AI_ASSESSMENT_VERDICT_META[aiVerdict].description}
+                    </p>
+                  </fieldset>
+
+                  {/* 3. Clinical Note & Next Steps */}
+                  <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                    <div className="space-y-1.5">
+                      <label htmlFor="cv-clinical-note" className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                        3. Nhận xét lâm sàng gửi Bệnh nhân <span className="text-rose-500">*</span>
+                      </label>
+                      <textarea
+                        id="cv-clinical-note"
+                        rows={4}
+                        required
+                        value={clinicalNote}
+                        onChange={(e) => setClinicalNote(e.target.value)}
+                        placeholder="Nhập mô tả hình ảnh và nhận định chuyên môn của bác sĩ..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs sm:text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="cv-rec-step" className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                        Khuyến nghị bước tiếp theo
+                      </label>
+                      <input
+                        id="cv-rec-step"
+                        type="text"
+                        value={recommendedStep}
+                        onChange={(e) => setRecommendedStep(e.target.value)}
+                        placeholder="Chụp bổ sung MRI có tiêm đối quang từ, khám chuyên khoa Ngoại Thần kinh..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4. 1-Click Case Status */}
+                  <fieldset className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                    <legend className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      4. Trạng thái xử lý ca bệnh
+                    </legend>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          { value: 'IN_REVIEW', shortLabel: 'Đang xem xét' },
+                          { value: 'REVIEWED', shortLabel: 'Hoàn tất' },
+                          { value: 'NEEDS_MORE_INFO', shortLabel: 'Cần bổ sung' },
+                        ] as { value: Exclude<DoctorReviewStatus, 'NONE'>; shortLabel: string }[]
+                      ).map((opt) => {
+                        const active = reviewStatus === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setReviewStatus(opt.value)}
+                            className={`px-2 py-2 rounded-xl border text-xs font-semibold text-center transition-all duration-150 cursor-pointer ${
+                              active
+                                ? 'border-teal-600 dark:border-teal-400 bg-teal-50 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200'
+                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                          >
+                            {opt.shortLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingRecord}
+                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer disabled:opacity-60"
                   >
-                    <option value="REVIEWED">Đã xem xét — Hoàn tất nhận xét cho bệnh nhân</option>
-                    <option value="IN_REVIEW">Đang tiếp tục đối chiếu lâm sàng</option>
-                    <option value="NEEDS_MORE_INFO">Cần bổ sung chuỗi xung / Bệnh án</option>
-                  </select>
+                    {isSavingRecord ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>Ký duyệt & Đồng bộ vào Hồ sơ Bệnh nhân</span>
+                  </button>
                 </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="cv-confirmed-label-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Nhãn chẩn đoán xác nhận của Bác sĩ (Confirmed Label) <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    id="cv-confirmed-label-select"
-                    value={confirmedLabel}
-                    onChange={(e) => setConfirmedLabel(e.target.value as TumorLabel)}
-                    className="w-full px-3 py-2 rounded-xl border border-teal-500/50 bg-teal-50/50 dark:bg-teal-950/30 text-xs sm:text-sm font-bold text-teal-950 dark:text-teal-200"
-                  >
-                    <option value="Glioma">Glioma (U tế bào thần kinh đệm)</option>
-                    <option value="Meningioma">Meningioma (U màng não)</option>
-                    <option value="Pituitary">Pituitary (U tuyến yên)</option>
-                    <option value="No Tumor">No Tumor (Bình thường / Không u)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="cv-verdict-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Đánh giá kết quả phân loại của AI ({analyzedRecord.predictedLabel})
-                  </label>
-                  <select
-                    id="cv-verdict-select"
-                    value={aiVerdict}
-                    onChange={(e) => setAiVerdict(e.target.value as AIAssessmentVerdict)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm"
-                  >
-                    {Object.entries(AI_ASSESSMENT_VERDICT_META).map(([key, meta]) => (
-                      <option key={key} value={key}>
-                        {meta.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="cv-clinical-note" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Nhận xét lâm sàng gửi cho Bệnh nhân <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    id="cv-clinical-note"
-                    rows={4}
-                    required
-                    value={clinicalNote}
-                    onChange={(e) => setClinicalNote(e.target.value)}
-                    placeholder="Nhập nhận xét chuyên môn của bác sĩ..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm leading-relaxed"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="cv-rec-step" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Khuyến nghị bước tiếp theo
-                  </label>
-                  <input
-                    id="cv-rec-step"
-                    type="text"
-                    value={recommendedStep}
-                    onChange={(e) => setRecommendedStep(e.target.value)}
-                    placeholder="Chụp MRI có tiêm đối quang từ, hội chẩn ngoại thần kinh..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs sm:text-sm"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSavingRecord}
-                  className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-2 transition-colors shadow-xs"
-                >
-                  {isSavingRecord ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>Lưu & Đồng bộ vào Hồ sơ Bệnh nhân</span>
-                </button>
               </form>
 
               <PredictionCard

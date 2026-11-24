@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Sparkles,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/app/providers/ToastProvider';
@@ -103,7 +103,7 @@ export const DoctorDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Doctor Workstation (RBAC: DOCTOR) • Cloudflare D1 & ONNX Runtime"
+        badgeText="Trạm Đọc Phim & Hội Chẩn Lâm Sàng"
         title={`Bảng điều khiển Bác sĩ: ${user?.fullName}`}
         description={`${user?.specialty || 'Chẩn đoán hình ảnh Thần kinh'} • Quản lý hàng đợi thẩm định chuyên môn các ca chụp MRI sọ não.`}
         actions={
@@ -358,7 +358,7 @@ export const DoctorCasesListPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Quản lý Ca MRI • Vai trò DOCTOR"
+        badgeText="Hàng Đợi Thẩm Định Hình Ảnh"
         title="Danh sách các ca MRI được phân công xem xét"
         description="Lọc theo trạng thái xử lý ca, nhãn gợi ý của AI hoặc tìm kiếm theo mã phiên phân tích."
       />
@@ -459,7 +459,7 @@ export const DoctorCasesListPage: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <img
                       src={c.imageUrl}
-                      alt={`Ảnh MRI minh họa ca ${c.sessionCode}, nhãn AI ${c.predictedLabel}`}
+                      alt={`Lát cắt MRI ca ${c.sessionCode}, nhãn AI ${c.predictedLabel}`}
                       className="w-16 h-16 rounded-xl object-cover bg-slate-950 border border-slate-800 shrink-0"
                     />
                     <div className="min-w-0 space-y-1 text-xs">
@@ -708,7 +708,7 @@ export const DoctorCaseDetailPage: React.FC = () => {
         variant: 'success',
         title: `Đã lưu nhận xét chuyên môn & cập nhật trạng thái: ${DOCTOR_REVIEW_STATUS_META[status].label}`,
         description:
-          'Người sử dụng (USER) sẽ nhìn thấy phản hồi này ngay trong trang Kết quả MRI của họ.',
+          'Bệnh nhân sẽ nhìn thấy phiếu nhận xét lâm sàng này ngay trong trang Kết quả MRI của họ.',
       });
     } catch (err) {
       showToast({
@@ -747,7 +747,7 @@ export const DoctorCaseDetailPage: React.FC = () => {
       </div>
 
       <PageHeader
-        badgeText={`Trạm xử lý ca ${record.sessionCode} • Vai trò DOCTOR`}
+        badgeText={`Hồ sơ ca chụp ${record.sessionCode} • Hội chẩn chuyên môn`}
         title={`Đánh giá chuyên môn ca MRI: ${record.sessionCode}`}
         description="Quan sát lát cắt MRI, ảnh tiền xử lý ROI/CLAHE (nếu có), kiểm tra xác suất 4 lớp của AI và ghi nhận định chuyên môn độc lập."
       />
@@ -834,7 +834,7 @@ export const DoctorCaseDetailPage: React.FC = () => {
               {/* Compact AI Reference Strip */}
               <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
                 <span className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                  <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <Cpu className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                   <span>Gợi ý từ AI:</span>
                 </span>
                 <span className="font-bold text-slate-900 dark:text-slate-100">
@@ -1184,9 +1184,9 @@ export const DoctorReviewsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Đánh giá Kết quả AI • Vai trò DOCTOR"
+        badgeText="Tổng Hợp Đối Chiếu Lâm Sàng"
         title="Tổng hợp nhận xét chuyên môn & Đối chiếu nhãn AI"
-        description="Theo dõi mức độ đồng thuận giữa nhãn dự đoán tự động của AI và nhận định chuyên môn của Bác sĩ trên các ca giả lập."
+        description="Theo dõi mức độ đồng thuận giữa phân loại tự động của AI và nhận định chuyên môn của Bác sĩ trên toàn bộ các ca chụp đã tiếp nhận."
       />
 
       {cases.length === 0 ? (
@@ -1335,7 +1335,7 @@ export const DoctorHistoryPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        badgeText="Lịch sử Xử lý Ca • Vai trò DOCTOR"
+        badgeText="Lưu Trữ Ca Đã Ký Duyệt"
         title="Lịch sử các ca MRI Bác sĩ đã hoàn tất xem xét"
         description="Danh sách các phiên đã được Bác sĩ phản hồi (Đã xem xét hoặc Yêu cầu bổ sung thông tin)."
       />
@@ -1352,7 +1352,7 @@ export const DoctorHistoryPage: React.FC = () => {
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-slate-500">
                   <th className="py-3.5 px-4 font-semibold">Mã phiên</th>
-                  <th className="py-3.5 px-4 font-semibold">Hồ sơ giả lập</th>
+                  <th className="py-3.5 px-4 font-semibold">Mã hồ sơ</th>
                   <th className="py-3.5 px-4 font-semibold">Nhãn AI</th>
                   <th className="py-3.5 px-4 font-semibold">Trạng thái</th>
                   <th className="py-3.5 px-4 font-semibold">Cập nhật</th>

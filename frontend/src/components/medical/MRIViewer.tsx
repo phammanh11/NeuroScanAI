@@ -5,7 +5,7 @@ import {
   RotateCcw,
   Maximize2,
   SlidersHorizontal,
-  Sparkles,
+  Layers,
   Image as ImageIcon,
   Info,
   RefreshCw,
@@ -195,7 +195,7 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
                 : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Layers className="w-3.5 h-3.5" />
             Grad-CAM Heatmap
           </button>
         </div>
@@ -324,7 +324,7 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
                 </div>
                 <div className="flex flex-col items-center bg-slate-900/60 p-3 rounded-xl border border-teal-500/30">
                   <span className="text-xs font-medium text-teal-300 mb-2">
-                    2. ROI Cropping + CLAHE + Z-score (Minh họa)
+                    2. Ảnh sau tiền xử lý (ROI + CLAHE)
                   </span>
                   {imageErrors.preprocessed ? (
                     <span className="text-xs text-rose-300 py-8">
@@ -376,20 +376,14 @@ export const MRIViewer: React.FC<MRIViewerProps> = ({
               )
             ) : (
               <div className="max-w-lg mx-auto p-6 text-center space-y-3 bg-slate-900/80 rounded-2xl border border-slate-800 m-4">
-                <div className="w-12 h-12 rounded-2xl bg-teal-500/15 text-teal-300 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Tính năng đang phát triển — Chờ AI Service xuất Grad-CAM thực
+                <div className="w-12 h-12 rounded-xl bg-teal-500/15 text-teal-300 flex items-center justify-center mx-auto">
+                  <Layers className="w-6 h-6" />
                 </div>
                 <h4 className="text-base font-semibold text-white">
-                  Chưa có dữ liệu bản đồ nhiệt Giải thích AI (Explainable AI - Grad-CAM)
+                  Chưa có bản đồ nhiệt Grad-CAM cho phiên lưu trữ này
                 </h4>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Theo quy tắc an toàn y tế của <strong>NeuroScan AI</strong>, hệ thống{' '}
-                  <strong>tuyệt đối không tự vẽ bản đồ nhiệt giả lập</strong> trên trình duyệt để
-                  tránh gây hiểu lầm về vùng tổn thương. Bản đồ nhiệt sẽ tự động hiển thị tại đây
-                  khi Backend PyTorch cung cấp trường <code>gradcamUrl</code> từ tầng tích chập cuối.
+                  Phiên phân tích này được tạo trước khi hệ thống bật lưu trữ bản đồ nhiệt tầng tích chập lên đám mây. Hãy nhấn <strong>Thay ảnh mới &amp; Quét tiếp</strong> để tạo đầy đủ ảnh tiền xử lý và Grad-CAM.
                 </p>
               </div>
             )}

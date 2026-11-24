@@ -165,7 +165,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Center Card Content */}
-        <div className="w-full max-w-md mx-auto my-auto p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3.5">
+        <div className="w-full max-w-md mx-auto my-auto p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3.5">
           <div className="text-center space-y-1">
             <div className="lg:hidden w-10 h-10 mx-auto rounded-2xl bg-navy-800 dark:bg-teal-600 text-white flex items-center justify-center shadow-xs mb-2">
               <Brain className="w-5 h-5" />
@@ -353,7 +353,7 @@ export const RegisterPage: React.FC = () => {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="max-w-md w-full rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card space-y-5">
+        <div className="max-w-md w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card space-y-5">
           <div className="text-center space-y-1.5">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               Đăng ký tài khoản Người sử dụng
@@ -609,7 +609,7 @@ export const ForgotPasswordPage: React.FC = () => {
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="max-w-md w-full rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card space-y-5">
+        <div className="max-w-md w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-card space-y-5">
           <div className="text-center space-y-1.5">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               Khôi phục mật khẩu
@@ -681,7 +681,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   <p className="leading-relaxed">{notice}</p>
                   {emailDelivered && (
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
-                      💡 Mẹo: Nếu không thấy trong Hộp thư chính, vui lòng kiểm tra mục <strong>Thư rác (Spam)</strong> hoặc tab <strong>Quảng cáo (Promotions)</strong> của Gmail.
+                      Lưu ý: Nếu không thấy trong Hộp thư chính, vui lòng kiểm tra mục <strong>Thư rác (Spam)</strong> hoặc tab <strong>Quảng cáo (Promotions)</strong> của Gmail.
                     </p>
                   )}
                   {devResetCode && (
